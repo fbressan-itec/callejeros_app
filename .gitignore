@@ -1,0 +1,44 @@
+# --- Contexto para las IAs (se comparte por fuera del repo) ---
+contexto-ia/
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+GEMINI.md
+.agents/
+.agent/
+.claude/
+
+# --- Secretos ---
+.env
+.env.*
+!.env.example
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+media/
+staticfiles/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / Next ---
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Sistema y editores ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
