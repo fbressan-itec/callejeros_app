@@ -1,0 +1,21 @@
+# Revisa que todos los commits de un PR sigan Conventional Commits.
+# Si alguno no cumple, el PR queda en rojo y no se puede mergear.
+name: Commits
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6
