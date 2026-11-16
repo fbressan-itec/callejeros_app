@@ -131,6 +131,102 @@ erDiagram
 - `is_active` de `User` es el estado actual (Django no deja iniciar sesión a un usuario inactivo); la historia completa queda en `UserStatusLog`.
 - Solo el Admin cambia roles; cada cambio deja una fila en `UserRoleLog`.
 
+### Comunidad: alertas, noticias, comentarios y notificaciones
+
+Las tablas de `User` se muestran solo con su relación; sus campos están en el diagrama de cuentas.
+
+```mermaid
+erDiagram
+    User ||--o{ Alert : "publica"
+    User ||--o{ Alert : "resuelve"
+    User ||--o{ Alert : "oculta"
+    User ||--o{ News : "escribe"
+    Alert |o--o{ Comment : "tiene"
+    News |o--o{ Comment : "tiene"
+    User ||--o{ Comment : "escribe"
+    User ||--o{ Comment : "oculta"
+    User ||--o{ Notification : "recibe"
+    Alert {
+        int id PK
+        string title
+        string situation "lost|sighted|emergency"
+        string species "dog|cat|other"
+        string location_text "ej. Plaza Roca"
+        decimal latitude "3 decimales: nivel cuadra"
+        decimal longitude "3 decimales: nivel cuadra"
+        string description
+        string contact_phone
+        string photo "obligatoria, hasta 5 MB"
+        string status "open|resolved"
+        int published_by_id FK
+        int resolved_by_id FK "autor o Staff"
+        datetime resolved_at
+        bool is_hidden
+        int hidden_by_id FK
+        string hidden_reason
+        datetime hidden_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    News {
+        int id PK
+        string title
+        string summary
+        string body
+        string tag_label "ej. Próximo Sábado • 16:00 hs"
+        string tag_color "emerald|blue|..."
+        string place
+        string photo "ruta del archivo"
+        int author_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Comment {
+        int id PK
+        int alert_id FK "uno de los dos"
+        int news_id FK "uno de los dos"
+        int author_id FK
+        string text
+        bool is_hidden
+        int hidden_by_id FK
+        string hidden_reason
+        datetime hidden_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Notification {
+        int id PK
+        int recipient_id FK
+        string title
+        string text
+        string tag "urgent|community|adoption|fundraising|post|sponsorship"
+        string link "opcional"
+        bool is_read
+        datetime read_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+```
+
+| Tabla | Para qué |
+| :--- | :--- |
+| `Alert` | Alerta Callejeros. Exige cuenta, se publica al instante y aparece en el mapa mientras está abierta. |
+| `News` | Noticias y eventos. Las cargan Staff y Refugio verificado. |
+| `Comment` | Comentarios de alertas **y** de noticias en una sola tabla. Exige cuenta y se publica al instante. |
+| `Notification` | Avisos de la campanita, generados por los eventos (publicación aprobada, solicitud respondida, etc.). |
+
+**Reglas de comunidad:**
+- **Revisión antes vs. moderación después:** `Pet` y `Product` pasan por revisión antes de publicarse (estados + historial `*StatusLog`). `Alert` y `Comment` se publican al instante y Staff los modera después con `is_hidden`, `hidden_by_id`, `hidden_reason` y `hidden_at`.
+- **Dos bajas lógicas distintas:** `is_active = False` → lo borró su autor; `is_hidden = True` → lo ocultó Staff, con motivo.
+- **Coordenadas:** el back redondea latitud y longitud a 3 decimales (unos 100 m, nivel cuadra) antes de guardarlas.
+- **Teléfono de la alerta:** se guarda siempre; la API no lo devuelve si el autor apagó `show_phone_in_alerts`.
+- **Alerta resuelta:** sale del mapa y del listado por defecto (hay un filtro para verla); sus comentarios quedan como historial.
+- **Restricción en la base:** en `Comment`, exactamente uno de `alert_id` o `news_id` tiene valor (`CHECK`).
+
 ## Flujo de trabajo
 
 - **Tablero Kanban:** [Callejeros — Tablero](https://github.com/users/fbressan-itec/projects/1). Cada tarea es una tarjeta con historia de usuario y criterios de aceptación.
