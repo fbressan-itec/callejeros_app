@@ -36,6 +36,37 @@ docs/       Documentación y bitácora del equipo
 
 Diseño del modelo de datos (ORM de Django + SQLite). Se completa por partes: cuentas, adopción y colaborar, comunidad. Cualquier cambio posterior se hace con una **migración nueva** y se actualiza este diagrama en el mismo PR.
 
+### Vista general
+
+Todas las tablas y cómo se relacionan. Los campos y el detalle de cada relación están en el diagrama de cada módulo, más abajo.
+
+```mermaid
+erDiagram
+    Role ||--o{ User : ""
+    User ||--|| UserPreferences : ""
+    User ||--o{ UserStatusLog : ""
+    User ||--o{ UserRoleLog : ""
+    Role ||--o{ UserRoleLog : ""
+    User ||--o{ Pet : ""
+    Pet ||--|| PetHealth : ""
+    Pet ||--o{ PetPhoto : ""
+    Pet ||--o{ PetStatusLog : ""
+    User ||--o{ Favorite : ""
+    Pet ||--o{ Favorite : ""
+    User ||--o{ AdoptionRequest : ""
+    Pet ||--o{ AdoptionRequest : ""
+    User ||--o{ Sponsorship : ""
+    Pet |o--o{ Sponsorship : ""
+    User ||--o{ Product : ""
+    Product ||--o{ ProductStatusLog : ""
+    User ||--o{ Alert : ""
+    User ||--o{ News : ""
+    User ||--o{ Comment : ""
+    Alert |o--o{ Comment : ""
+    News |o--o{ Comment : ""
+    User ||--o{ Notification : ""
+```
+
 ### Convenciones
 
 - **Modelo base (`BaseModel`):** todas las tablas de negocio lo heredan y suman `created_at` (fecha de creación), `updated_at` (última modificación) e `is_active` (baja lógica).
