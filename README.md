@@ -227,6 +227,22 @@ erDiagram
 - **Alerta resuelta:** sale del mapa y del listado por defecto (hay un filtro para verla); sus comentarios quedan como historial.
 - **Restricción en la base:** en `Comment`, exactamente uno de `alert_id` o `news_id` tiene valor (`CHECK`).
 
+### Índices
+
+Las claves primarias, las foráneas y los campos únicos ya tienen índice automático. Además se agregan índices en los campos que se usan seguido para filtrar u ordenar:
+
+| Tabla | Índice | Lo usa |
+| :--- | :--- | :--- |
+| `Pet` | `status` + `species` + `sex` | Catálogo con filtros. |
+| `Pet` | `estimated_birth_date` | Filtro por edad (Cachorro, Adulto, Senior). |
+| `AdoptionRequest` | `status` + `created_at` | Panel de Staff: solicitudes pendientes, las más viejas primero. |
+| `Sponsorship` | `pet_id` + `status` | Contador de padrinos activos. |
+| `Product` | `status` | Tienda y panel de Staff. |
+| `Alert` | `status` + `situation` + `created_at` | Listado de alertas con filtros, las más recientes primero. |
+| `Comment` | `alert_id` + `created_at` · `news_id` + `created_at` | Comentarios de una alerta o noticia, en orden. |
+| `News` | `created_at` | Listado de noticias, las más recientes primero. |
+| `Notification` | `recipient_id` + `is_read` + `created_at` | Campanita: consulta cada 30–60 s las no leídas. |
+
 ## Flujo de trabajo
 
 - **Tablero Kanban:** [Callejeros — Tablero](https://github.com/users/fbressan-itec/projects/1). Cada tarea es una tarjeta con historia de usuario y criterios de aceptación.
