@@ -20,7 +20,7 @@ Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Sup
 | :--- | :--- |
 | Backend | Python · Django · Django REST Framework · uv · pytest · ruff |
 | Base de datos | ORM de Django · SQLite |
-| Frontend | Next.js · TypeScript · Tailwind CSS · Vitest · ESLint |
+| Frontend | Next.js · React · TypeScript · Tailwind CSS 4 · Vitest · ESLint · Prettier |
 | DevOps | Docker · GitHub Actions |
 | Organización | GitHub Projects (Kanban) |
 
@@ -86,7 +86,22 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 
 #### Frontend
 
-Los pasos se agregan en FR-01 (proyecto base del front).
+**Requisito:** [Node.js](https://nodejs.org/) 22 o más nuevo (trae npm). Desde `frontend/`:
+
+```bash
+npm install          # instala las dependencias (crea frontend/node_modules)
+npm run dev          # levanta el front en http://localhost:3000
+```
+
+Linter y formato (desde `frontend/`):
+
+```bash
+npm run lint         # linter (ESLint)
+npm run format       # formatea el código y ordena las clases de Tailwind (Prettier)
+npm run build        # compila como en producción: si falla acá, falla en el deploy
+```
+
+El front usa **Tailwind 4** (el maquetado está en Tailwind 3): el tema está en `frontend/src/app/globals.css`.
 
 ### Linter y tests del back
 
