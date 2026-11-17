@@ -34,9 +34,9 @@ docs/       Documentación y bitácora del equipo
 
 ## Cómo correr el proyecto en local
 
-### Backend
+Hay dos formas: **con Docker** (levanta todo, o el back o el front por separado, sin instalar Python ni Node) o **sin Docker** (cada parte con sus herramientas). Las dos usan el mismo `.env`.
 
-**Requisitos:** [Git](https://git-scm.com/) y [uv](https://docs.astral.sh/uv/getting-started/installation/). No hace falta instalar Python: uv descarga la versión del proyecto (3.13) sola.
+### 1. Preparar (una sola vez)
 
 1. Cloná el repo y entrá a la carpeta:
    ```bash
@@ -48,28 +48,57 @@ docs/       Documentación y bitácora del equipo
    cp .env.example .env
    ```
    En PowerShell: `Copy-Item .env.example .env`.
-3. Instalá las dependencias del back (crea `backend/.venv`):
-   ```bash
-   cd backend
-   uv sync
-   ```
-4. Generá una clave secreta y pegala en `DJANGO_SECRET_KEY` de tu `.env`:
+3. Generá una clave secreta y pegala en `DJANGO_SECRET_KEY` de tu `.env`. Con uv (desde `backend/`):
    ```bash
    uv run python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"
    ```
-5. Levantá el servidor:
+   O con Docker (desde la raíz):
    ```bash
-   uv run python manage.py runserver
+   docker compose run --rm backend uv run python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"
    ```
-   El back queda en <http://localhost:8000>.
 
-**Linter y tests** (desde `backend/`; los mismos controles corren solos en cada PR):
+### 2a. Con Docker
+
+**Requisito:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) abierto ("Engine running"). Los comandos se corren desde la raíz del repo.
+
+| Qué levantar | Comando | Dirección |
+| :--- | :--- | :--- |
+| Todo el proyecto | `docker compose up --build` | back en <http://localhost:8000> (y front en <http://localhost:3000> cuando esté FR-01) |
+| Solo el back | `docker compose up --build backend` | <http://localhost:8000> |
+| Solo el front | `docker compose up --build frontend` | <http://localhost:3000> · disponible desde FR-01 |
+
+- **Apagar:** `Ctrl+C` en la misma terminal, o `docker compose down`.
+- **Cambios en el código:** se ven al instante, sin volver a armar la imagen. Si agregás una dependencia, volvé a correr el comando con `--build`.
+- **Correr un comando dentro del contenedor del back:** `docker compose run --rm backend <comando>`, por ejemplo `docker compose run --rm backend uv run pytest`.
+
+Cada parte tiene su propio `Dockerfile` (`backend/Dockerfile` y, desde FR-01, `frontend/Dockerfile`); el `docker-compose.yml` de la raíz los levanta juntos o por separado.
+
+### 2b. Sin Docker
+
+#### Backend
+
+**Requisito:** [uv](https://docs.astral.sh/uv/getting-started/installation/). No hace falta instalar Python: uv descarga la versión del proyecto (3.13) sola. Desde `backend/`:
+
+```bash
+uv sync                               # instala las dependencias (crea backend/.venv)
+uv run python manage.py runserver     # levanta el back en http://localhost:8000
+```
+
+#### Frontend
+
+Los pasos se agregan en FR-01 (proyecto base del front).
+
+### Linter y tests del back
+
+Desde `backend/` (los mismos controles corren solos en cada PR):
 
 ```bash
 uv run ruff check .          # linter
 uv run ruff format .         # formatea el código
 uv run pytest                # tests
 ```
+
+Con Docker, desde la raíz: `docker compose run --rm backend uv run pytest` (y lo mismo con `ruff`).
 
 Antes de subir cambios, corré los tres: si `ruff check` o `pytest` fallan en tu compu, también van a fallar en el PR.
 
