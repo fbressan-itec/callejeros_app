@@ -51,6 +51,11 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args: object, **options: object) -> None:
+        if not settings.DEBUG:
+            raise CommandError(
+                "El comando `seed` solo puede ejecutarse en desarrollo (DJANGO_DEBUG=True)."
+            )
+
         password = getattr(settings, "SEED_USER_PASSWORD", "")
         if not password or len(password) < 6:
             raise CommandError(
@@ -63,10 +68,7 @@ class Command(BaseCommand):
 
         for item in SEED_USERS:
             role_code = item["role_code"]
-            role, _ = Role.objects.get_or_create(
-                code=role_code,
-                defaults={"name": role_code.label, "is_active": True},
-            )
+            role = Role.objects.get(code=role_code)
 
             user, created = User.objects.update_or_create(
                 email=item["email"],

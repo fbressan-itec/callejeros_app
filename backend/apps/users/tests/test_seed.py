@@ -9,6 +9,7 @@ from apps.users.models import RoleCode, User, UserPreferences
 
 @pytest.mark.django_db
 def test_seed_creates_one_user_per_role_and_is_idempotent(settings):
+    settings.DEBUG = True
     settings.SEED_USER_PASSWORD = "claveSeedSegura123"
 
     call_command("seed")
@@ -35,7 +36,17 @@ def test_seed_creates_one_user_per_role_and_is_idempotent(settings):
 @pytest.mark.django_db
 @pytest.mark.parametrize("invalid_password", ["", "12345"])
 def test_seed_fails_when_password_is_missing_or_too_short(settings, invalid_password):
+    settings.DEBUG = True
     settings.SEED_USER_PASSWORD = invalid_password
 
     with pytest.raises(CommandError, match="SEED_USER_PASSWORD"):
+        call_command("seed")
+
+
+@pytest.mark.django_db
+def test_seed_fails_when_debug_is_false(settings):
+    settings.DEBUG = False
+    settings.SEED_USER_PASSWORD = "claveSeedSegura123"
+
+    with pytest.raises(CommandError, match="DJANGO_DEBUG=True"):
         call_command("seed")

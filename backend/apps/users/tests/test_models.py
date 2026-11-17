@@ -1,6 +1,7 @@
 """Tests de los modelos de cuentas, migración de roles y createsuperuser."""
 
 import pytest
+from django.contrib.auth import authenticate
 from django.core.management import call_command
 
 from apps.users.models import (
@@ -50,6 +51,19 @@ def test_create_user_assigns_member_role_and_default_preferences():
     assert prefs.notify_extra_channel is False
     assert prefs.show_phone_in_alerts is True
     assert prefs.show_photo_in_comments is True
+
+
+@pytest.mark.django_db
+def test_authenticate_matches_email_case_insensitively():
+    user = User.objects.create_user(
+        email="vecino@callejeros.ar",
+        password="miPassword123",
+        first_name="Lucía",
+    )
+
+    authenticated = authenticate(email="  VECINO@Callejeros.AR ", password="miPassword123")
+
+    assert authenticated == user
 
 
 @pytest.mark.django_db

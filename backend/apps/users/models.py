@@ -41,13 +41,12 @@ class Role(BaseModel):
 class UserManager(BaseUserManager.from_queryset(BaseQuerySet)):
     """Manager de usuarios con login por email, baja lógica y rol por defecto."""
 
+    def get_by_natural_key(self, username: str) -> "User":
+        """Busca el usuario por email sin distinguir mayúsculas ni espacios."""
+        return self.get(**{f"{self.model.USERNAME_FIELD}__iexact": username.strip()})
+
     def _get_role(self, code: str) -> Role:
-        role_label = dict(RoleCode.choices).get(code, code)
-        role, _ = Role.objects.get_or_create(
-            code=code,
-            defaults={"name": role_label},
-        )
-        return role
+        return Role.objects.get(code=code)
 
     def create_user(
         self,
