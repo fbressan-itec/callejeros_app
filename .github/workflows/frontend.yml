@@ -1,0 +1,44 @@
+# Revisa el front en cada PR: linter (ESLint), formato (Prettier), tipos (TypeScript) y tests (Vitest).
+# Si algo falla, el PR queda en rojo y no se puede mergear.
+# Corre en todos los PR (aunque no toquen frontend/) para poder ser un control obligatorio.
+name: Frontend
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: frontend (eslint + vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        # npm ci instala exactamente lo de package-lock.json (falla si no coincide con package.json)
+        run: npm ci
+
+      - name: Linter (ESLint)
+        run: npm run lint
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: Tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Tests (Vitest)
+        run: npm test
