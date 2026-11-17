@@ -32,6 +32,39 @@ frontend/   Aplicación web (Next.js)
 docs/       Documentación y bitácora del equipo
 ```
 
+## Cómo correr el proyecto en local
+
+### Backend
+
+**Requisitos:** [Git](https://git-scm.com/) y [uv](https://docs.astral.sh/uv/getting-started/installation/). No hace falta instalar Python: uv descarga la versión del proyecto (3.13) sola.
+
+1. Cloná el repo y entrá a la carpeta:
+   ```bash
+   git clone https://github.com/fbressan-itec/callejeros_app.git
+   cd callejeros_app
+   ```
+2. Creá tu `.env` a partir del ejemplo (en la raíz del repo):
+   ```bash
+   cp .env.example .env
+   ```
+   En PowerShell: `Copy-Item .env.example .env`.
+3. Instalá las dependencias del back (crea `backend/.venv`):
+   ```bash
+   cd backend
+   uv sync
+   ```
+4. Generá una clave secreta y pegala en `DJANGO_SECRET_KEY` de tu `.env`:
+   ```bash
+   uv run python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"
+   ```
+5. Levantá el servidor:
+   ```bash
+   uv run python manage.py runserver
+   ```
+   El back queda en <http://localhost:8000>.
+
+> ⚠️ **Todavía no corras `migrate`.** El usuario propio (`User`) se crea en BK-02 y tiene que existir antes de la primera migración. Si ya migraste, borrá `backend/db.sqlite3` y volvé a migrar cuando esté BK-02.
+
 ## Base de datos
 
 Diseño del modelo de datos (ORM de Django + SQLite). Se completa por partes: cuentas, adopción y colaborar, comunidad. Cualquier cambio posterior se hace con una **migración nueva** y se actualiza este diagrama en el mismo PR.
