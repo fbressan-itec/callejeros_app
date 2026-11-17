@@ -93,13 +93,17 @@ npm install          # instala las dependencias (crea frontend/node_modules)
 npm run dev          # levanta el front en http://localhost:3000
 ```
 
-Linter y formato (desde `frontend/`):
+Linter, formato, tipos y tests (desde `frontend/`; los mismos controles corren solos en cada PR):
 
 ```bash
 npm run lint         # linter (ESLint)
 npm run format       # formatea el código y ordena las clases de Tailwind (Prettier)
+npm run typecheck    # revisa los tipos de TypeScript
+npm test             # tests (Vitest); npm run test:watch los repite al guardar
 npm run build        # compila como en producción: si falla acá, falla en el deploy
 ```
+
+Antes de subir cambios, corré `lint`, `format`, `typecheck` y `test`: si fallan en tu compu, también van a fallar en el PR. Los tests van junto al archivo que prueban, con el nombre `*.test.tsx` (por ejemplo, `src/app/page.test.tsx`).
 
 El front usa **Tailwind 4** (el maquetado está en Tailwind 3): el tema está en `frontend/src/app/globals.css`.
 
