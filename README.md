@@ -63,15 +63,16 @@ Hay dos formas: **con Docker** (levanta todo, o el back o el front por separado,
 
 | Qué levantar | Comando | Dirección |
 | :--- | :--- | :--- |
-| Todo el proyecto | `docker compose up --build` | back en <http://localhost:8000> (y front en <http://localhost:3000> cuando esté FR-01) |
+| Todo el proyecto | `docker compose up --build --watch` | back en <http://localhost:8000> y front en <http://localhost:3000> |
 | Solo el back | `docker compose up --build backend` | <http://localhost:8000> |
-| Solo el front | `docker compose up --build frontend` | <http://localhost:3000> · disponible desde FR-01 |
+| Solo el front | `docker compose up --build --watch frontend` | <http://localhost:3000> |
 
 - **Apagar:** `Ctrl+C` en la misma terminal, o `docker compose down`.
-- **Cambios en el código:** se ven al instante, sin volver a armar la imagen. Si agregás una dependencia, volvé a correr el comando con `--build`.
-- **Correr un comando dentro del contenedor del back:** `docker compose run --rm backend <comando>`, por ejemplo `docker compose run --rm backend uv run pytest`.
+- **Cambios en el código:** se ven al instante, sin volver a armar la imagen. En el front, gracias a `--watch`: Docker copia al contenedor cada archivo que guardás (sin `--watch`, el front no se entera de los cambios). Si agregás una dependencia, volvé a correr el comando con `--build`.
+- **Correr un comando dentro de un contenedor:** `docker compose run --rm <servicio> <comando>`, por ejemplo `docker compose run --rm backend uv run pytest` o `docker compose run --rm frontend npm test`.
+- **Para programar el front, conviene sin Docker** (`npm run dev`, abajo): en Windows, Next recarga más rápido así. Docker es ideal para levantar todo sin instalar Python ni Node.
 
-Cada parte tiene su propio `Dockerfile` (`backend/Dockerfile` y, desde FR-01, `frontend/Dockerfile`); el `docker-compose.yml` de la raíz los levanta juntos o por separado.
+Cada parte tiene su propio `Dockerfile` (`backend/Dockerfile` y `frontend/Dockerfile`); el `docker-compose.yml` de la raíz los levanta juntos o por separado.
 
 ### 2b. Sin Docker
 
