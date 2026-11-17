@@ -63,6 +63,16 @@ docs/       Documentación y bitácora del equipo
    ```
    El back queda en <http://localhost:8000>.
 
+**Linter y tests** (desde `backend/`; los mismos controles corren solos en cada PR):
+
+```bash
+uv run ruff check .          # linter
+uv run ruff format .         # formatea el código
+uv run pytest                # tests
+```
+
+Antes de subir cambios, corré los tres: si `ruff check` o `pytest` fallan en tu compu, también van a fallar en el PR.
+
 > ⚠️ **Todavía no corras `migrate`.** El usuario propio (`User`) se crea en BK-02 y tiene que existir antes de la primera migración. Si ya migraste, borrá `backend/db.sqlite3` y volvé a migrar cuando esté BK-02.
 
 ## Base de datos
