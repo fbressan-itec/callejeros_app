@@ -1,0 +1,12 @@
+# Lo que no entra a la imagen de Docker
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+db.sqlite3
+media/
+staticfiles/
+.env
