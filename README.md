@@ -162,6 +162,166 @@ erDiagram
 - `is_active` de `User` es el estado actual (Django no deja iniciar sesión a un usuario inactivo); la historia completa queda en `UserStatusLog`.
 - Solo el Admin cambia roles; cada cambio deja una fila en `UserRoleLog`.
 
+### Adopción y colaborar
+
+Las tablas de `User` se muestran solo con su relación; sus campos están en el diagrama de cuentas.
+
+```mermaid
+erDiagram
+    User ||--o{ Pet : "publica"
+    Pet ||--|| PetHealth : "tiene"
+    Pet ||--o{ PetPhoto : "tiene"
+    Pet ||--o{ PetStatusLog : "historial de"
+    User ||--o{ PetStatusLog : "revisa"
+    User ||--o{ Favorite : "marca"
+    Pet ||--o{ Favorite : "es favorita en"
+    Pet ||--o{ AdoptionRequest : "recibe"
+    User ||--o{ AdoptionRequest : "solicita"
+    User ||--o{ AdoptionRequest : "revisa"
+    User ||--o{ Sponsorship : "apadrina"
+    Pet |o--o{ Sponsorship : "recibe (vacío = fondo general)"
+    User ||--o{ Product : "publica"
+    Product ||--o{ ProductStatusLog : "historial de"
+    User ||--o{ ProductStatusLog : "revisa"
+    Pet {
+        int id PK
+        string name
+        string species "dog|cat"
+        string sex "male|female"
+        date estimated_birth_date
+        bool is_sociable
+        string good_with_children "yes|no|not_evaluated"
+        string good_with_animals "yes|no|not_evaluated"
+        bool is_neutered
+        bool is_urgent_requested
+        bool is_urgent_validated
+        string special_care "hasta 150, opcional"
+        string description "hasta 400"
+        string notes
+        string contact_phone "no se muestra en el catálogo"
+        string status "in_review|published|rejected|adopted"
+        int published_by_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    PetHealth {
+        int id PK
+        int pet_id FK, UK
+        string general_status
+        string vaccines
+        string deworming
+        string flea_tick_treatment
+        string other
+        datetime created_at
+        datetime updated_at
+    }
+    PetPhoto {
+        int id PK
+        int pet_id FK
+        string image "ruta del archivo"
+        int position "0 = principal"
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    PetStatusLog {
+        int id PK
+        int pet_id FK
+        string previous_status
+        string new_status
+        int performed_by_id FK
+        string note "motivo del rechazo"
+        datetime created_at
+    }
+    Favorite {
+        int id PK
+        int user_id FK
+        int pet_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    AdoptionRequest {
+        int id PK
+        int pet_id FK
+        int applicant_id FK
+        string full_name
+        int age "18 o más"
+        string phone
+        string email
+        string address
+        string city
+        string housing_type "texto libre"
+        string other_pets
+        bool accepts_commitment "obligatorio"
+        string status "pending|approved|rejected"
+        string rejection_reason
+        string meeting_point "lo completa Staff al aprobar"
+        int reviewed_by_id FK
+        datetime reviewed_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Sponsorship {
+        int id PK
+        int sponsor_id FK
+        int pet_id FK "vacío = fondo general"
+        decimal monthly_amount "500 o más"
+        string payment_method "mercado_pago|transfer|card"
+        string status "active|cancelled"
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Product {
+        int id PK
+        string name
+        string description
+        decimal price
+        string photo "ruta del archivo"
+        string whatsapp "maquetado"
+        string status "in_review|published|rejected"
+        int published_by_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    ProductStatusLog {
+        int id PK
+        int product_id FK
+        string previous_status
+        string new_status
+        int performed_by_id FK
+        string note
+        datetime created_at
+    }
+```
+
+| Tabla | Para qué |
+| :--- | :--- |
+| `Pet` | Publicación de adopción. Arranca en `in_review` y aparece en el catálogo recién cuando Staff la aprueba. |
+| `PetHealth` | Bloque "Estado de salud" de la ficha (uno a uno con `Pet`). |
+| `PetPhoto` | Fotos del carrusel; la de `position` 0 es la principal. Al menos una por mascota. |
+| `PetStatusLog` | Historial de revisiones y cambios de estado: quién, cuándo y el motivo de un rechazo. |
+| `Favorite` | Tabla intermedia usuario ↔ mascota (muchos a muchos). Exige cuenta. |
+| `AdoptionRequest` | Solicitud de adopción con el cuestionario de 3 bloques y la respuesta de Staff. |
+| `Sponsorship` | Apadrinamiento registrado, sin cobro real. `pet_id` vacío = fondo general. |
+| `Product` | Producto de la tienda. Los de Refugio verificado arrancan en `in_review`; los de Staff y Admin, en `published`. |
+| `ProductStatusLog` | Historial de revisiones de productos. |
+
+**Reglas de adopción y colaborar:**
+- **No se guardan, se calculan:** las insignias de la mascota, su edad y grupo de edad (desde `estimated_birth_date`) y la cantidad de padrinos (desde `Sponsorship`).
+- **Caso urgente:** se muestra solo si `is_urgent_requested` e `is_urgent_validated` son verdaderos y la mascota no está adoptada.
+- **Solicitud aprobada:** el contacto del hogar de tránsito sale de quien publicó la mascota (nombre, insignia de rol y `contact_phone`); el punto de encuentro público lo escribe Staff en `meeting_point`. La dirección nunca se muestra.
+- **La solicitud copia** nombre, email y teléfono del solicitante: guarda lo que declaró en ese momento, aunque después cambie sus datos.
+- **Restricciones en la base:**
+  - `Favorite`: un solo favorito por usuario y mascota (`user_id` + `pet_id` únicos);
+  - `PetPhoto`: posiciones únicas por mascota;
+  - `AdoptionRequest`: `age` ≥ 18, `accepts_commitment` verdadero y una sola solicitud pendiente por persona y mascota;
+  - `Sponsorship`: `monthly_amount` ≥ 500.
+
 ### Comunidad: alertas, noticias, comentarios y notificaciones
 
 Las tablas de `User` se muestran solo con su relación; sus campos están en el diagrama de cuentas.
