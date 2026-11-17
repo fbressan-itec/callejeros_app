@@ -73,6 +73,19 @@ uv run pytest                # tests
 
 Antes de subir cambios, corré los tres: si `ruff check` o `pytest` fallan en tu compu, también van a fallar en el PR.
 
+**Con Docker** (alternativa: no hace falta instalar uv). Requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) abierto ("Engine running"). Desde la raíz del repo, con el `.env` ya creado (pasos 2 y 4):
+
+```bash
+docker compose up --build    # arma la imagen y levanta el back en http://localhost:8000
+docker compose down          # lo apaga (o Ctrl+C en la misma terminal)
+```
+
+Los cambios en `backend/` se ven al instante sin volver a armar la imagen. Si agregás una dependencia (`uv add`), volvé a correr `docker compose up --build`. Para correr comandos dentro del contenedor:
+
+```bash
+docker compose run --rm backend uv run pytest
+```
+
 > ⚠️ **Todavía no corras `migrate`.** El usuario propio (`User`) se crea en BK-02 y tiene que existir antes de la primera migración. Si ya migraste, borrá `backend/db.sqlite3` y volvé a migrar cuando esté BK-02.
 
 ## Base de datos
