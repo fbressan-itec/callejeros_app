@@ -1,0 +1,11 @@
+# Levanta el proyecto en local con Docker: `docker compose up`.
+# Por ahora solo el back; FR-01 suma el servicio del front.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000" # puerto de tu compu : puerto del contenedor
+    env_file: .env # el mismo .env de la raíz que usás sin Docker
+    volumes:
+      # Espeja backend/ dentro del contenedor: los cambios se ven al instante.
+      - ./backend:/app
