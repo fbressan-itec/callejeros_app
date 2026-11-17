@@ -1,26 +1,35 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Modo oscuro por clase (.dark en <html>), como el maquetado.
+   El botón para cambiarlo llega en FR-02 (next-themes). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Valores del maquetado (contexto-ia/producto/02-diseno.md). */
+@theme {
+  --color-brand-orange: #ea580c;
+  --color-brand-orange-light: #ff7849;
+  --color-brand-orange-dark: #c2410c;
+  --color-brand-green: #10b981;
+  --color-brand-red: #ef4444;
+  --color-slate-750: #293548;
+  --color-slate-850: #151e2e;
+
+  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  --shadow-soft-dark: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
 }
 
+/* Fuentes en un bloque "inline" aparte: --font-inter y --font-poppins las define
+   next/font (layout.tsx). Con @theme normal, var(--font-inter) se resolvería en
+   :root y la página podría quedar con la fuente genérica sin dar error. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), sans-serif;
+  --font-display: var(--font-poppins), sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Tailwind 4 quitó la manito en los botones; el maquetado la usa. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
