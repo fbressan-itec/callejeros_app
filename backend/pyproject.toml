@@ -27,3 +27,8 @@ extend-exclude = ["**/migrations/**"]
 # E/F: errores básicos · I: imports ordenados · B: errores comunes
 # UP: sintaxis moderna de Python · DJ: buenas prácticas de Django
 select = ["E", "F", "I", "B", "UP", "DJ"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "tests.py"]
+addopts = "--strict-markers"
