@@ -18,6 +18,7 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_ALLOWED_HOSTS=(list, []),
     CORS_ALLOWED_ORIGINS=(list, []),
+    SEED_USER_PASSWORD=(str, ""),
 )
 # Si existe, carga el .env de la raíz. Las variables ya definidas en el sistema
 # (por ejemplo, las que pasa Docker o el CI) tienen prioridad.
@@ -127,3 +128,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # CORS: solo el front puede llamar a la API desde el navegador.
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+
+# Datos semilla de desarrollo (`python manage.py seed`)
+
+SEED_USER_PASSWORD = env("SEED_USER_PASSWORD")
