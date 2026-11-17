@@ -1,0 +1,44 @@
+# Revisa el back en cada PR: linter (ruff) y tests (pytest).
+# Si algo falla, el PR queda en rojo y no se puede mergear.
+# Corre en todos los PR (aunque no toquen backend/) para poder ser un control obligatorio.
+name: Backend
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend (ruff + pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Clave solo para el CI: es pública y no se usa en ningún entorno real.
+      DJANGO_SECRET_KEY: ci-clave-de-prueba-no-secreta
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: localhost
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --locked
+
+      - name: Linter (ruff check)
+        run: uv run ruff check .
+
+      - name: Formato (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Tests (pytest)
+        run: uv run pytest
