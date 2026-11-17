@@ -22,7 +22,7 @@ Closes #
 
 ## Lista de control
 
-- [ ] La rama sale de `develop` y sigue el formato `feature/<n°>-...` o `bugfix/<n°>-...`
+- [ ] La rama sale de `develop` y sigue el formato `feature/<épica>-<n°>-...` o `bugfix/<épica>-<n°>-...`
 - [ ] Commits con Conventional Commits
 - [ ] Tests agregados o actualizados, y pasan
 - [ ] Linter sin errores

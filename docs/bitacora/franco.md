@@ -134,3 +134,41 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** pasarles `AGENTS.md` y `contexto-ia/` (versión 2026-11-17) a Ulises y Leandro; que Leandro acepte la invitación; arrancar BK-02 y FR-02.
 - **PR:** este
 - **IA usada:** Claude Code — para armar la Wiki paso a paso, revisar el plan contra las tarjetas y actualizar las tarjetas en GitHub.
+
+## 2026-11-17 — Cambio de convención de nombres de ramas y tarjeta GE-01
+
+- **Tarjeta:** #67 (GE-01, gestión y documentación del proyecto)
+- **Rama:** feature/ge01-67-convencion-ramas
+- **Área:** docs, devops
+- **Qué hice:**
+  - Cambié el formato de las ramas de `feature/<n°>-<descripción>` a `feature/<épica>-<n°>-<descripción>`, para que queden agrupadas por épica al ordenarlas.
+  - Creé la tarjeta permanente GE-01 (#67) para el trabajo de gestión que no es de ninguna funcionalidad.
+  - Renombré en GitHub las ramas existentes (los commits no cambian; los commits de merge y los PR conservan el nombre viejo):
+
+    | Nombre viejo | Nombre nuevo |
+    | :--- | :--- |
+    | `feature/43-modelo-datos-cuentas` | `feature/db01-43-modelo-datos-cuentas` |
+    | `feature/44-modelo-datos-adopcion` | `feature/db01-44-modelo-datos-adopcion` |
+    | `feature/45-modelo-datos-comunidad` | `feature/db01-45-modelo-datos-comunidad` |
+    | `feature/49-proyecto-django` | `feature/bk01-49-proyecto-django` |
+    | `feature/50-calidad-ruff-pytest-ci` | `feature/bk01-50-calidad-ruff-pytest-ci` |
+    | `feature/51-docker-backend` | `feature/bk01-51-docker-backend` |
+    | `feature/56-proyecto-next` | `feature/fr01-56-proyecto-next` |
+    | `feature/57-calidad-front` | `feature/fr01-57-calidad-front` |
+    | `feature/58-cliente-api` | `feature/fr01-58-cliente-api` |
+    | `feature/59-docker-front` | `feature/fr01-59-docker-front` |
+    | `feature/19-bitacora-fr01` | `feature/fr01-19-bitacora` |
+    | `feature/37-bitacora-cierre-sesion` | `feature/ge01-67-bitacora-cierre-sesion` |
+
+    `feature/1-configuracion-repo` quedó igual: es anterior al tablero. Las ramas `feature/4-bitacora-db01-bk01` y `feature/59-plantilla-pr-comparacion` ya no existían en GitHub; sus commits están en `develop`.
+  - Actualicé la regla en el README, la plantilla de PR, la guía de la bitácora y el contexto de las IAs (`AGENTS.md`, `01-reglas-de-la-consigna.md`, `flujo-de-trabajo.md`, `orden-de-trabajo.md`, `decisiones.md`; versión 2026-11-17c).
+  - Agregué un control automático (`nombre de rama`, en `.github/workflows/branch-name.yml`) que falla si la rama del PR no sigue el formato. Lo probé con 16 nombres válidos e inválidos.
+- **Decisiones tomadas:**
+  - El código de la épica va primero (`db01`, `bk02`, `fr02`, `ge01`) y después el número de la sub-tarjeta, que es la que cierra el PR.
+  - Renombrar ahora y no más adelante: hoy eran 12 ramas y nadie más había empezado.
+  - Las entradas viejas de esta bitácora no se editan (regla del grupo): la tabla de arriba es la referencia entre nombres viejos y nuevos.
+  - El trabajo de gestión va en GE-01 con `Refs #67` (no `Closes`), y no con un código inventado, para mantener la trazabilidad entre el tablero y los PR que pide la consigna.
+- **Problemas y cómo los resolví:** la bitácora de cierre anterior usaba el número de DB-02 sin ser de esa tarjeta; ahora esa rama pertenece a GE-01.
+- **Pendiente:** pasarles a Ulises y Leandro `AGENTS.md` y `contexto-ia/` (versión 2026-11-17b) y pedirles que corran `git fetch --prune`.
+- **PR:** este
+- **IA usada:** Claude Code — para proponer la convención, renombrar las ramas y actualizar las reglas.

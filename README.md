@@ -546,8 +546,8 @@ Las claves primarias, las foráneas y los campos únicos ya tienen índice autom
 - **Ramas (GitFlow simplificado):**
   - `main`: versiones entregables (v0.1, v0.2…);
   - `develop`: integración;
-  - `feature/<n°>-<nombre>` y `bugfix/<n°>-<nombre>`: una por tarjeta, desde `develop`;
+  - `feature/<épica>-<n°>-<nombre>` y `bugfix/<épica>-<n°>-<nombre>`: una por tarjeta, desde `develop` (por ejemplo `feature/bk02-68-modelo-usuario`: épica BK-02, tarjeta #68). El trabajo de gestión va en la tarjeta GE-01 (#67);
   - `hotfix/<nombre>`: errores urgentes en `main`.
-- **Commits:** [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/) (`feat(auth): agrega endpoint de login`). Se revisan automáticamente en cada PR.
+- **Commits:** [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/) (`feat(auth): agrega endpoint de login`). Se revisan automáticamente en cada PR, igual que el nombre de la rama.
 - **Pull Requests:** todo entra a `develop` por PR, con revisión de código y *merge commit* (cada commit queda visible en el historial). `main` y `develop` están protegidas: no se puede subir directo.
 - **Bitácora:** cada integrante registra su avance en [`docs/bitacora/`](docs/bitacora/LEEME.md).
