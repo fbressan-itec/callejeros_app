@@ -1,0 +1,9 @@
+# Lo que no entra a la imagen de Docker
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.env*
+npm-debug.log*
