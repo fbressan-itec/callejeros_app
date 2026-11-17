@@ -36,6 +36,37 @@ docs/       Documentación y bitácora del equipo
 
 Diseño del modelo de datos (ORM de Django + SQLite). Se completa por partes: cuentas, adopción y colaborar, comunidad. Cualquier cambio posterior se hace con una **migración nueva** y se actualiza este diagrama en el mismo PR.
 
+### Vista general
+
+Todas las tablas y cómo se relacionan. Los campos y el detalle de cada relación están en el diagrama de cada módulo, más abajo.
+
+```mermaid
+erDiagram
+    Role ||--o{ User : ""
+    User ||--|| UserPreferences : ""
+    User ||--o{ UserStatusLog : ""
+    User ||--o{ UserRoleLog : ""
+    Role ||--o{ UserRoleLog : ""
+    User ||--o{ Pet : ""
+    Pet ||--|| PetHealth : ""
+    Pet ||--o{ PetPhoto : ""
+    Pet ||--o{ PetStatusLog : ""
+    User ||--o{ Favorite : ""
+    Pet ||--o{ Favorite : ""
+    User ||--o{ AdoptionRequest : ""
+    Pet ||--o{ AdoptionRequest : ""
+    User ||--o{ Sponsorship : ""
+    Pet |o--o{ Sponsorship : ""
+    User ||--o{ Product : ""
+    Product ||--o{ ProductStatusLog : ""
+    User ||--o{ Alert : ""
+    User ||--o{ News : ""
+    User ||--o{ Comment : ""
+    Alert |o--o{ Comment : ""
+    News |o--o{ Comment : ""
+    User ||--o{ Notification : ""
+```
+
 ### Convenciones
 
 - **Modelo base (`BaseModel`):** todas las tablas de negocio lo heredan y suman `created_at` (fecha de creación), `updated_at` (última modificación) e `is_active` (baja lógica).
@@ -290,6 +321,118 @@ erDiagram
   - `PetPhoto`: posiciones únicas por mascota;
   - `AdoptionRequest`: `age` ≥ 18, `accepts_commitment` verdadero y una sola solicitud pendiente por persona y mascota;
   - `Sponsorship`: `monthly_amount` ≥ 500.
+
+### Comunidad: alertas, noticias, comentarios y notificaciones
+
+Las tablas de `User` se muestran solo con su relación; sus campos están en el diagrama de cuentas.
+
+```mermaid
+erDiagram
+    User ||--o{ Alert : "publica"
+    User ||--o{ Alert : "resuelve"
+    User ||--o{ Alert : "oculta"
+    User ||--o{ News : "escribe"
+    Alert |o--o{ Comment : "tiene"
+    News |o--o{ Comment : "tiene"
+    User ||--o{ Comment : "escribe"
+    User ||--o{ Comment : "oculta"
+    User ||--o{ Notification : "recibe"
+    Alert {
+        int id PK
+        string title
+        string situation "lost|sighted|emergency"
+        string species "dog|cat|other"
+        string location_text "ej. Plaza Roca"
+        decimal latitude "3 decimales: nivel cuadra"
+        decimal longitude "3 decimales: nivel cuadra"
+        string description
+        string contact_phone
+        string photo "obligatoria, hasta 5 MB"
+        string status "open|resolved"
+        int published_by_id FK
+        int resolved_by_id FK "autor o Staff"
+        datetime resolved_at
+        bool is_hidden
+        int hidden_by_id FK
+        string hidden_reason
+        datetime hidden_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    News {
+        int id PK
+        string title
+        string summary
+        string body
+        string tag_label "ej. Próximo Sábado • 16:00 hs"
+        string tag_color "emerald|blue|..."
+        string place
+        string photo "ruta del archivo"
+        int author_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Comment {
+        int id PK
+        int alert_id FK "uno de los dos"
+        int news_id FK "uno de los dos"
+        int author_id FK
+        string text
+        bool is_hidden
+        int hidden_by_id FK
+        string hidden_reason
+        datetime hidden_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Notification {
+        int id PK
+        int recipient_id FK
+        string title
+        string text
+        string tag "urgent|community|adoption|fundraising|post|sponsorship"
+        string link "opcional"
+        bool is_read
+        datetime read_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+```
+
+| Tabla | Para qué |
+| :--- | :--- |
+| `Alert` | Alerta Callejeros. Exige cuenta, se publica al instante y aparece en el mapa mientras está abierta. |
+| `News` | Noticias y eventos. Las cargan Staff y Refugio verificado. |
+| `Comment` | Comentarios de alertas **y** de noticias en una sola tabla. Exige cuenta y se publica al instante. |
+| `Notification` | Avisos de la campanita, generados por los eventos (publicación aprobada, solicitud respondida, etc.). |
+
+**Reglas de comunidad:**
+- **Revisión antes vs. moderación después:** `Pet` y `Product` pasan por revisión antes de publicarse (estados + historial `*StatusLog`). `Alert` y `Comment` se publican al instante y Staff los modera después con `is_hidden`, `hidden_by_id`, `hidden_reason` y `hidden_at`.
+- **Dos bajas lógicas distintas:** `is_active = False` → lo borró su autor; `is_hidden = True` → lo ocultó Staff, con motivo.
+- **Coordenadas:** el back redondea latitud y longitud a 3 decimales (unos 100 m, nivel cuadra) antes de guardarlas.
+- **Teléfono de la alerta:** se guarda siempre; la API no lo devuelve si el autor apagó `show_phone_in_alerts`.
+- **Alerta resuelta:** sale del mapa y del listado por defecto (hay un filtro para verla); sus comentarios quedan como historial.
+- **Restricción en la base:** en `Comment`, exactamente uno de `alert_id` o `news_id` tiene valor (`CHECK`).
+
+### Índices
+
+Las claves primarias, las foráneas y los campos únicos ya tienen índice automático. Además se agregan índices en los campos que se usan seguido para filtrar u ordenar:
+
+| Tabla | Índice | Lo usa |
+| :--- | :--- | :--- |
+| `Pet` | `status` + `species` + `sex` | Catálogo con filtros. |
+| `Pet` | `estimated_birth_date` | Filtro por edad (Cachorro, Adulto, Senior). |
+| `AdoptionRequest` | `status` + `created_at` | Panel de Staff: solicitudes pendientes, las más viejas primero. |
+| `Sponsorship` | `pet_id` + `status` | Contador de padrinos activos. |
+| `Product` | `status` | Tienda y panel de Staff. |
+| `Alert` | `status` + `situation` + `created_at` | Listado de alertas con filtros, las más recientes primero. |
+| `Comment` | `alert_id` + `created_at` · `news_id` + `created_at` | Comentarios de una alerta o noticia, en orden. |
+| `News` | `created_at` | Listado de noticias, las más recientes primero. |
+| `Notification` | `recipient_id` + `is_read` + `created_at` | Campanita: consulta cada 30–60 s las no leídas. |
 
 ## Flujo de trabajo
 
