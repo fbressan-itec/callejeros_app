@@ -82,6 +82,8 @@ Cada parte tiene su propio `Dockerfile` (`backend/Dockerfile` y `frontend/Docker
 
 ```bash
 uv sync                               # instala las dependencias (crea backend/.venv)
+uv run python manage.py migrate       # crea las tablas y carga los 4 roles
+uv run python manage.py seed          # carga un usuario de prueba por rol (usa SEED_USER_PASSWORD)
 uv run python manage.py runserver     # levanta el back en http://localhost:8000
 ```
 
@@ -136,7 +138,7 @@ Con Docker, desde la raíz: `docker compose run --rm backend uv run pytest` (y l
 
 Antes de subir cambios, corré los tres: si `ruff check` o `pytest` fallan en tu compu, también van a fallar en el PR.
 
-> ⚠️ **Todavía no corras `migrate`.** El usuario propio (`User`) se crea en BK-02 y tiene que existir antes de la primera migración. Si ya migraste, borrá `backend/db.sqlite3` y volvé a migrar cuando esté BK-02.
+> ⚠️ **Si ya habías corrido `migrate` antes de BK-02** y al migrar aparece `InconsistentMigrationHistory` (porque `admin` se había migrado con el usuario por defecto de Django), borrá `backend/db.sqlite3` una única vez (y, si usás Docker, corré `docker compose down -v`) antes de volver a correr `migrate`.
 
 ## Base de datos
 
