@@ -81,3 +81,32 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** BK-02 (usuarios, roles y JWT) queda habilitada. El front de Docker y del README se completa en FR-01.
 - **PR:** #52, #53, #54
 - **IA usada:** Claude Code — para armar el proyecto paso a paso, explicar cada herramienta y probarlo.
+
+## 2026-11-17 — Proyecto base del frontend (FR-01)
+
+- **Tarjeta:** #19 (FR-01), dividida en #56 (FR-01a), #57 (FR-01b), #58 (FR-01c) y #59 (FR-01d)
+- **Rama:** feature/56-proyecto-next, feature/57-calidad-front, feature/58-cliente-api, feature/59-plantilla-pr-comparacion, feature/59-docker-front
+- **Área:** front, test, devops, docs
+- **Qué hice:**
+  - Creé el proyecto Next 16 con React 19, TypeScript estricto y Tailwind 4 en `frontend/`, con el tema del maquetado (colores, sombras, modo oscuro por clase) y las fuentes Inter y Poppins con `next/font`.
+  - Configuré ESLint, Prettier (con orden automático de clases de Tailwind), Vitest y Testing Library, y un workflow de GitHub Actions para el front, que sumé como tercer control obligatorio en la protección de `main` y `develop`.
+  - Armé el cliente de la API: una sola forma de llamar al back, con errores en un formato único (aviso general y errores por campo) y 11 tests. El front lee el mismo `.env` de la raíz que el back.
+  - Agregué el Dockerfile del front y su servicio en el `docker-compose.yml`: back y front se levantan juntos o por separado.
+  - Sumé a la plantilla de PR la sección "Comparación con el maquetado".
+  - Actualicé el contexto de las IAs: Tailwind 4 con tabla de equivalencias, comparación obligatoria con el maquetado, aviso de Next 16 y la versión 2026-11-17.
+- **Decisiones tomadas:**
+  - Tailwind 4 y no 3 como el maquetado; decidido ahora porque migrar después obliga a revisar todas las pantallas y genera conflictos en las ramas de todos. El responsive y el mobile first no cambian.
+  - La tabla de equivalencias de clases (3 → 4) vive en `contexto-ia/producto/02-diseno.md`, que es lo que leen las IAs; el README no la repite.
+  - Cada pantalla se compara con su HTML del maquetado (375px y escritorio, claro y oscuro, estados) y el PR lista las diferencias. Sin capturas: reviso yo a mano.
+  - Desactivé el `AGENTS.md` que genera Next 16 para que las IAs lean un solo archivo de reglas.
+  - La API del back va a vivir bajo `/api/` (lo sumé como criterio en #5).
+  - En Docker, el front usa `--watch` en lugar de un volumen espejo.
+- **Problemas y cómo los resolví:**
+  - La tabla de equivalencias tenía errores (nombre de `flex-shrink-0`, color por defecto de `ring`) y la receta de foco usaba `outline-none`; los corregí con la revisión del contexto.
+  - Las fuentes con `@theme` normal podían quedar en la fuente genérica sin error; las pasé a `@theme inline`.
+  - Vitest 5 pedía los tipos de Node 22 y el proyecto traía los de 20; los actualicé.
+  - La verificación de tipos fallaba en el CI porque Next genera tipos dentro de `.next`; el script corre `next typegen` antes.
+  - En Windows, Next no veía los cambios dentro de Docker; lo resolví con `docker compose --watch` (los cambios se ven en unos 2 segundos).
+- **Pendiente:** pasarles `AGENTS.md` y `contexto-ia/` a Ulises y Leandro. Quedan habilitadas BK-02 (usuarios, roles y JWT) y FR-02 (layout).
+- **PR:** #60, #61, #62, #63, #64
+- **IA usada:** Claude Code — para armar el front paso a paso, explicar cada decisión, revisar el contexto de las IAs y probar todo en el navegador y en Docker.
