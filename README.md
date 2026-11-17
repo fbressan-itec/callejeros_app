@@ -107,6 +107,20 @@ Antes de subir cambios, corré `lint`, `format`, `typecheck` y `test`: si fallan
 
 El front usa **Tailwind 4** (el maquetado está en Tailwind 3): el tema está en `frontend/src/app/globals.css`.
 
+**Llamar al back:** el front lee el mismo `.env` de la raíz; la URL de la API sale de `NEXT_PUBLIC_API_URL`. Todas las llamadas pasan por el cliente de `frontend/src/lib/api/client.ts` (nunca `fetch` directo):
+
+```ts
+import { ApiError, api } from "@/lib/api/client";
+
+try {
+  const pets = await api.get<Pet[]>("pets/");
+} catch (error) {
+  if (error instanceof ApiError) {
+    // error.message → aviso general · error.fieldErrors.email → errores junto al campo
+  }
+}
+```
+
 ### Linter y tests del back
 
 Desde `backend/` (los mismos controles corren solos en cada PR):
