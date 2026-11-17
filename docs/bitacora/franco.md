@@ -110,3 +110,27 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** pasarles `AGENTS.md` y `contexto-ia/` a Ulises y Leandro. Quedan habilitadas BK-02 (usuarios, roles y JWT) y FR-02 (layout).
 - **PR:** #60, #61, #62, #63, #64
 - **IA usada:** Claude Code — para armar el front paso a paso, explicar cada decisión, revisar el contexto de las IAs y probar todo en el navegador y en Docker.
+
+## 2026-11-17 — Cierre de sesión: Wiki, capturas y plan de la base
+
+- **Tarjeta:** — (planificación). Cambios de criterios en #5, #6, #8, #10, #11, #12, #13, #14, #15, #16 y #37 (DB-02)
+- **Rama:** feature/37-bitacora-cierre-sesion (solo esta entrada)
+- **Área:** docs, db
+- **Qué hice:**
+  - Probé la Wiki de GitHub con una versión de ejemplo: portada, "Cómo trabajamos", "Cronología del proyecto" con capturas de FR-01 y BK-01, barra lateral y pie de página.
+  - Armé una carpeta personal de capturas del avance (`docs/capturas/`, ignorada solo en mi compu), nombradas por número de tarjeta como si fueran versiones.
+  - Redefiní cómo se puebla la base: cada tarjeta de back suma sus datos de prueba a un comando `seed` y DB-02 pasa a revisarlo y completarlo. Actualicé 11 tarjetas y el plan del grupo.
+  - Corregí en las tarjetas BK-03 y BK-07 los nombres de los estados (en inglés, como el diseño de la base).
+  - Comparé las 37 tarjetas abiertas con `orden-de-trabajo.md`: coinciden en alcance.
+  - Probé el acuerdo de revisión: Ulises aprobó y mergeó un PR mío.
+- **Decisiones tomadas:**
+  - Solo los 4 roles (`Role`) se cargan con una migración de datos: es la única tabla de catálogo. Los datos de prueba van en el comando `seed`, nunca en migraciones (correrían también en producción y en los tests). El primer Admin se crea con `createsuperuser`, sin contraseñas en el código.
+  - Las capturas son personales; la Wiki se trabaja directo en su propio repositorio.
+  - No hace falta una regla obligatoria para que las IAs lean la tarjeta: alcanza con que el plan y las tarjetas no se contradigan, y con que cada integrante le pase la tarjeta a su IA al empezar.
+  - Acuerdo del equipo: Ulises y Leandro me avisan al terminar, yo reviso, apruebo y mergeo; en una emergencia se aprueban entre ellos.
+- **Problemas y cómo los resolví:**
+  - La tabla de la portada de la Wiki no mostraba los enlaces (el `|` de los enlaces de la Wiki corta la tabla); los cambié por enlaces comunes.
+  - Una captura de 375px salió cortada (el navegador sin ventana no achica a menos de unos 500px); la volví a sacar con el navegador integrado.
+- **Pendiente:** pasarles `AGENTS.md` y `contexto-ia/` (versión 2026-11-17) a Ulises y Leandro; que Leandro acepte la invitación; arrancar BK-02 y FR-02.
+- **PR:** este
+- **IA usada:** Claude Code — para armar la Wiki paso a paso, revisar el plan contra las tarjetas y actualizar las tarjetas en GitHub.
