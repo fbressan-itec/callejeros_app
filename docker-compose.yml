@@ -1,5 +1,8 @@
-# Levanta el proyecto en local con Docker: `docker compose up`.
-# Por ahora solo el back; FR-01 suma el servicio del front.
+# Levanta el proyecto en local con Docker.
+#   Todo:          docker compose up --build --watch
+#   Solo el back:  docker compose up --build backend
+#   Solo el front: docker compose up --build --watch frontend
+# Cada servicio usa el Dockerfile de su carpeta y el mismo .env de la raíz.
 services:
   backend:
     build: ./backend
@@ -9,3 +12,21 @@ services:
     volumes:
       # Espeja backend/ dentro del contenedor: los cambios se ven al instante.
       - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    env_file: .env # NEXT_PUBLIC_API_URL apunta al back en http://localhost:8000/api
+    # Sin volumen espejo: en Windows, Next no se entera de los cambios de un volumen.
+    # Con `--watch`, Docker copia cada archivo que guardás al contenedor.
+    develop:
+      watch:
+        - action: sync # código: se copia y Next recarga la página
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - .next/
+        - action: rebuild # dependencias nuevas: se vuelve a armar la imagen
+          path: ./frontend/package-lock.json
