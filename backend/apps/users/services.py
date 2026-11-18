@@ -16,6 +16,7 @@ from apps.users.models import User
 
 MIN_PASSWORD_LENGTH = 6
 PASSWORD_MIN_LENGTH_ERROR = "La contraseña debe tener al menos 6 caracteres"
+DUPLICATE_EMAIL_ERROR = "Ya existe una cuenta con este correo electrónico."
 INVALID_CREDENTIALS_ERROR = "Correo electrónico o contraseña incorrectos."
 INVALID_REFRESH_TOKEN_ERROR = "El token de refresco es inválido o ya expiró."
 INVALID_VERIFICATION_CODE_ERROR = "El código de verificación es incorrecto."
@@ -83,17 +84,32 @@ def register_user(
     verification_code: str = "",
 ) -> tuple[User, dict[str, str]]:
     """Registra un usuario nuevo con rol `member`, preferencias y tokens JWT."""
+    normalized_email = email.strip().lower()
     cleaned_phone = phone.strip()
     cleaned_code = verification_code.strip()
+
+    errors: dict[str, list[str]] = {}
+
+    if User.objects.filter(email__iexact=normalized_email).exists():
+        errors["email"] = [DUPLICATE_EMAIL_ERROR]
+
+    try:
+        validate_user_password(password)
+    except DjangoValidationError as exc:
+        errors["password"] = list(exc.messages)
 
     is_phone_verified = False
     if cleaned_code:
         if not verify_mock_code(cleaned_code):
-            raise ValidationError({"verification_code": [INVALID_VERIFICATION_CODE_ERROR]})
-        is_phone_verified = bool(cleaned_phone)
+            errors["verification_code"] = [INVALID_VERIFICATION_CODE_ERROR]
+        else:
+            is_phone_verified = bool(cleaned_phone)
+
+    if errors:
+        raise ValidationError(errors)
 
     user = User.objects.create_user(
-        email=email,
+        email=normalized_email,
         password=password,
         first_name=first_name.strip(),
         last_name=last_name.strip(),

@@ -1,16 +1,8 @@
 """Serializers de autenticación y datos básicos de cuenta."""
 
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.users.models import Role, User
-from apps.users.services import (
-    INVALID_VERIFICATION_CODE_ERROR,
-    MIN_PASSWORD_LENGTH,
-    PASSWORD_MIN_LENGTH_ERROR,
-    validate_user_password,
-    verify_mock_code,
-)
 
 
 class RoleSummarySerializer(serializers.ModelSerializer):
@@ -43,7 +35,7 @@ class UserAuthSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.Serializer):
-    """Valida los datos de registro de una cuenta nueva."""
+    """Valida el formato de entrada del registro; las reglas de negocio viven en `services.py`."""
 
     email = serializers.EmailField(
         error_messages={
@@ -54,10 +46,10 @@ class RegisterSerializer(serializers.Serializer):
     )
     password = serializers.CharField(
         write_only=True,
+        allow_blank=True,
         trim_whitespace=False,
         error_messages={
             "required": "La contraseña es obligatoria.",
-            "blank": PASSWORD_MIN_LENGTH_ERROR,
         },
     )
     first_name = serializers.CharField(
@@ -86,27 +78,6 @@ class RegisterSerializer(serializers.Serializer):
         default="",
         write_only=True,
     )
-
-    def validate_email(self, value: str) -> str:
-        normalized = value.strip().lower()
-        if User.objects.filter(email__iexact=normalized).exists():
-            raise serializers.ValidationError("Ya existe una cuenta con este correo electrónico.")
-        return normalized
-
-    def validate_password(self, value: str) -> str:
-        if len(value) < MIN_PASSWORD_LENGTH:
-            raise serializers.ValidationError(PASSWORD_MIN_LENGTH_ERROR)
-        try:
-            validate_user_password(value)
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError(list(exc.messages)) from exc
-        return value
-
-    def validate_verification_code(self, value: str) -> str:
-        cleaned = value.strip()
-        if cleaned and not verify_mock_code(cleaned):
-            raise serializers.ValidationError(INVALID_VERIFICATION_CODE_ERROR)
-        return cleaned
 
 
 class LoginSerializer(serializers.Serializer):
