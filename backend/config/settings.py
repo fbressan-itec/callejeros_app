@@ -5,6 +5,7 @@ entorno con django-environ. En local se cargan desde el archivo `.env` de la
 raíz del repo (copia de `.env.example`). Nunca se escriben secretos acá.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -19,6 +20,10 @@ env = environ.Env(
     DJANGO_ALLOWED_HOSTS=(list, []),
     CORS_ALLOWED_ORIGINS=(list, []),
     SEED_USER_PASSWORD=(str, ""),
+    JWT_ACCESS_LIFETIME_MINUTES=(int, 60),
+    JWT_REFRESH_LIFETIME_DAYS=(int, 1),
+    JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS=(int, 30),
+    MOCK_VERIFICATION_CODE=(str, "8596"),
 )
 # Si existe, carga el .env de la raíz. Las variables ya definidas en el sistema
 # (por ejemplo, las que pasa Docker o el CI) tienen prioridad.
@@ -42,6 +47,8 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
 ]
 
@@ -132,3 +139,28 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 # Datos semilla de desarrollo (`python manage.py seed`)
 
 SEED_USER_PASSWORD = env("SEED_USER_PASSWORD")
+
+
+# API REST y autenticación JWT (`djangorestframework-simplejwt`)
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+}
+
+JWT_ACCESS_LIFETIME_MINUTES = env("JWT_ACCESS_LIFETIME_MINUTES")
+JWT_REFRESH_LIFETIME_DAYS = env("JWT_REFRESH_LIFETIME_DAYS")
+JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS = env("JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS")
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=JWT_ACCESS_LIFETIME_MINUTES),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=JWT_REFRESH_LIFETIME_DAYS),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": True,
+}
+
+# Código único de 4 dígitos para verificación de teléfono y recupero maquetados.
+MOCK_VERIFICATION_CODE = env("MOCK_VERIFICATION_CODE")
