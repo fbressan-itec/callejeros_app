@@ -52,13 +52,14 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Rama:** feature/bk02-71-permisos-por-rol
 - **Área:** back, test, docs
 - **Qué hice:**
-  - Creé `apps/users/permissions.py` con la clase base `HasRole` (mensaje en español `"No tenés permiso para hacer esto."`, consistente con el cliente del frontend) y los permisos reutilizables por rol individual (`IsMember`, `IsVerifiedShelter`, `IsStaff`, `IsAdmin`) y por combinación de alcance (`IsStaffOrAdmin` para moderación/panel de Staff e `IsShelterStaffOrAdmin` para tienda y noticias).
+  - Creé `apps/users/permissions.py` con la clase base `HasRole` (mensaje en español `"No tenés permiso para hacer esto."`, consistente con el cliente del frontend) y los permisos reutilizables por rol (`IsVerifiedShelter`, `IsStaff`, `IsAdmin`, `IsStaffOrAdmin` para moderación/panel de Staff e `IsShelterStaffOrAdmin` para tienda y noticias).
   - Agregué el endpoint `GET /api/auth/me/` (`MeView` protegido con `IsAuthenticated`) bajo `/api/auth/me/` para que el frontend consulte la sesión actual y el rol del usuario autenticado.
-  - Escribí 39 tests parametrizados en `apps/users/tests/test_permissions.py` cubriendo la matriz completa de los 4 roles contra todas las clases de permiso (incluida la composición con `|`), el rechazo de usuarios no autenticados (`401`) o dados de baja (`403`) y el comportamiento de `GET /api/auth/me/`.
+  - Escribí 34 tests parametrizados en `apps/users/tests/test_permissions.py` cubriendo la matriz completa de los 4 roles contra todas las clases de permiso (incluida la composición con `|`), el rechazo de usuarios no autenticados (`401`) o dados de baja (`403`) y el comportamiento de `GET /api/auth/me/`.
+  - Apliqué el ajuste de revisión del PR #75: eliminé `IsMember` (y sus casos de prueba) para evitar que algún endpoint deje afuera por error a Refugios, Staff o Admin cuando lo que corresponde es `IsAuthenticated`.
 - **Decisiones tomadas:**
-  - Definí tanto las clases de rol individual como las combinaciones de negocio frecuentes (`IsStaffOrAdmin` e `IsShelterStaffOrAdmin`) heredando de `HasRole`, de modo que los endpoints futuros puedan declarar una sola clase expresiva y conservar el mensaje de error personalizado en español.
+  - Definí tanto las clases de rol especial individual como las combinaciones de negocio frecuentes (`IsStaffOrAdmin` e `IsShelterStaffOrAdmin`) heredando de `HasRole`, dejando `IsAuthenticated` para cualquier usuario con sesión activa.
 - **Problemas y cómo los resolví:**
   - Al combinar dos permisos con el operador `|` de DRF (`OperandHolder`), DRF no propaga el atributo `message` de las subclases y usa su mensaje por defecto en español; en los tests contemplé ese comportamiento de `OperandHolder` mientras que las subclases de `HasRole` verifican el mensaje exacto `"No tenés permiso para hacer esto."`.
-- **Pendiente:** que Franco revise y apruebe el PR de BK-02c para cerrar la épica con #72 (BK-02d: documentación de la API con Swagger / `drf-spectacular`).
-- **PR:** pendiente de apertura
+- **Pendiente:** que Franco apruebe y mergee el PR #75 para cerrar la épica con #72 (BK-02d: documentación de la API con Swagger / `drf-spectacular`).
+- **PR:** #75
 - **IA usada:** Antigravity — para implementar las clases de permisos de DRF, el endpoint `/api/auth/me/` y su batería de tests.
