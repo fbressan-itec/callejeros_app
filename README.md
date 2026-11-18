@@ -266,9 +266,11 @@ erDiagram
 | `UserRoleLog` | Historial de cambios de rol: rol anterior, rol nuevo y qué Admin lo cambió. |
 
 **Reglas de cuentas:**
-- **Contraseña:** mínimo **6 caracteres**. Si no se cumple, el mensaje de error lo dice explícitamente: "La contraseña debe tener al menos 6 caracteres". Se valida en el back y en el front.
+- **Contraseña:** mínimo **6 caracteres** (si no se cumple, el mensaje de error lo dice explícitamente: "La contraseña debe tener al menos 6 caracteres"); además, se rechazan las contraseñas muy comunes y las que son solo números. Se valida en el back y en el front.
 - `is_active` de `User` es el estado actual (Django no deja iniciar sesión a un usuario inactivo); la historia completa queda en `UserStatusLog`.
 - Solo el Admin cambia roles; cada cambio deja una fila en `UserRoleLog`.
+
+**Tablas de librerías:** `token_blacklist_outstandingtoken` (tokens de refresco emitidos) y `token_blacklist_blacklistedtoken` (tokens invalidados al cerrar sesión). Las crea `simplejwt`; no se modifican a mano.
 
 ### Adopción y colaborar
 

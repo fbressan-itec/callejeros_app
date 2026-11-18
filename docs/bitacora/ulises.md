@@ -36,11 +36,12 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Implementé la capa de servicios (`apps/users/services.py`), serializers (`apps/users/serializers.py`), vistas (`apps/users/views.py`) y rutas bajo `/api/auth/` (`register/`, `login/`, `refresh/` y `logout/`).
   - Validé que la contraseña tenga al menos 6 caracteres devolviendo el mensaje exacto `"La contraseña debe tener al menos 6 caracteres"`, y que el formato de errores coincida con `parseApiError` del cliente del frontend.
   - Escribí 11 tests en `apps/users/tests/test_auth_api.py` cubriendo registro, validación de contraseña corta, email duplicado insensible a mayúsculas, código de verificación maquetado, login con y sin `"Recordarme"` (30 días vs. 1 día), rechazo de usuarios inactivos, refresh e invalidación por logout.
+  - Apliqué los ajustes de la revisión del PR #74: centralicé las validaciones de negocio del registro (largo de contraseña, código de verificación y email único) exclusivamente en `apps/users/services.py`, agregué `DEFAULT_PERMISSION_CLASSES = ("rest_framework.permissions.IsAuthenticated",)` en `settings.py`, sumé tests para el rechazo de contraseñas comunes y numéricas (`"123456"` y `"perrito"`) y documenté en el README las validaciones adicionales de contraseña y las tablas de `token_blacklist` de `simplejwt`.
 - **Decisiones tomadas:**
   - Creé `StandardRefreshToken` y `RememberMeRefreshToken` heredando de `RefreshToken` para que la duración del refresh token se aplique al instante de emitir el token y quede registrada con la misma fecha de expiración en `OutstandingToken` de la blacklist.
   - Definí `PublicAuthAPIView` con `authentication_classes = ()` y `get_authenticate_header` devolviendo `'Bearer realm="api"'` para que los endpoints públicos de autenticación no fallen si el cliente envía un header `Authorization` vencido y, a la vez, respondan `401 Unauthorized` (en lugar de `403 Forbidden`) ante credenciales inválidas.
 - **Problemas y cómo los resolví:**
   - Al probar el login con contraseña incorrecta en una vista con `authentication_classes = ()`, DRF convertía el `AuthenticationFailed` (`401`) en `403 Forbidden` por no tener `WWW-Authenticate`; lo resolví implementando `get_authenticate_header` en la vista base pública `PublicAuthAPIView`.
-- **Pendiente:** abrir el PR hacia `develop` para revisión de Franco y continuar con #71 (BK-02c: permisos por rol reutilizables).
-- **PR:** pendiente de apertura
+- **Pendiente:** que Franco apruebe y mergee el PR #74 para continuar con #71 (BK-02c: permisos por rol reutilizables).
+- **PR:** #74
 - **IA usada:** Antigravity — para estructurar los servicios, serializers, vistas y tests de autenticación JWT siguiendo las reglas del proyecto.
