@@ -79,6 +79,43 @@ def test_register_with_short_password_returns_exact_error_message(
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("weak_password", "expected_errors"),
+    [
+        (
+            "123456",
+            [
+                "La contraseña tiene un valor demasiado común.",
+                "La contraseña está formada completamente por dígitos.",
+            ],
+        ),
+        (
+            "perrito",
+            ["La contraseña tiene un valor demasiado común."],
+        ),
+    ],
+)
+def test_register_rejects_common_and_numeric_passwords(
+    api_client: APIClient,
+    weak_password: str,
+    expected_errors: list[str],
+) -> None:
+    response = api_client.post(
+        REGISTER_URL,
+        {
+            "email": "debil@callejeros.ar",
+            "password": weak_password,
+            "first_name": "Mateo",
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["password"] == expected_errors
+    assert not User.objects.filter(email="debil@callejeros.ar").exists()
+
+
+@pytest.mark.django_db
 def test_register_rejects_duplicate_email_case_insensitive(api_client: APIClient) -> None:
     UserFactory(email="repetido@callejeros.ar")
 
