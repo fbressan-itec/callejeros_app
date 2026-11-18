@@ -87,6 +87,8 @@ uv run python manage.py seed          # carga un usuario de prueba por rol (usa 
 uv run python manage.py runserver     # levanta el back en http://localhost:8000
 ```
 
+**Datos de prueba (`seed`):** cada app guarda los suyos en su propio `seed.py` (por ejemplo, `apps/users/seed.py`), con una función `run()` que los crea o actualiza sin duplicar y devuelve un resumen. El comando `seed` encuentra el `seed.py` de cada app y los ejecuta en el orden de `INSTALLED_APPS`. Para sumar datos de una app nueva, creá su `seed.py`: no hace falta tocar el comando. Solo corre con `DJANGO_DEBUG=True`.
+
 #### Frontend
 
 **Requisito:** [Node.js](https://nodejs.org/) 22 o más nuevo (trae npm). Desde `frontend/`:
@@ -302,7 +304,7 @@ erDiagram
 - `is_active` de `User` es el estado actual (Django no deja iniciar sesión a un usuario inactivo); la historia completa queda en `UserStatusLog`.
 - Solo el Admin cambia roles; cada cambio deja una fila en `UserRoleLog`.
 
-**Tablas de librerías:** `token_blacklist_outstandingtoken` (tokens de refresco emitidos) y `token_blacklist_blacklistedtoken` (tokens invalidados al cerrar sesión). Las crea `simplejwt`; no se modifican a mano.
+**Tablas de librerías:** `token_blacklist_outstandingtoken` (tokens de refresco emitidos) y `token_blacklist_blacklistedtoken` (tokens invalidados al cerrar sesión). Las crea `simplejwt`; no se modifican a mano. Los tokens vencidos quedan guardados: para borrarlos, corré de vez en cuando `uv run python manage.py flushexpiredtokens`.
 
 ### Adopción y colaborar
 
