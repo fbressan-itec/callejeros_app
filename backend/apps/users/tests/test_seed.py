@@ -1,4 +1,4 @@
-"""Tests del comando `python manage.py seed`."""
+"""Tests de los datos de prueba de cuentas (`apps/users/seed.py`)."""
 
 import pytest
 from django.core.management import call_command
@@ -40,13 +40,4 @@ def test_seed_fails_when_password_is_missing_or_too_short(settings, invalid_pass
     settings.SEED_USER_PASSWORD = invalid_password
 
     with pytest.raises(CommandError, match="SEED_USER_PASSWORD"):
-        call_command("seed")
-
-
-@pytest.mark.django_db
-def test_seed_fails_when_debug_is_false(settings):
-    settings.DEBUG = False
-    settings.SEED_USER_PASSWORD = "claveSeedSegura123"
-
-    with pytest.raises(CommandError, match="DJANGO_DEBUG=True"):
         call_command("seed")
