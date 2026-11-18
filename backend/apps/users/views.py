@@ -1,7 +1,7 @@
 """Vistas de API para registro, login, refresco y cierre de sesión con JWT."""
 
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -76,3 +76,12 @@ class LogoutView(PublicAuthAPIView):
 
         logout_user(refresh_token=serializer.validated_data["refresh"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MeView(APIView):
+    """GET /api/auth/me/ — Devuelve los datos y el rol del usuario autenticado actual."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        return Response(UserAuthSerializer(request.user).data, status=status.HTTP_200_OK)
