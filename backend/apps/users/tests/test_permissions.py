@@ -13,7 +13,6 @@ from apps.users.permissions import (
     FORBIDDEN_ERROR_MESSAGE,
     HasRole,
     IsAdmin,
-    IsMember,
     IsShelterStaffOrAdmin,
     IsStaff,
     IsStaffOrAdmin,
@@ -39,7 +38,6 @@ def _build_protected_view(permission_class: type[BasePermission] | object) -> AP
 @pytest.mark.parametrize(
     ("permission_cls", "expected_allowed_roles"),
     [
-        (IsMember, {RoleCode.MEMBER}),
         (IsVerifiedShelter, {RoleCode.VERIFIED_SHELTER}),
         (IsStaff, {RoleCode.STAFF}),
         (IsAdmin, {RoleCode.ADMIN}),
@@ -87,7 +85,6 @@ def test_role_permissions_matrix_for_all_four_roles(
 @pytest.mark.parametrize(
     "permission_cls",
     [
-        IsMember,
         IsVerifiedShelter,
         IsStaff,
         IsAdmin,

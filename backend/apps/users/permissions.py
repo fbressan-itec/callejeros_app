@@ -24,12 +24,6 @@ class HasRole(BasePermission):
         return user.role.code in self.allowed_roles
 
 
-class IsMember(HasRole):
-    """Permite el acceso únicamente a usuarios con rol `member`."""
-
-    allowed_roles = (RoleCode.MEMBER,)
-
-
 class IsVerifiedShelter(HasRole):
     """Permite el acceso únicamente a usuarios con rol `verified_shelter`."""
 
