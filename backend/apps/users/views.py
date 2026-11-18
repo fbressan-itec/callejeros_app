@@ -16,11 +16,18 @@ from apps.users.serializers import (
 from apps.users.services import login_user, logout_user, register_user
 
 
-class RegisterView(APIView):
-    """POST /api/auth/register/ — Crea una cuenta nueva y devuelve sus tokens JWT."""
+class PublicAuthAPIView(APIView):
+    """Vista base para endpoints públicos de autenticación con encabezado Bearer."""
 
     permission_classes = (AllowAny,)
     authentication_classes = ()
+
+    def get_authenticate_header(self, request: Request) -> str:
+        return 'Bearer realm="api"'
+
+
+class RegisterView(PublicAuthAPIView):
+    """POST /api/auth/register/ — Crea una cuenta nueva y devuelve sus tokens JWT."""
 
     def post(self, request: Request) -> Response:
         serializer = RegisterSerializer(data=request.data)
@@ -36,11 +43,8 @@ class RegisterView(APIView):
         )
 
 
-class LoginView(APIView):
+class LoginView(PublicAuthAPIView):
     """POST /api/auth/login/ — Inicia sesión con email/contraseña y opción 'Recordarme'."""
-
-    permission_classes = (AllowAny,)
-    authentication_classes = ()
 
     def post(self, request: Request) -> Response:
         serializer = LoginSerializer(data=request.data)
@@ -63,11 +67,8 @@ class RefreshView(TokenRefreshView):
     authentication_classes = ()
 
 
-class LogoutView(APIView):
+class LogoutView(PublicAuthAPIView):
     """POST /api/auth/logout/ — Invalida el token de refresco (blacklist)."""
-
-    permission_classes = (AllowAny,)
-    authentication_classes = ()
 
     def post(self, request: Request) -> Response:
         serializer = LogoutSerializer(data=request.data)
