@@ -34,6 +34,14 @@ class UserAuthSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AuthTokenResponseSerializer(serializers.Serializer):
+    """Respuesta de autenticación con par de tokens JWT y datos del usuario."""
+
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
+    user = UserAuthSerializer(read_only=True)
+
+
 class RegisterSerializer(serializers.Serializer):
     """Valida el formato de entrada del registro; las reglas de negocio viven en `services.py`."""
 

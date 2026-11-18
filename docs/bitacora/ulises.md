@@ -63,3 +63,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco apruebe y mergee el PR #75 para cerrar la épica con #72 (BK-02d: documentación de la API con Swagger / `drf-spectacular`).
 - **PR:** #75
 - **IA usada:** Antigravity — para implementar las clases de permisos de DRF, el endpoint `/api/auth/me/` y su batería de tests.
+
+## 2026-11-18 — Documentación de la API con Swagger / drf-spectacular (BK-02d)
+
+- **Tarjeta:** #72 (BK-02d, sub-tarjeta de #5 BK-02)
+- **Rama:** feature/bk02-72-documentacion-api-swagger
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Instalé `drf-spectacular` con `uv`, configuré `DEFAULT_SCHEMA_CLASS` y `SPECTACULAR_SETTINGS` en `config/settings.py` y publiqué `/api/schema/` y `/api/docs/` en `config/urls.py`.
+  - Creé `AuthTokenResponseSerializer` y decoré con `@extend_schema` los 5 endpoints de `/api/auth/` (`register/`, `login/`, `refresh/`, `logout/` y `me/`) con resúmenes, descripciones de permisos, códigos de respuesta y ejemplos de payloads, verificando que `manage.py spectacular --validate --fail-on-warn` genere el esquema OpenAPI 3 con cero warnings.
+  - Escribí `apps/users/tests/test_swagger.py` probando la disponibilidad pública de `/api/schema/` y `/api/docs/` y la presencia de los 5 endpoints de autenticación en el esquema.
+  - Actualicé el `README.md` con los enlaces a Swagger UI y al esquema OpenAPI, la tabla de endpoints de `/api/auth/` y la tabla completa de variables de entorno incorporadas en `BK-02`.
+  - Apliqué el ajuste de revisión del PR #76: cambié el email del ejemplo de login en Swagger a `miembro@callejeros.ar` para que coincida con el usuario creado por `python manage.py seed`.
+- **Decisiones tomadas:**
+  - Configuré `SERVE_PERMISSIONS = ["rest_framework.permissions.AllowAny"]` y `SERVE_AUTHENTICATION = []` en `SPECTACULAR_SETTINGS` para que tanto `/api/schema/` como `/api/docs/` se puedan abrir desde el navegador sin exigir token previo, manteniendo `IsAuthenticated` como permiso por defecto para el resto de la API.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; `drf-spectacular` reconoció automáticamente la autenticación Bearer de `JWTAuthentication` y validó el esquema completo sin advertencias.
+- **Pendiente:** que Franco revise y apruebe el PR #76 para dar por completada toda la épica #5 (`[BK-02] Usuarios, roles y autenticación JWT`).
+- **PR:** #76
+- **IA usada:** Antigravity — para configurar `drf-spectacular`, documentar los endpoints con `@extend_schema`, actualizar el README y escribir los tests de Swagger.
