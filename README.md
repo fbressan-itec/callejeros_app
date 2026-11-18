@@ -18,7 +18,7 @@ Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Sup
 
 | Parte | Tecnologías |
 | :--- | :--- |
-| Backend | Python · Django · Django REST Framework · uv · pytest · ruff |
+| Backend | Python · Django · Django REST Framework · SimpleJWT · drf-spectacular (Swagger) · uv · pytest · ruff |
 | Base de datos | ORM de Django · SQLite |
 | Frontend | Next.js · React · TypeScript · Tailwind CSS 4 · Vitest · ESLint · Prettier |
 | DevOps | Docker · GitHub Actions |
@@ -139,6 +139,38 @@ Con Docker, desde la raíz: `docker compose run --rm backend uv run pytest` (y l
 Antes de subir cambios, corré los tres: si `ruff check` o `pytest` fallan en tu compu, también van a fallar en el PR.
 
 > ⚠️ **Si ya habías corrido `migrate` antes de BK-02** y al migrar aparece `InconsistentMigrationHistory` (porque `admin` se había migrado con el usuario por defecto de Django), borrá `backend/db.sqlite3` una única vez (y, si usás Docker, corré `docker compose down -v`) antes de volver a correr `migrate`.
+
+### Documentación de la API (Swagger) y variables de entorno
+
+Con el backend levantado (`http://localhost:8000`), la documentación interactiva generada con `drf-spectacular` está publicada en:
+
+- **Swagger UI (interactivo):** <http://localhost:8000/api/docs/>
+- **Esquema OpenAPI 3 (JSON / YAML):** <http://localhost:8000/api/schema/>
+
+#### Endpoints de autenticación (`/api/auth/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `POST /api/auth/register/` | Público (`AllowAny`) | Registra un usuario nuevo con rol `member`, crea sus preferencias y devuelve `{ access, refresh, user }`. |
+| `POST /api/auth/login/` | Público (`AllowAny`) | Inicia sesión por email y contraseña; con `remember_me=true` emite un `refresh` de 30 días (1 día si es `false`). |
+| `POST /api/auth/refresh/` | Público (`AllowAny`) | Emite un nuevo token `access` a partir de un `refresh` vigente. |
+| `POST /api/auth/logout/` | Público (`AllowAny`) | Invalida el token `refresh` agregándolo a la lista negra (`token_blacklist`). |
+| `GET /api/auth/me/` | Sesión activa (`IsAuthenticated`) | Devuelve los datos y el rol (`member`, `verified_shelter`, `staff`, `admin`) del usuario autenticado. |
+
+#### Variables de entorno (`.env` / `.env.example`)
+
+| Variable | Ejemplo / por defecto | Para qué sirve |
+| :--- | :--- | :--- |
+| `DJANGO_SECRET_KEY` | *(clave aleatoria larga)* | Firma sesiones y tokens JWT del backend. |
+| `DJANGO_DEBUG` | `True` | Activa el modo de desarrollo (y habilita el comando `python manage.py seed`). |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts autorizados para responder desde Django. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Orígenes que pueden consumir la API desde el navegador. |
+| `SEED_USER_PASSWORD` | `cambiame-clave-seed-123` | Contraseña de los usuarios de prueba que carga `python manage.py seed` (mínimo 6 caracteres). |
+| `JWT_ACCESS_LIFETIME_MINUTES` | `60` | Duración en minutos del token de acceso (`access`). |
+| `JWT_REFRESH_LIFETIME_DAYS` | `1` | Duración en días del token de refresco sin `"Recordarme"`. |
+| `JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS` | `30` | Duración en días del token de refresco con `"Recordarme"`. |
+| `MOCK_VERIFICATION_CODE` | `8596` | Código único de 4 dígitos para la verificación de teléfono y el recupero de contraseña maquetados. |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | URL base de la API que consume el cliente del frontend. |
 
 ## Base de datos
 
