@@ -99,7 +99,7 @@ class LoginView(PublicAuthAPIView):
             OpenApiExample(
                 "Login con Recordarme",
                 value={
-                    "email": "miembro@callejeros.local",
+                    "email": "miembro@callejeros.ar",
                     "password": "cambiame-clave-seed-123",
                     "remember_me": True,
                 },

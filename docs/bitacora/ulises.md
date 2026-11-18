@@ -74,6 +74,7 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Creé `AuthTokenResponseSerializer` y decoré con `@extend_schema` los 5 endpoints de `/api/auth/` (`register/`, `login/`, `refresh/`, `logout/` y `me/`) con resúmenes, descripciones de permisos, códigos de respuesta y ejemplos de payloads, verificando que `manage.py spectacular --validate --fail-on-warn` genere el esquema OpenAPI 3 con cero warnings.
   - Escribí `apps/users/tests/test_swagger.py` probando la disponibilidad pública de `/api/schema/` y `/api/docs/` y la presencia de los 5 endpoints de autenticación en el esquema.
   - Actualicé el `README.md` con los enlaces a Swagger UI y al esquema OpenAPI, la tabla de endpoints de `/api/auth/` y la tabla completa de variables de entorno incorporadas en `BK-02`.
+  - Apliqué el ajuste de revisión del PR #76: cambié el email del ejemplo de login en Swagger a `miembro@callejeros.ar` para que coincida con el usuario creado por `python manage.py seed`.
 - **Decisiones tomadas:**
   - Configuré `SERVE_PERMISSIONS = ["rest_framework.permissions.AllowAny"]` y `SERVE_AUTHENTICATION = []` en `SPECTACULAR_SETTINGS` para que tanto `/api/schema/` como `/api/docs/` se puedan abrir desde el navegador sin exigir token previo, manteniendo `IsAuthenticated` como permiso por defecto para el resto de la API.
 - **Problemas y cómo los resolví:**
