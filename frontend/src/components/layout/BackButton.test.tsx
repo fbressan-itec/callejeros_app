@@ -1,56 +1,54 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackButton } from "./BackButton";
+import { BackButton, useNavigationHistoryTracker } from "./BackButton";
 
 const backMock = vi.fn();
+let currentPathname = "/";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     back: backMock,
   }),
+  usePathname: () => currentPathname,
 }));
+
+function TestScene({ fallbackHref = "/" }: { fallbackHref?: string }) {
+  useNavigationHistoryTracker();
+  return <BackButton fallbackHref={fallbackHref} />;
+}
 
 describe("BackButton", () => {
   beforeEach(() => {
     backMock.mockClear();
+    sessionStorage.clear();
+    currentPathname = "/";
   });
 
-  it("tiene tamaño mínimo táctil de 44×44 px y vuelve hacia atrás si hay historial del mismo sitio", () => {
-    Object.defineProperty(document, "referrer", {
-      configurable: true,
-      value: `${window.location.origin}/adopciones`,
-    });
-    Object.defineProperty(window.history, "length", {
-      configurable: true,
-      value: 3,
-    });
+  it("tiene tamaño mínimo táctil de 44×44 px y vuelve a la pantalla anterior cuando se navegó entre rutas del sitio", () => {
+    currentPathname = "/adopciones";
+    const { rerender } = render(<TestScene fallbackHref="/" />);
 
-    render(<BackButton fallbackHref="/" />);
+    // Simula navegación cliente con Link hacia una ficha interna
+    currentPathname = "/mascotas/loki";
+    rerender(<TestScene fallbackHref="/adopciones" />);
 
     const link = screen.getByRole("link", {
       name: "Volver a la pantalla anterior",
     });
     expect(link.className).toContain("min-w-[44px]");
     expect(link.className).toContain("min-h-[44px]");
-    expect(link).toHaveAttribute("href", "/");
+    expect(link).toHaveAttribute("href", "/adopciones");
 
     fireEvent.click(link);
     expect(backMock).toHaveBeenCalledTimes(1);
   });
 
-  it("no usa history.back cuando se entró directo o se viene de login o registro", () => {
-    // Entrada directa sin referrer
-    Object.defineProperty(document, "referrer", {
-      configurable: true,
-      value: "",
-    });
-    Object.defineProperty(window.history, "length", {
-      configurable: true,
-      value: 1,
-    });
+  it("usa fallbackHref sin llamar a router.back cuando se entra directo por enlace o se viene de login/registro", () => {
+    // 1. Entrada directa sin ruta previa en la sesión
+    currentPathname = "/quienes-somos";
+    const { rerender } = render(<TestScene fallbackHref="/" />);
 
-    const { rerender } = render(<BackButton fallbackHref="/alertas" />);
     const link = screen.getByRole("link", {
       name: "Volver a la pantalla anterior",
     });
@@ -58,17 +56,14 @@ describe("BackButton", () => {
     fireEvent.click(link);
     expect(backMock).not.toHaveBeenCalled();
 
-    // Viniendo desde /login
-    Object.defineProperty(document, "referrer", {
-      configurable: true,
-      value: `${window.location.origin}/login`,
-    });
-    Object.defineProperty(window.history, "length", {
-      configurable: true,
-      value: 4,
-    });
+    // 2. Navegación desde /login hacia /alertas/reportar: no debe volver al formulario de login
+    sessionStorage.clear();
+    currentPathname = "/login";
+    rerender(<TestScene fallbackHref="/alertas" />);
 
-    rerender(<BackButton fallbackHref="/alertas" />);
+    currentPathname = "/alertas/reportar";
+    rerender(<TestScene fallbackHref="/alertas" />);
+
     fireEvent.click(link);
     expect(backMock).not.toHaveBeenCalled();
   });

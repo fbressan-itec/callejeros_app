@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { MENU_OPEN_EVENT } from "./AlertFab";
+import { useNavigationHistoryTracker } from "./BackButton";
 import { type MenuUser, MobileMenu } from "./MobileMenu";
 import { Navbar } from "./Navbar";
 
@@ -19,6 +20,8 @@ export function AppHeader({
 }: AppHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  useNavigationHistoryTracker();
 
   useEffect(() => {
     window.dispatchEvent(

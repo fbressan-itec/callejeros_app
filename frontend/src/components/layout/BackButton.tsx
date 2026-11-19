@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { MouseEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { type MouseEvent, useEffect } from "react";
+
+export const PREVIOUS_PATH_STORAGE_KEY = "callejeros_prev_path";
+export const CURRENT_PATH_STORAGE_KEY = "callejeros_current_path";
 
 export interface BackButtonProps {
   fallbackHref?: string;
@@ -11,7 +14,27 @@ export interface BackButtonProps {
 }
 
 function isAuthPath(pathname: string): boolean {
-  return /(^|\/)(login|registro)(\.html)?\/?$/.test(pathname);
+  return /(^|\/)(login|registro|recuperar)(\.html)?\/?$/.test(pathname);
+}
+
+export function recordRouteVisit(pathname: string): void {
+  try {
+    const current = sessionStorage.getItem(CURRENT_PATH_STORAGE_KEY);
+    if (current && current !== pathname) {
+      sessionStorage.setItem(PREVIOUS_PATH_STORAGE_KEY, current);
+    }
+    sessionStorage.setItem(CURRENT_PATH_STORAGE_KEY, pathname);
+  } catch {
+    // Sin sessionStorage disponible: se usa fallbackHref
+  }
+}
+
+export function useNavigationHistoryTracker(): void {
+  const pathname = usePathname() || "/";
+
+  useEffect(() => {
+    recordRouteVisit(pathname);
+  }, [pathname]);
 }
 
 export function BackButton({
@@ -20,23 +43,22 @@ export function BackButton({
   ariaLabel = "Volver a la pantalla anterior",
 }: BackButtonProps) {
   const router = useRouter();
+  const currentPathname = usePathname() || "/";
 
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {
-    let refUrl: URL | null = null;
+    let previousPath: string | null = null;
     try {
-      refUrl = document.referrer ? new URL(document.referrer) : null;
+      previousPath = sessionStorage.getItem(PREVIOUS_PATH_STORAGE_KEY);
     } catch {
-      refUrl = null;
+      previousPath = null;
     }
 
-    const sameSite =
-      refUrl !== null && refUrl.origin === window.location.origin;
     const fromAuth =
-      refUrl !== null &&
-      isAuthPath(refUrl.pathname) &&
-      !isAuthPath(window.location.pathname);
+      previousPath !== null &&
+      isAuthPath(previousPath) &&
+      !isAuthPath(currentPathname);
 
-    if (sameSite && !fromAuth && window.history.length > 1) {
+    if (previousPath && !fromAuth) {
       event.preventDefault();
       router.back();
     }
