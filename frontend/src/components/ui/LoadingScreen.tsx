@@ -10,7 +10,7 @@ export function LoadingScreen({
   const containerClasses =
     variant === "section"
       ? "flex min-h-40 flex-col items-center justify-center gap-3"
-      : "flex grow flex-col items-center justify-center gap-3";
+      : "flex min-h-[60vh] grow flex-col items-center justify-center gap-3";
 
   return (
     <div role="status" aria-live="polite" className={containerClasses}>
