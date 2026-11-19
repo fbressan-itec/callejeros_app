@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 
 export type UserRoleCode = "member" | "verified_shelter" | "staff" | "admin";
 
@@ -18,6 +18,118 @@ export interface MobileMenuProps {
   user?: MenuUser | null;
   onLogout?: () => void;
 }
+
+interface MenuLinkItem {
+  href: string;
+  label: string;
+  variant?: "default" | "alert";
+}
+
+interface MenuGroup {
+  title: string;
+  hoverColorClasses: string;
+  icon: ReactNode;
+  links: readonly MenuLinkItem[];
+}
+
+const MENU_GROUPS: readonly MenuGroup[] = [
+  {
+    title: "Adoptá un Callejero",
+    hoverColorClasses:
+      "hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500",
+    icon: (
+      <svg
+        className="h-5 w-5 text-orange-500"
+        fill="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+      </svg>
+    ),
+    links: [
+      { href: "/adopciones", label: "Adoptar" },
+      { href: "/adopciones#publicar", label: "Publicar" },
+      { href: "/alertas", label: "🚨 Alerta Callejero!", variant: "alert" },
+    ],
+  },
+  {
+    title: "Noticias",
+    hoverColorClasses:
+      "hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600",
+    icon: (
+      <svg
+        className="h-5 w-5 text-emerald-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+        />
+      </svg>
+    ),
+    links: [{ href: "/noticias", label: "Eventos Benéficos y Noticias" }],
+  },
+  {
+    title: "Información",
+    hoverColorClasses:
+      "hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600",
+    icon: (
+      <svg
+        className="h-5 w-5 text-blue-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+    links: [
+      { href: "/quienes-somos", label: "Quiénes Somos" },
+      { href: "/adopcion-responsable", label: "Adopción Responsable" },
+    ],
+  },
+  {
+    title: "Quiero Colaborar",
+    hoverColorClasses:
+      "hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600",
+    icon: (
+      <svg
+        className="h-5 w-5 text-rose-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+        />
+      </svg>
+    ),
+    links: [
+      { href: "/donaciones", label: "Donaciones" },
+      {
+        href: "/donaciones#apadrinar",
+        label: "Colaboraciones y Apadrinamientos",
+      },
+      { href: "/tienda", label: "Tienda" },
+    ],
+  },
+];
 
 function getNormalizedSectionPath(pathname: string): string {
   const cleanPath = pathname.split("#")[0]?.replace(/\/+$/, "") || "/";
@@ -61,6 +173,7 @@ export function MobileMenu({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onClose();
+        document.getElementById("menu-btn")?.focus();
       }
     }
 
@@ -70,18 +183,26 @@ export function MobileMenu({
     };
   }, [isOpen, onClose]);
 
-  function getPillClasses(href: string, hoverColorClasses: string): string {
-    const active = isLinkActive(href, pathname);
+  function getLinkClasses(
+    item: MenuLinkItem,
+    groupHoverClasses: string,
+  ): string {
+    const active = isLinkActive(item.href, pathname);
+    if (item.variant === "alert") {
+      return `inline-flex min-h-[44px] items-center rounded-full bg-red-600 px-4 text-sm font-bold text-white shadow-xs transition-colors hover:bg-red-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900 ${
+        active ? "ring-2 ring-orange-500" : ""
+      }`;
+    }
+
     const baseClasses =
       "inline-flex items-center min-h-[44px] px-4 rounded-full bg-slate-100 dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 transition-colors shadow-xs active:scale-95 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900";
     const activeClasses = active
       ? "ring-2 ring-orange-500 font-bold"
       : "font-medium";
 
-    return `${baseClasses} ${hoverColorClasses} ${activeClasses}`;
+    return `${baseClasses} ${groupHoverClasses} ${activeClasses}`;
   }
 
-  const alertActive = isLinkActive("/alertas", pathname);
   const userInitial = (user?.name?.trim().charAt(0) || "?").toUpperCase();
 
   return (
@@ -226,201 +347,31 @@ export function MobileMenu({
             )}
           </div>
 
-          {/* Grupo 1: Adoptá un Callejero */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 font-display text-base font-bold text-slate-900 dark:text-white">
-              <svg
-                className="h-5 w-5 text-orange-500"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-              </svg>
-              <h3>Adoptá un Callejero</h3>
+          {/* GRUPOS DE NAVEGACIÓN */}
+          {MENU_GROUPS.map((group) => (
+            <div key={group.title} className="space-y-2">
+              <div className="flex items-center gap-2.5 font-display text-base font-bold text-slate-900 dark:text-white">
+                {group.icon}
+                <h3>{group.title}</h3>
+              </div>
+              <div className="flex flex-wrap gap-2 pl-7">
+                {group.links.map((item) => {
+                  const active = isLinkActive(item.href, pathname);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      aria-current={active ? "page" : undefined}
+                      className={getLinkClasses(item, group.hoverColorClasses)}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2 pl-7">
-              <Link
-                href="/adopciones"
-                onClick={onClose}
-                aria-current={
-                  isLinkActive("/adopciones", pathname) ? "page" : undefined
-                }
-                className={getPillClasses(
-                  "/adopciones",
-                  "hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500",
-                )}
-              >
-                Adoptar
-              </Link>
-              <Link
-                href="/adopciones#publicar"
-                onClick={onClose}
-                className={getPillClasses(
-                  "/adopciones#publicar",
-                  "hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500",
-                )}
-              >
-                Publicar
-              </Link>
-              <Link
-                href="/alertas"
-                onClick={onClose}
-                aria-current={alertActive ? "page" : undefined}
-                className={`inline-flex min-h-[44px] items-center rounded-full bg-red-600 px-4 text-sm font-bold text-white shadow-xs transition-colors hover:bg-red-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900 ${
-                  alertActive ? "ring-2 ring-orange-500" : ""
-                }`}
-              >
-                🚨 Alerta Callejero!
-              </Link>
-            </div>
-          </div>
-
-          {/* Grupo 2: Noticias */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 font-display text-base font-bold text-slate-900 dark:text-white">
-              <svg
-                className="h-5 w-5 text-emerald-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
-                />
-              </svg>
-              <h3>Noticias</h3>
-            </div>
-            <div className="flex flex-wrap gap-2 pl-7">
-              <Link
-                href="/noticias"
-                onClick={onClose}
-                aria-current={
-                  isLinkActive("/noticias", pathname) ? "page" : undefined
-                }
-                className={getPillClasses(
-                  "/noticias",
-                  "hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600",
-                )}
-              >
-                Eventos Benéficos y Noticias
-              </Link>
-            </div>
-          </div>
-
-          {/* Grupo 3: Información */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 font-display text-base font-bold text-slate-900 dark:text-white">
-              <svg
-                className="h-5 w-5 text-blue-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <h3>Información</h3>
-            </div>
-            <div className="flex flex-wrap gap-2 pl-7">
-              <Link
-                href="/quienes-somos"
-                onClick={onClose}
-                aria-current={
-                  isLinkActive("/quienes-somos", pathname) ? "page" : undefined
-                }
-                className={getPillClasses(
-                  "/quienes-somos",
-                  "hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600",
-                )}
-              >
-                Quiénes Somos
-              </Link>
-              <Link
-                href="/adopcion-responsable"
-                onClick={onClose}
-                aria-current={
-                  isLinkActive("/adopcion-responsable", pathname)
-                    ? "page"
-                    : undefined
-                }
-                className={getPillClasses(
-                  "/adopcion-responsable",
-                  "hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600",
-                )}
-              >
-                Adopción Responsable
-              </Link>
-            </div>
-          </div>
-
-          {/* Grupo 4: Quiero Colaborar */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 font-display text-base font-bold text-slate-900 dark:text-white">
-              <svg
-                className="h-5 w-5 text-rose-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-              <h3>Quiero Colaborar</h3>
-            </div>
-            <div className="flex flex-wrap gap-2 pl-7">
-              <Link
-                href="/donaciones"
-                onClick={onClose}
-                aria-current={
-                  isLinkActive("/donaciones", pathname) ? "page" : undefined
-                }
-                className={getPillClasses(
-                  "/donaciones",
-                  "hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600",
-                )}
-              >
-                Donaciones
-              </Link>
-              <Link
-                href="/donaciones#apadrinar"
-                onClick={onClose}
-                className={getPillClasses(
-                  "/donaciones#apadrinar",
-                  "hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600",
-                )}
-              >
-                Colaboraciones y Apadrinamientos
-              </Link>
-              <Link
-                href="/tienda"
-                onClick={onClose}
-                aria-current={
-                  isLinkActive("/tienda", pathname) ? "page" : undefined
-                }
-                className={getPillClasses(
-                  "/tienda",
-                  "hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600",
-                )}
-              >
-                Tienda
-              </Link>
-            </div>
-          </div>
+          ))}
         </div>
       </nav>
     </>
