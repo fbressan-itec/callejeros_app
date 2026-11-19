@@ -1,30 +1,23 @@
 """Configuración del panel de administración de Django para `apps.pets`."""
 
 from django.contrib import admin
-from django.http import HttpRequest
 
-from apps.core.admin import ReadOnlyAdminMixin, SoftDeleteAdminMixin
+from apps.core.admin import NoDeleteAdminMixin, ReadOnlyAdminMixin, SoftDeleteAdminMixin
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
 
 
-class PetHealthInline(admin.StackedInline):
+class PetHealthInline(NoDeleteAdminMixin, admin.StackedInline):
     model = PetHealth
     can_delete = False
     extra = 0
 
-    def has_delete_permission(self, request: HttpRequest, obj: object = None) -> bool:
-        return False
 
-
-class PetPhotoInline(admin.TabularInline):
+class PetPhotoInline(NoDeleteAdminMixin, admin.TabularInline):
     model = PetPhoto
     can_delete = False
     extra = 0
     fields = ("position", "image", "is_active", "created_at")
     readonly_fields = ("created_at",)
-
-    def has_delete_permission(self, request: HttpRequest, obj: object = None) -> bool:
-        return False
 
 
 class PetStatusLogInline(ReadOnlyAdminMixin, admin.TabularInline):
@@ -71,18 +64,10 @@ class PetAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(PetHealth)
-class PetHealthAdmin(admin.ModelAdmin):
+class PetHealthAdmin(NoDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("pet", "general_status", "vaccines", "updated_at")
     search_fields = ("pet__name", "general_status")
     readonly_fields = ("created_at", "updated_at")
-
-    def has_delete_permission(self, request: HttpRequest, obj: object = None) -> bool:
-        return False
-
-    def get_actions(self, request: HttpRequest) -> dict:
-        actions = super().get_actions(request)
-        actions.pop("delete_selected", None)
-        return actions
 
 
 @admin.register(PetPhoto)
