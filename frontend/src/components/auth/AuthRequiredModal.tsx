@@ -89,7 +89,7 @@ export function AuthRequiredModal({
           <Link
             id="auth-required-login"
             href={`/login?redirect=${encodedRedirect}`}
-            className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-orange-500 py-3 font-display text-xs font-bold tracking-wider text-white uppercase shadow-md transition-all hover:bg-orange-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-orange-700 py-3 font-display text-xs font-bold tracking-wider text-white uppercase shadow-md transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
           >
             Iniciar Sesión
           </Link>
