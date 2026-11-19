@@ -55,11 +55,13 @@ describe("MobileMenu y AppHeader", () => {
       name: "Abrir menú de navegación",
     });
 
-    // Cierre con Escape
+    // Cierre con Escape y retorno del foco al botón hamburguesa
     fireEvent.click(menuButton);
     expect(menuButton).toHaveAttribute("aria-expanded", "true");
+    screen.getByRole("link", { name: "Adoptar" }).focus();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    expect(document.activeElement).toBe(menuButton);
 
     // Cierre al tocar el backdrop
     fireEvent.click(menuButton);

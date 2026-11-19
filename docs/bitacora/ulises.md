@@ -118,6 +118,6 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Encapsulé el estado de apertura del menú y del panel de notificaciones en `AppHeader` para mantener `RootLayout` como Server Component y preparar la integración del FAB en `FR-02c` (#81).
 - **Problemas y cómo los resolví:**
   - Sin inconvenientes.
-- **Pendiente:** que Franco revise y apruebe el PR de #80 para continuar con #81 (FR-02c: botón flotante de Alerta y componente Volver).
-- **PR:** pendiente de abrir
+- **Pendiente:** continuar con #81 (FR-02c: botón flotante de Alerta y componente Volver).
+- **PR:** #83
 - **IA usada:** Antigravity — para implementar `MobileMenu`, `AppHeader`, sus tests con Vitest y la comparación en el navegador contra el maquetado.
