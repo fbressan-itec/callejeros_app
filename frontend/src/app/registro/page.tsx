@@ -102,12 +102,12 @@ export function RegisterForm() {
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [remainingSeconds, setRemainingSeconds] =
     useState<number>(OTP_DURATION_SECONDS);
-  const otpRefs = [
-    useRef<HTMLInputElement | null>(null),
-    useRef<HTMLInputElement | null>(null),
-    useRef<HTMLInputElement | null>(null),
-    useRef<HTMLInputElement | null>(null),
-  ];
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([
+    null,
+    null,
+    null,
+    null,
+  ]);
 
   const {
     register: registerStep1,
@@ -149,7 +149,7 @@ export function RegisterForm() {
 
   useEffect(() => {
     if (step === "verify") {
-      otpRefs[0].current?.focus();
+      otpRefs.current[0]?.focus();
     }
   }, [step]);
 
@@ -274,7 +274,7 @@ export function RegisterForm() {
     });
 
     if (digit && index < 3) {
-      otpRefs[index + 1].current?.focus();
+      otpRefs.current[index + 1]?.focus();
     }
   }
 
@@ -283,7 +283,7 @@ export function RegisterForm() {
     event: KeyboardEvent<HTMLInputElement>,
   ) {
     if (event.key === "Backspace" && !otpDigits[index] && index > 0) {
-      otpRefs[index - 1].current?.focus();
+      otpRefs.current[index - 1]?.focus();
     }
   }
 
@@ -303,7 +303,7 @@ export function RegisterForm() {
     }
     setOtpDigits(next);
     const focusIndex = Math.min(digits.length, 4) - 1;
-    otpRefs[focusIndex]?.current?.focus();
+    otpRefs.current[focusIndex]?.focus();
   }
 
   function handleResendCode() {
@@ -313,7 +313,7 @@ export function RegisterForm() {
     setResendMessage(
       `Código SMS reenviado a tu teléfono: ${MOCK_VERIFICATION_CODE}`,
     );
-    otpRefs[0].current?.focus();
+    otpRefs.current[0]?.focus();
   }
 
   async function handleVerifyOtpSubmit(event: FormEvent<HTMLFormElement>) {
@@ -788,7 +788,9 @@ export function RegisterForm() {
                   {otpDigits.map((digit, index) => (
                     <input
                       key={index}
-                      ref={otpRefs[index]}
+                      ref={(el) => {
+                        otpRefs.current[index] = el;
+                      }}
                       type="text"
                       id={`otp-${index + 1}`}
                       maxLength={1}
