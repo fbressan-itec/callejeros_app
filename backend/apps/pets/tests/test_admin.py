@@ -1,7 +1,10 @@
 """Tests de permisos, solo lectura y baja lógica en el panel de admin de `apps.pets`."""
 
 import pytest
+from django.contrib import messages
 from django.contrib.admin.sites import AdminSite
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory
 
 from apps.pets.admin import (
@@ -23,6 +26,9 @@ pytestmark = pytest.mark.django_db
 def _build_admin_request():
     request = RequestFactory().get("/admin/")
     request.user = UserFactory(role__code=RoleCode.ADMIN)
+    SessionMiddleware(lambda req: None).process_request(request)
+    request.session.save()
+    request._messages = FallbackStorage(request)
     return request
 
 
@@ -65,6 +71,26 @@ def test_pet_photo_and_health_admin_block_physical_delete() -> None:
     photo_admin.deactivate_selected(request, PetPhoto.objects.filter(pk=photo.pk))
     photo.refresh_from_db()
     assert photo.is_active is False
+
+
+def test_pet_photo_admin_reactivate_warns_on_position_conflict() -> None:
+    request = _build_admin_request()
+    pet = PetFactory(name="Loki")
+    old_photo = PetPhotoFactory(pet=pet, position=0)
+    old_photo.deactivate()
+
+    # Se carga una nueva foto activa en la misma posición 0
+    PetPhotoFactory(pet=pet, position=0)
+
+    photo_admin = PetPhotoAdmin(PetPhoto, AdminSite())
+    photo_admin.reactivate_selected(request, PetPhoto.objects.filter(pk=old_photo.pk))
+
+    old_photo.refresh_from_db()
+    assert old_photo.is_active is False
+
+    stored_messages = list(messages.get_messages(request))
+    assert any(m.level == messages.WARNING for m in stored_messages)
+    assert any("Foto #0 de Loki" in m.message for m in stored_messages)
 
 
 def test_pet_status_log_admin_is_strictly_read_only() -> None:
