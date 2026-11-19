@@ -7,7 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useSyncExternalStore,
+  useState,
 } from "react";
 
 import {
@@ -35,67 +35,66 @@ export interface AuthContextValue {
   ) => StoredAuthSession;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-let cachedRawSnapshot: string | null = null;
-let cachedUserSnapshot: AuthUser | null = null;
-
-function subscribeToAuthStore(onStoreChange: () => void): () => void {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-  window.addEventListener(AUTH_CHANGE_EVENT, onStoreChange);
-  window.addEventListener("storage", onStoreChange);
-  return () => {
-    window.removeEventListener(AUTH_CHANGE_EVENT, onStoreChange);
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
-function getAuthUserSnapshot(): AuthUser | null {
-  const session = loadAuthSession();
-  const nextUser = session?.user ?? null;
-  const serialized = nextUser ? JSON.stringify(nextUser) : null;
-  if (serialized !== cachedRawSnapshot) {
-    cachedRawSnapshot = serialized;
-    cachedUserSnapshot = nextUser;
-  }
-  return cachedUserSnapshot;
-}
-
-function getServerAuthUserSnapshot(): AuthUser | null {
-  return null;
-}
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export interface AuthProviderProps {
   children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const user = useSyncExternalStore(
-    subscribeToAuthStore,
-    getAuthUserSnapshot,
-    getServerAuthUserSnapshot,
-  );
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const stored = loadAuthSession();
-    if (stored?.access) {
-      void fetchCurrentUser();
+    let isCancelled = false;
+
+    function hydrateAndSync() {
+      const stored = loadAuthSession();
+      if (isCancelled) return;
+      setUser(stored?.user ?? null);
+      setIsLoading(false);
+
+      if (stored?.access) {
+        void fetchCurrentUser().then((freshUser) => {
+          if (!isCancelled) {
+            setUser(freshUser);
+          }
+        });
+      }
     }
+
+    function handleAuthChange() {
+      const stored = loadAuthSession();
+      setUser(stored?.user ?? null);
+    }
+
+    queueMicrotask(hydrateAndSync);
+
+    window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+    return () => {
+      isCancelled = true;
+      window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
-    return loginWithCredentials(credentials);
+    const session = await loginWithCredentials(credentials);
+    setUser(session.user);
+    return session;
   }, []);
 
   const logout = useCallback(async () => {
     await logoutSession();
+    setUser(null);
   }, []);
 
   const setSession = useCallback(
     (response: AuthTokenResponse, rememberMe = false) => {
-      return saveAuthSession(response, rememberMe);
+      const session = saveAuthSession(response, rememberMe);
+      setUser(session.user);
+      return session;
     },
     [],
   );
@@ -104,12 +103,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       user,
       isAuthenticated: user !== null,
-      isLoading: false,
+      isLoading,
       login,
       logout,
       setSession,
     }),
-    [user, login, logout, setSession],
+    [user, isLoading, login, logout, setSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

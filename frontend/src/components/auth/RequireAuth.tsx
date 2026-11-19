@@ -5,6 +5,7 @@ import { type ReactNode, useEffect } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import type { UserRoleCode } from "@/components/layout/MobileMenu";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { getSafeRedirect } from "@/lib/auth/session";
 
 export interface RequireAuthProps {
@@ -18,7 +19,7 @@ export function RequireAuth({
   children,
   redirectTo,
   allowedRoles,
-  fallback = null,
+  fallback,
 }: RequireAuthProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const pathname = usePathname() || "/";
@@ -44,8 +45,12 @@ export function RequireAuth({
     }
   }, [isLoading, isAuthenticated, hasAllowedRole, router, safeRedirect]);
 
-  if (isLoading || !isAuthenticated || !hasAllowedRole) {
-    return <>{fallback}</>;
+  if (isLoading) {
+    return <>{fallback !== undefined ? fallback : <LoadingScreen />}</>;
+  }
+
+  if (!isAuthenticated || !hasAllowedRole) {
+    return <>{fallback ?? null}</>;
   }
 
   return <>{children}</>;
