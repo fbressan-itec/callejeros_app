@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AlertFab } from "./AlertFab";
 import { type MenuUser, MobileMenu } from "./MobileMenu";
 import { Navbar } from "./Navbar";
 
@@ -54,6 +55,7 @@ export function AppHeader({
         user={user}
         onLogout={onLogout}
       />
+      <AlertFab isHidden={isMenuOpen} />
     </>
   );
 }
