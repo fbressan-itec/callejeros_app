@@ -70,7 +70,7 @@ export function BackButton({
       data-back
       onClick={handleClick}
       aria-label={ariaLabel}
-      className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-slate-700 transition-all hover:bg-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:focus-visible:ring-offset-slate-900"
+      className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-slate-700 transition-all hover:bg-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 dark:focus-visible:ring-offset-slate-800"
     >
       <svg
         className="h-5 w-5"

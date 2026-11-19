@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { useAuth } from "@/components/auth/AuthProvider";
+import { toMenuUser } from "@/lib/auth/session";
+
 import { MENU_OPEN_EVENT } from "./AlertFab";
 import { useNavigationHistoryTracker } from "./BackButton";
 import { type MenuUser, MobileMenu } from "./MobileMenu";
@@ -14,10 +17,17 @@ export interface AppHeaderProps {
 }
 
 export function AppHeader({
-  user = null,
+  user,
   onLogout,
   unreadNotificationsCount = 0,
 }: AppHeaderProps) {
+  const { user: authUser, logout } = useAuth();
+  const resolvedUser = user !== undefined ? user : toMenuUser(authUser);
+  const resolvedLogout =
+    onLogout ??
+    (() => {
+      void logout();
+    });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -61,8 +71,8 @@ export function AppHeader({
       <MobileMenu
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
-        user={user}
-        onLogout={onLogout}
+        user={resolvedUser}
+        onLogout={resolvedLogout}
       />
     </>
   );

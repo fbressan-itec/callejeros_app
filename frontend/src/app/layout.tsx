@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import { AlertFab } from "@/components/layout/AlertFab";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
@@ -35,10 +36,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-800 antialiased transition-colors duration-200 selection:bg-orange-500 selection:text-white dark:bg-slate-900 dark:text-slate-100">
         <ThemeProvider>
-          <AppHeader />
-          {children}
-          <AlertFab />
-          <Footer />
+          <AuthProvider>
+            <AppHeader />
+            {children}
+            <AlertFab />
+            <Footer />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
