@@ -9,10 +9,11 @@ export const PASSWORD_MIN_LENGTH_MESSAGE =
 
 /**
  * Código único de 4 dígitos para verificación por SMS y recupero de contraseña (maquetados).
- * Definido en un solo lugar de la configuración del frontend.
+ * Sale de `MOCK_VERIFICATION_CODE` (.env de la raíz), expuesto al cliente desde `next.config.ts`.
  */
-export const MOCK_VERIFICATION_CODE =
-  process.env.NEXT_PUBLIC_MOCK_VERIFICATION_CODE || "8596";
+export function getMockVerificationCode(): string {
+  return process.env.NEXT_PUBLIC_MOCK_VERIFICATION_CODE ?? "";
+}
 
 export interface AuthRoleSummary {
   code: UserRoleCode;

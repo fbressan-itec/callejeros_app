@@ -171,9 +171,8 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `JWT_ACCESS_LIFETIME_MINUTES` | `60` | Duración en minutos del token de acceso (`access`). |
 | `JWT_REFRESH_LIFETIME_DAYS` | `1` | Duración en días del token de refresco sin `"Recordarme"`. |
 | `JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS` | `30` | Duración en días del token de refresco con `"Recordarme"`. |
-| `MOCK_VERIFICATION_CODE` | `8596` | Código único de 4 dígitos para la verificación de teléfono y el recupero de contraseña maquetados (validado en el backend). |
+| `MOCK_VERIFICATION_CODE` | `8596` | Código único de 4 dígitos para la verificación de teléfono y el recupero de contraseña maquetados. |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | URL base de la API que consume el cliente del frontend. |
-| `NEXT_PUBLIC_MOCK_VERIFICATION_CODE` | `8596` | Código único de 4 dígitos que muestra la interfaz en los flujos maquetados de verificación por SMS (`/registro`) y recupero de contraseña (`/recuperar`). |
 
 ## Base de datos
 

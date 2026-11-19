@@ -78,6 +78,7 @@ function fillStep1Form({
 describe("RegisterPage", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://api.test/api");
+    vi.stubEnv("NEXT_PUBLIC_MOCK_VERIFICATION_CODE", "8596");
     vi.stubGlobal("fetch", fetchMock);
     pushMock.mockReset();
     backMock.mockReset();

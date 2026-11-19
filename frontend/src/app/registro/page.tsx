@@ -18,8 +18,8 @@ import { z } from "zod";
 import { BackButton } from "@/components/layout/BackButton";
 import { ApiError } from "@/lib/api/client";
 import {
+  getMockVerificationCode,
   getSafeRedirect,
-  MOCK_VERIFICATION_CODE,
   PASSWORD_MIN_LENGTH,
   PASSWORD_MIN_LENGTH_MESSAGE,
   registerAccount,
@@ -311,7 +311,7 @@ export function RegisterForm() {
     setOtpError(null);
     setRemainingSeconds(OTP_DURATION_SECONDS);
     setResendMessage(
-      `Código SMS reenviado a tu teléfono: ${MOCK_VERIFICATION_CODE}`,
+      `Código SMS reenviado a tu teléfono: ${getMockVerificationCode()}`,
     );
     otpRefs.current[0]?.focus();
   }
@@ -815,7 +815,7 @@ export function RegisterForm() {
                 >
                   * Verificación por SMS maquetada: usá el código{" "}
                   <strong className="font-mono font-extrabold">
-                    {MOCK_VERIFICATION_CODE}
+                    {getMockVerificationCode()}
                   </strong>
                   .
                 </p>
