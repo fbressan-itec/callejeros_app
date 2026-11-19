@@ -462,7 +462,7 @@ erDiagram
 - **La solicitud copia** nombre, email y teléfono del solicitante: guarda lo que declaró en ese momento, aunque después cambie sus datos.
 - **Restricciones en la base:**
   - `Favorite`: un solo favorito por usuario y mascota (`user_id` + `pet_id` únicos);
-  - `PetPhoto`: posiciones únicas por mascota;
+  - `PetPhoto`: posiciones únicas por mascota entre las fotos activas (dar de baja lógica una foto libera su posición);
   - `AdoptionRequest`: `age` ≥ 18, `accepts_commitment` verdadero y una sola solicitud pendiente por persona y mascota;
   - `Sponsorship`: `monthly_amount` ≥ 500.
 

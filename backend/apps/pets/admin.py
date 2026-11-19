@@ -1,7 +1,9 @@
 """Configuración del panel de administración de Django para `apps.pets`."""
 
 from django.contrib import admin
+from django.http import HttpRequest
 
+from apps.core.admin import ReadOnlyAdminMixin, SoftDeleteAdminMixin
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
 
 
@@ -10,15 +12,22 @@ class PetHealthInline(admin.StackedInline):
     can_delete = False
     extra = 0
 
+    def has_delete_permission(self, request: HttpRequest, obj: object = None) -> bool:
+        return False
+
 
 class PetPhotoInline(admin.TabularInline):
     model = PetPhoto
+    can_delete = False
     extra = 0
     fields = ("position", "image", "is_active", "created_at")
     readonly_fields = ("created_at",)
 
+    def has_delete_permission(self, request: HttpRequest, obj: object = None) -> bool:
+        return False
 
-class PetStatusLogInline(admin.TabularInline):
+
+class PetStatusLogInline(ReadOnlyAdminMixin, admin.TabularInline):
     model = PetStatusLog
     extra = 0
     can_delete = False
@@ -32,7 +41,7 @@ class PetStatusLogInline(admin.TabularInline):
 
 
 @admin.register(Pet)
-class PetAdmin(admin.ModelAdmin):
+class PetAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = (
         "id",
         "name",
@@ -56,7 +65,8 @@ class PetAdmin(admin.ModelAdmin):
         "is_active",
     )
     search_fields = ("name", "description", "published_by__email")
-    readonly_fields = ("created_at", "updated_at")
+    # `status` e `is_urgent_validated` cambian solo por servicios (BK-06) para dejar historial.
+    readonly_fields = ("status", "is_urgent_validated", "created_at", "updated_at")
     inlines = (PetHealthInline, PetPhotoInline, PetStatusLogInline)
 
 
@@ -66,9 +76,17 @@ class PetHealthAdmin(admin.ModelAdmin):
     search_fields = ("pet__name", "general_status")
     readonly_fields = ("created_at", "updated_at")
 
+    def has_delete_permission(self, request: HttpRequest, obj: object = None) -> bool:
+        return False
+
+    def get_actions(self, request: HttpRequest) -> dict:
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
+
 
 @admin.register(PetPhoto)
-class PetPhotoAdmin(admin.ModelAdmin):
+class PetPhotoAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("pet", "position", "is_active", "created_at")
     list_filter = ("is_active",)
     search_fields = ("pet__name",)
@@ -76,7 +94,7 @@ class PetPhotoAdmin(admin.ModelAdmin):
 
 
 @admin.register(PetStatusLog)
-class PetStatusLogAdmin(admin.ModelAdmin):
+class PetStatusLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = (
         "pet",
         "previous_status",

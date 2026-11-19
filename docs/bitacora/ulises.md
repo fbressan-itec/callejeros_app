@@ -152,12 +152,14 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Instalé `Pillow` con `uv` y creé la app `apps.pets` con los 4 modelos del diagrama DB-01 en el README (`Pet`, `PetHealth`, `PetPhoto` y `PetStatusLog`), sus `TextChoices`, los índices de catálogo (`status + species + sex`) y edad (`estimated_birth_date`), y la restricción `UniqueConstraint` de `(pet, position)` sobre fotos activas.
   - Generé la migración `apps/pets/migrations/0001_initial.py` y registré los 4 modelos en `apps/pets/admin.py` con inlines en `PetAdmin`.
   - Creé `apps/pets/seed.py` (descubierto automáticamente por `python manage.py seed`) con las 6 mascotas del maquetado (`Loki` con 2 fotos, `Luna`, `Rocco`, `Misa`, `Bora`, `Thor`) y 3 ejemplos adicionales en estados `adopted`, `in_review` y `rejected`, con sus datos de salud, imágenes JPEG generadas con Pillow y registros de historial sin duplicar al re-ejecutar.
-  - Escribí las factories (`factory_boy`) y 6 tests con `pytest` en `apps/pets/tests/test_models.py` y `test_seed.py`.
+  - Escribí las factories (`factory_boy`) y 9 tests con `pytest` en `apps/pets/tests/test_models.py`, `test_seed.py` y `test_admin.py`.
+  - Apliqué las mejoras de la revisión del PR #88: creé `SoftDeleteAdminMixin` y `ReadOnlyAdminMixin` en `apps/core/admin.py` para impedir el borrado físico en el admin y habilitar acciones de baja lógica y reactivación; dejé `PetStatusLog` completamente de solo lectura y bloqueé la edición directa de `status` e `is_urgent_validated` en `PetAdmin`; documenté en el README que la unicidad de `PetPhoto` aplica a fotos activas; y agregué `backend/conftest.py` con un fixture `autouse` que aísla `MEDIA_ROOT` en `tmp_path` para todos los tests.
 - **Decisiones tomadas:**
   - Definí `UniqueConstraint(fields=["pet", "position"], condition=Q(is_active=True))` en `PetPhoto` para que la baja lógica de una foto permita cargar un reemplazo en la misma posición (`position=0`) sin violar unicidad.
   - En `apps/pets/seed.py` generé imágenes JPEG livianas en memoria con Pillow y verifiqué `PetPhoto` por `(pet, position)` para garantizar que `manage.py seed` funcione offline sin duplicar archivos en `media/`.
 - **Problemas y cómo los resolví:**
   - En `test_models.py`, capturar un `IntegrityError` dentro del bloque transaccional de `pytest-django` requiere envolver la operación esperada en `transaction.atomic()` para no dejar la transacción marcada para rollback antes de seguir con las aserciones; lo resolví con `with pytest.raises(IntegrityError), transaction.atomic():`.
-- **Pendiente:** que Franco revise y apruebe el PR de #85 (base de datos de `apps.pets`) para continuar con #86 (BK-03b: publicar, editar, adoptar y dar de baja mascotas con validación de fotos).
-- **PR:** pendiente de abrir
+  - `apps/users/tests/test_seed.py` ejecutaba el `seed` completo escribiendo imágenes en `backend/media/`; lo resolví globalmente con el fixture `autouse` `isolated_media_root` en `backend/conftest.py`.
+- **Pendiente:** que Franco revise los ajustes del PR #88 para continuar con #86 (BK-03b: publicar, editar, adoptar y dar de baja mascotas con validación de fotos).
+- **PR:** #88
 - **IA usada:** Antigravity — para dividir la épica, implementar los modelos según DB-01, migración, admin, seed y tests con `pytest`.
