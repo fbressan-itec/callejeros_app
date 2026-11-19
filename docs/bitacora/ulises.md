@@ -82,3 +82,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise y apruebe el PR #76 para dar por completada toda la épica #5 (`[BK-02] Usuarios, roles y autenticación JWT`).
 - **PR:** #76
 - **IA usada:** Antigravity — para configurar `drf-spectacular`, documentar los endpoints con `@extend_schema`, actualizar el README y escribir los tests de Swagger.
+
+## 2026-11-19 — Barra superior, modo oscuro con next-themes y pie de página (FR-02a)
+
+- **Tarjeta:** #79 (FR-02a, sub-tarjeta de #20 FR-02)
+- **Rama:** feature/fr02-79-barra-modo-oscuro-footer
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #20 (FR-02) en tres sub-tarjetas (#79 FR-02a, #80 FR-02b y #81 FR-02c) y las cargué en el tablero.
+  - Instalé `next-themes`, copié el logo oficial `logo_callejeros.jpg` a `frontend/public/images/` y creé `ThemeProvider` configurado con `attribute="class"`, preferencia del sistema por defecto y persistencia en `callejeros_theme`.
+  - Implementé `Navbar` con el logo, botón de notificaciones (con soporte para contador de no leídas), botón de modo claro/oscuro y botón de menú hamburguesa, todos con tamaño mínimo de 44×44 px, sus 5 estados interactivos y clases adaptadas a Tailwind 4.
+  - Implementé `Footer` institucional de 4 columnas igual a `contexto-ia/maquetado/index.html` y lo integré junto con `ThemeProvider` y `Navbar` en `src/app/layout.tsx`.
+  - Escribí los tests unitarios en `Navbar.test.tsx` y `Footer.test.tsx` con Vitest y Testing Library, y comparé en el navegador la barra y el footer contra `index.html` en 375 px y escritorio, en modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Unifiqué en `Footer` el pie de página institucional completo de 4 columnas de `index.html` para que todas las pantallas del layout compartan contacto, navegación y derechos como indica `02-diseno.md`.
+  - Preparé `Navbar` con props tipadas (`isMenuOpen`, `onMenuToggle`, `isNotificationsOpen`, `onNotificationsToggle`, `unreadNotificationsCount`) para conectar el drawer del menú hamburguesa en `FR-02b` (#80) y el panel de notificaciones en `FR-11` (#29) sin reescribir la barra.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; `suppressHydrationWarning` en `<html>` evita avisos de hidratación al aplicar la clase `.dark` de `next-themes` en el cliente.
+- **Pendiente:** que Franco revise y apruebe el PR de #79 para continuar con #80 (FR-02b: menú hamburguesa desplegable y navegación por sección).
+- **PR:** pendiente de abrir
+- **IA usada:** Antigravity — para dividir la épica, implementar `ThemeProvider`, `Navbar`, `Footer`, sus tests con Vitest y la comparación visual con el maquetado.
