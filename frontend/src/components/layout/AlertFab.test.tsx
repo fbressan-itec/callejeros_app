@@ -87,7 +87,12 @@ describe("AlertFab", () => {
 
   it("se oculta mientras el menú hamburguesa está abierto", () => {
     currentPathname = "/";
-    render(<AppHeader />);
+    render(
+      <>
+        <AppHeader />
+        <AlertFab />
+      </>,
+    );
 
     const fab = document.getElementById("fab-alerta");
     const menuButton = screen.getByRole("button", {

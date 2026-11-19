@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 export const FAB_HINT_STORAGE_KEY = "callejeros_fab_usado";
+export const MENU_OPEN_EVENT = "callejeros:menu-open";
 const FAB_IDLE_DELAY_MS = 2500;
 const FAB_HINT_FIRST_DELAY_MS = 2000;
 const FAB_HINT_VISIBLE_MS = 3000;
@@ -42,25 +43,41 @@ export interface AlertFabProps {
   isHidden?: boolean;
 }
 
-export function AlertFab({ isHidden = false }: AlertFabProps) {
+export function AlertFab({ isHidden }: AlertFabProps) {
   const pathname = usePathname() || "/";
   const config = getFabConfigForPath(pathname);
+  const hasFab = config !== null;
+  const hasHint = Boolean(config?.hasHint);
 
+  const [menuOpenFromEvent, setMenuOpenFromEvent] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isHintVisible, setIsHintVisible] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
+  const effectiveHidden = isHidden ?? menuOpenFromEvent;
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintActiveRef = useRef(false);
-  const isHiddenRef = useRef(isHidden);
+  const isHiddenRef = useRef(effectiveHidden);
 
   useEffect(() => {
-    isHiddenRef.current = isHidden;
-  }, [isHidden]);
+    isHiddenRef.current = effectiveHidden;
+  }, [effectiveHidden]);
+
+  useEffect(() => {
+    function handleMenuEvent(event: Event) {
+      const customEvent = event as CustomEvent<{ isOpen: boolean }>;
+      setMenuOpenFromEvent(Boolean(customEvent.detail?.isOpen));
+    }
+
+    window.addEventListener(MENU_OPEN_EVENT, handleMenuEvent);
+    return () => {
+      window.removeEventListener(MENU_OPEN_EVENT, handleMenuEvent);
+    };
+  }, []);
 
   // Transparencia en reposo (opacity-25) vs. actividad (scroll / touchstart -> opacity-90 por 2.5 s)
   useEffect(() => {
-    if (!config) return;
+    if (!hasFab) return;
 
     function triggerActivity() {
       if (hintActiveRef.current) return;
@@ -85,12 +102,12 @@ export function AlertFab({ isHidden = false }: AlertFabProps) {
       window.removeEventListener("scroll", triggerActivity);
       window.removeEventListener("touchstart", triggerActivity);
     };
-  }, [config, pathname]);
+  }, [hasFab, pathname]);
 
   // En celular, en Inicio y Alerta Callejeros, despliega el texto "Publicar Alerta Callejero"
   // durante 3 s (a los 2 s de entrar y después cada 30 s) hasta que el usuario lo toca una vez.
   useEffect(() => {
-    if (!config?.hasHint) return;
+    if (!hasHint) return;
 
     const resetTimer = setTimeout(() => {
       hintActiveRef.current = false;
@@ -154,7 +171,7 @@ export function AlertFab({ isHidden = false }: AlertFabProps) {
       }
       hintActiveRef.current = false;
     };
-  }, [config?.hasHint, pathname]);
+  }, [hasHint, pathname]);
 
   if (!config) {
     return null;
@@ -185,7 +202,7 @@ export function AlertFab({ isHidden = false }: AlertFabProps) {
       data-hint-active={isHintVisible ? "1" : undefined}
       aria-label={config.ariaLabel}
       className={`fixed right-6 bottom-6 z-40 flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-full border border-orange-500/40 px-4 py-3 text-xs font-bold text-white shadow-xl backdrop-blur-md transition-all duration-300 hover:bg-red-600 hover:opacity-100 focus:opacity-100 focus:outline-hidden focus-visible:ring-4 focus-visible:ring-red-400 active:scale-95 sm:text-sm ${stateOpacityClasses} ${
-        isHidden ? "hidden" : ""
+        effectiveHidden ? "hidden" : ""
       }`}
     >
       <svg

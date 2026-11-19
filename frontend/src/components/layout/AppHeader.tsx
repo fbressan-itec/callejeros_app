@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { AlertFab } from "./AlertFab";
+import { MENU_OPEN_EVENT } from "./AlertFab";
 import { type MenuUser, MobileMenu } from "./MobileMenu";
 import { Navbar } from "./Navbar";
 
@@ -19,6 +19,12 @@ export function AppHeader({
 }: AppHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(MENU_OPEN_EVENT, { detail: { isOpen: isMenuOpen } }),
+    );
+  }, [isMenuOpen]);
 
   function handleMenuToggle() {
     setIsMenuOpen((prev) => {
@@ -55,7 +61,6 @@ export function AppHeader({
         user={user}
         onLogout={onLogout}
       />
-      <AlertFab isHidden={isMenuOpen} />
     </>
   );
 }
