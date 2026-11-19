@@ -98,7 +98,7 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Unifiqué en `Footer` el pie de página institucional completo de 4 columnas de `index.html` para que todas las pantallas del layout compartan contacto, navegación y derechos como indica `02-diseno.md`.
   - Preparé `Navbar` con props tipadas (`isMenuOpen`, `onMenuToggle`, `isNotificationsOpen`, `onNotificationsToggle`, `unreadNotificationsCount`) para conectar el drawer del menú hamburguesa en `FR-02b` (#80) y el panel de notificaciones en `FR-11` (#29) sin reescribir la barra.
 - **Problemas y cómo los resolví:**
-  - Sin inconvenientes; `suppressHydrationWarning` en `<html>` evita avisos de hidratación al aplicar la clase `.dark` de `next-themes` en el cliente.
-- **Pendiente:** que Franco revise y apruebe el PR de #79 para continuar con #80 (FR-02b: menú hamburguesa desplegable y navegación por sección).
-- **PR:** pendiente de abrir
+  - Sin inconvenientes en el código; `suppressHydrationWarning` en `<html>` evita avisos de hidratación al aplicar la clase `.dark` de `next-themes` en el cliente. En la revisión del PR #82 Franco detectó que mi `npm 10.9.8` había quitado 48 campos `"libc"` de `package-lock.json`, por lo que actualicé mi entorno a `npm 11.21.3` para mantener el lockfile uniforme en el equipo.
+- **Pendiente:** continuar con #80 (FR-02b: menú hamburguesa desplegable y navegación por sección).
+- **PR:** #82
 - **IA usada:** Antigravity — para dividir la épica, implementar `ThemeProvider`, `Navbar`, `Footer`, sus tests con Vitest y la comparación visual con el maquetado.
