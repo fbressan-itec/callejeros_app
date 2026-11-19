@@ -25,3 +25,25 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #92 para continuar con #90 (FR-03b: pantalla de registro en 3 pasos con verificación SMS maquetada).
 - **PR:** #92
 - **IA usada:** Antigravity — para dividir la épica, implementar la gestión de sesión JWT, `LoadingScreen`, rutas protegidas, pantalla de login con validación `zod`, tests con Vitest y comparación visual en el navegador.
+
+## 2026-11-19 — Pantalla de registro en 3 pasos con verificación SMS maquetada (FR-03b)
+
+- **Tarjeta:** #90 (FR-03b, sub-tarjeta de #21 FR-03)
+- **Rama:** feature/fr03-90-registro-verificacion-sms
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Agregué `min-h-[60vh]` a la variante `page` de `LoadingScreen` (sugerencia de la revisión del PR #92 para evitar que el pie de página suba en celular mientras carga) y documenté `NEXT_PUBLIC_MOCK_VERIFICATION_CODE=8596` en `.env.example` y en la tabla de variables de entorno del `README.md`.
+  - Sumé `splitFullName` y `registerAccount` en `src/lib/auth/session.ts` para enviar `POST /api/auth/register/` (`email`, `password`, `first_name`, `last_name`, `phone` y `verification_code`) e iniciar sesión automáticamente al crear la cuenta.
+  - Implementé la pantalla `/registro` (`src/app/registro/page.tsx`) en 3 pasos (+ pantalla de confirmación `"¡Teléfono Verificado!"`) fiel a `contexto-ia/maquetado/registro.html` adaptada a Tailwind 4:
+    - Paso 1: nombre completo, correo electrónico, contraseña con botón mostrar/ocultar, casilla de términos, validación con `zod` (mínimo 6 caracteres con `"La contraseña debe tener al menos 6 caracteres"`), visualización debajo del campo de contraseña de los errores devueltos por el back (`"La contraseña tiene un valor demasiado común."` y `"La contraseña está formada completamente por dígitos."`), botones chicos y modernos de Google y Facebook maquetados (aclarados en comentario de código) y enlace a `/login`.
+    - Paso 2: número de teléfono con opción `"Verificar"` (avanza al Paso 3) y `"Más tarde"` (registra la cuenta directamente sin verificar el teléfono).
+    - Paso 3 (A6 maquetado): teléfono enmascarado, 4 casilleros OTP numéricos (con avance automático, retroceso con `Backspace` y pegado de 4 dígitos), mensaje en rojo con asterisco debajo del campo del código (`* Verificación por SMS maquetada: usá el código 8596.`), temporizador `(04:30)` y `"Reenviar código"`.
+  - Escribí 6 tests nuevos con Vitest y Testing Library en `registro/page.test.tsx` y `session.test.ts` (50 tests en total pasando), y comparé `/registro` en el navegador contra `registro.html` en 375 px y escritorio, en modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Si el backend devuelve errores de validación sobre los campos del Paso 1 (`email`, `password` o `first_name`) al intentar finalizar en el Paso 2 o 3, el formulario vuelve automáticamente al Paso 1 y muestra los mensajes del servidor debajo del campo correspondiente.
+  - Reemplacé los `placeholder` poco serios del maquetado (`"Alt Efe Cuatro"`, `"alt_f4@mail.com"`) por `"Juan Pérez"` y `"tu@correo.com"` y agregué los atributos `autoComplete` (`name`, `email`, `new-password`, `tel`, `one-time-code`) según `06-de-maqueta-a-produccion.md`.
+- **Problemas y cómo los resolví:**
+  - ESLint advirtió sobre el arreglo de refs de los 4 casilleros OTP en el `useEffect` de foco inicial; lo resolví guardando los 4 elementos en un único `useRef<Array<HTMLInputElement | null>>`.
+- **Pendiente:** abrir el PR de #90 hacia `develop` para revisión de Franco y continuar con #91 (FR-03c: pantalla de recuperar contraseña en 3 pasos maquetada).
+- **PR:** pendiente de abrir
+- **IA usada:** Antigravity — para implementar el servicio de registro, la pantalla `/registro` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
