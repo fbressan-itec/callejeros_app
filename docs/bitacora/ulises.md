@@ -121,3 +121,21 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** continuar con #81 (FR-02c: botón flotante de Alerta y componente Volver).
 - **PR:** #83
 - **IA usada:** Antigravity — para implementar `MobileMenu`, `AppHeader`, sus tests con Vitest y la comparación en el navegador contra el maquetado.
+
+## 2026-11-19 — Botón flotante de Alerta (FAB) y componente Volver (FR-02c)
+
+- **Tarjeta:** #81 (FR-02c, sub-tarjeta de #20 FR-02)
+- **Rama:** feature/fr02-81-fab-alerta-boton-volver
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Apliqué las dos mejoras sugeridas en la revisión del PR #83: refactoricé `MobileMenu` con la constante `MENU_GROUPS` recorrida con `.map()` (DRY) y restauré el foco al botón hamburguesa (`#menu-btn`) al cerrar el menú con la tecla `Escape`.
+  - Implementé `AlertFab` (`#fab-alerta`) con visibilidad y destino según la ruta (`/` y `/alertas` → `/alertas/reportar` con hint desplegable; `/adopciones` y `/quienes-somos` → `/alertas`), ocultamiento automático mientras el menú hamburguesa está abierto, transición de opacidad en reposo (`opacity-25`) frente a actividad (`scroll` / `touchstart` → `opacity-90` por 2,5 s) y despliegue en celular del texto `"Publicar Alerta Callejero"` durante 3 s (a los 2 s de entrar y cada 30 s) con fondo rojo sólido hasta que la persona lo toca por primera vez (`callejeros_fab_usado`), respetando `prefers-reduced-motion`.
+  - Implementé el componente reutilizable `BackButton` (`<` en celular y `< Volver` desde `sm:`, mínimo 44×44 px) que vuelve hacia atrás en el historial si se navegó dentro del mismo sitio sin venir de `/login` ni `/registro`, o navega al destino fijo `fallbackHref`.
+  - Escribí 6 tests en `AlertFab.test.tsx` y `BackButton.test.tsx` con Vitest y Testing Library, y comparé el FAB en el navegador contra `contexto-ia/maquetado/index.html` en 375 px y escritorio, en modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Ubiqué `<AlertFab />` en `RootLayout` entre `{children}` y `<Footer />` sincronizado con `AppHeader` mediante el evento `callejeros:menu-open` para que el orden de tabulación con teclado (`<header>` → `<main>` → `#fab-alerta` → `<footer>`) coincida exactamente con el del maquetado.
+- **Problemas y cómo los resolví:**
+  - En la primera comparación en el navegador detecté que el `useEffect` de inactividad de `AlertFab` dependía del objeto literal `config` creado en cada render y reiniciaba el temporizador de 2,5 s al cambiar `isActive`; lo corregí dependiendo del booleano primitivo `hasFab` y `pathname`.
+- **Pendiente:** que Franco revise y apruebe el PR de #81 para dar por completada toda la épica #20 (`[FR-02] Layout común`).
+- **PR:** pendiente de abrir
+- **IA usada:** Antigravity — para refactorizar `MobileMenu`, implementar `AlertFab` y `BackButton`, sus tests con Vitest y la comparación visual en el navegador.
