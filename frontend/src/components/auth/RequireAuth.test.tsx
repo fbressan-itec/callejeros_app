@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthProvider } from "@/components/auth/AuthProvider";
+import {
+  AuthContext,
+  type AuthContextValue,
+  AuthProvider,
+} from "@/components/auth/AuthProvider";
 import { AuthRequiredModal } from "@/components/auth/AuthRequiredModal";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { type AuthTokenResponse, saveAuthSession } from "@/lib/auth/session";
@@ -36,7 +40,7 @@ const MOCK_USER_SESSION: AuthTokenResponse = {
   },
 };
 
-describe("RequireAuth y AuthRequiredModal", () => {
+describe("RequireAuth, LoadingScreen y AuthRequiredModal", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://api.test/api");
     vi.stubGlobal("fetch", fetchMock);
@@ -54,7 +58,55 @@ describe("RequireAuth y AuthRequiredModal", () => {
     window.sessionStorage.clear();
   });
 
-  it("RequireAuth redirige a /login?redirect=<origen> cuando no hay sesión", async () => {
+  it("muestra LoadingScreen accesible mientras isLoading es true y no redirige al login", () => {
+    const loadingContextValue: AuthContextValue = {
+      user: null,
+      isAuthenticated: false,
+      isLoading: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+      setSession: vi.fn(),
+    };
+
+    render(
+      <AuthContext.Provider value={loadingContextValue}>
+        <RequireAuth>
+          <div>Contenido protegido</div>
+        </RequireAuth>
+      </AuthContext.Provider>,
+    );
+
+    const statusEl = screen.getByRole("status");
+    expect(statusEl).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByText("Cargando...")).toBeInTheDocument();
+    expect(screen.queryByText("Contenido protegido")).toBeNull();
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it("al recargar una página protegida con la sesión ya guardada espera la lectura del storage y no redirige al login", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(MOCK_USER_SESSION.user), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    saveAuthSession(MOCK_USER_SESSION, true);
+
+    render(
+      <AuthProvider>
+        <RequireAuth>
+          <div>Contenido protegido tras recargar</div>
+        </RequireAuth>
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByText("Contenido protegido tras recargar"),
+    ).toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it("RequireAuth redirige a /login?redirect=<origen> cuando termina de cargar y no hay sesión", async () => {
     render(
       <AuthProvider>
         <RequireAuth>
@@ -88,7 +140,7 @@ describe("RequireAuth y AuthRequiredModal", () => {
       </AuthProvider>,
     );
 
-    expect(screen.getByText("Contenido protegido")).toBeInTheDocument();
+    expect(await screen.findByText("Contenido protegido")).toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
 
     rerender(
