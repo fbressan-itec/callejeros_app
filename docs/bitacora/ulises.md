@@ -98,7 +98,26 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Unifiqué en `Footer` el pie de página institucional completo de 4 columnas de `index.html` para que todas las pantallas del layout compartan contacto, navegación y derechos como indica `02-diseno.md`.
   - Preparé `Navbar` con props tipadas (`isMenuOpen`, `onMenuToggle`, `isNotificationsOpen`, `onNotificationsToggle`, `unreadNotificationsCount`) para conectar el drawer del menú hamburguesa en `FR-02b` (#80) y el panel de notificaciones en `FR-11` (#29) sin reescribir la barra.
 - **Problemas y cómo los resolví:**
-  - Sin inconvenientes; `suppressHydrationWarning` en `<html>` evita avisos de hidratación al aplicar la clase `.dark` de `next-themes` en el cliente.
-- **Pendiente:** que Franco revise y apruebe el PR de #79 para continuar con #80 (FR-02b: menú hamburguesa desplegable y navegación por sección).
-- **PR:** pendiente de abrir
+  - Sin inconvenientes en el código; `suppressHydrationWarning` en `<html>` evita avisos de hidratación al aplicar la clase `.dark` de `next-themes` en el cliente. En la revisión del PR #82 Franco detectó que mi `npm 10.9.8` había quitado 48 campos `"libc"` de `package-lock.json`, por lo que actualicé mi entorno a `npm 11.21.3` para mantener el lockfile uniforme en el equipo.
+- **Pendiente:** continuar con #80 (FR-02b: menú hamburguesa desplegable y navegación por sección).
+- **PR:** #82
 - **IA usada:** Antigravity — para dividir la épica, implementar `ThemeProvider`, `Navbar`, `Footer`, sus tests con Vitest y la comparación visual con el maquetado.
+
+## 2026-11-19 — Menú hamburguesa desplegable y navegación por sección (FR-02b)
+
+- **Tarjeta:** #80 (FR-02b, sub-tarjeta de #20 FR-02)
+- **Rama:** feature/fr02-80-menu-hamburguesa-navegacion
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Actualicé mi entorno local a `npm 11.21.3` y regeneré `frontend/package-lock.json` para restaurar los campos `"libc"` señalados en la revisión del PR #82.
+  - Implementé `MobileMenu` con el drawer lateral (`#mobile-menu`), backdrop (`#menu-backdrop`), los 4 grupos de navegación del maquetado, resaltado automático de la sección activa según `usePathname()` (`aria-current="page"` y anillo naranja) y el bloque superior de estado de sesión (vista `"No Registrado..."` con enlaces a `/registro` y `/login`, y vista autenticada con insignia de rol `"🛡️ Staff Callejeros"` / `"✓ Refugio verificado"`, acceso a `/mi-cuenta` y botón `"Cerrar Sesión"`, sin el botón `"Alternar Modo Test"`).
+  - Creé `AppHeader` para coordinar la apertura y cierre entre `Navbar` y `MobileMenu`, aplicando `inert` cuando el menú está cerrado, bloqueo de scroll en `document.body` y cierre con tecla `Escape`, clic en el backdrop o selección de un enlace.
+  - Escribí 5 tests en `MobileMenu.test.tsx` con Vitest y Testing Library cubriendo apertura/cierre, teclado (`Escape`), `inert`, rutas activas (incluida la agrupación de detalle de noticia bajo `/noticias`) y estados con y sin sesión.
+  - Comparé el menú en el navegador contra `contexto-ia/maquetado/index.html` en 375 px y escritorio, en modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Encapsulé el estado de apertura del menú y del panel de notificaciones en `AppHeader` para mantener `RootLayout` como Server Component y preparar la integración del FAB en `FR-02c` (#81).
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes.
+- **Pendiente:** que Franco revise y apruebe el PR de #80 para continuar con #81 (FR-02c: botón flotante de Alerta y componente Volver).
+- **PR:** pendiente de abrir
+- **IA usada:** Antigravity — para implementar `MobileMenu`, `AppHeader`, sus tests con Vitest y la comparación en el navegador contra el maquetado.
