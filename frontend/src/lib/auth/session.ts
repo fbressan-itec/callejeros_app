@@ -9,10 +9,11 @@ export const PASSWORD_MIN_LENGTH_MESSAGE =
 
 /**
  * Código único de 4 dígitos para verificación por SMS y recupero de contraseña (maquetados).
- * Definido en un solo lugar de la configuración del frontend.
+ * Sale de `MOCK_VERIFICATION_CODE` (.env de la raíz), expuesto al cliente desde `next.config.ts`.
  */
-export const MOCK_VERIFICATION_CODE =
-  process.env.NEXT_PUBLIC_MOCK_VERIFICATION_CODE || "8596";
+export function getMockVerificationCode(): string {
+  return process.env.NEXT_PUBLIC_MOCK_VERIFICATION_CODE ?? "";
+}
 
 export interface AuthRoleSummary {
   code: UserRoleCode;
@@ -47,6 +48,14 @@ export interface LoginCredentials {
   email: string;
   password: string;
   rememberMe?: boolean;
+}
+
+export interface RegisterAccountInput {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  verificationCode?: string;
 }
 
 function notifyAuthChange(): void {
@@ -214,6 +223,42 @@ export function getSafeRedirect(rawRedirect?: string | null): string {
   }
 
   return trimmed;
+}
+
+/**
+ * Separa un nombre completo en `first_name` y `last_name` para `/api/auth/register/`.
+ */
+export function splitFullName(fullName: string): {
+  firstName: string;
+  lastName: string;
+} {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ");
+  return { firstName, lastName };
+}
+
+/**
+ * Registra una cuenta nueva en `/api/auth/register/` e inicia sesión automáticamente.
+ */
+export async function registerAccount({
+  fullName,
+  email,
+  password,
+  phone = "",
+  verificationCode = "",
+}: RegisterAccountInput): Promise<StoredAuthSession> {
+  const { firstName, lastName } = splitFullName(fullName);
+  const response = await api.post<AuthTokenResponse>("auth/register/", {
+    email: email.trim(),
+    password,
+    first_name: firstName,
+    last_name: lastName,
+    phone: phone.trim(),
+    verification_code: verificationCode.trim(),
+  });
+
+  return saveAuthSession(response, false);
 }
 
 /**

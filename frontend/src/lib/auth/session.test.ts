@@ -12,7 +12,9 @@ import {
   loadAuthSession,
   loginWithCredentials,
   logoutSession,
+  registerAccount,
   saveAuthSession,
+  splitFullName,
   toMenuUser,
 } from "./session";
 
@@ -169,6 +171,41 @@ describe("session y almacenamiento según Recordarme", () => {
 
     clearAuthSession();
     expect(loadAuthSession()).toBeNull();
+  });
+
+  it("splitFullName y registerAccount envían first_name, last_name, phone y verification_code a /api/auth/register/", async () => {
+    expect(splitFullName("Lucía María Gómez")).toEqual({
+      firstName: "Lucía",
+      lastName: "María Gómez",
+    });
+    expect(splitFullName("Lucía")).toEqual({
+      firstName: "Lucía",
+      lastName: "",
+    });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, MOCK_AUTH_RESPONSE));
+
+    await registerAccount({
+      fullName: "Lucía Gómez",
+      email: "miembro@callejeros.ar",
+      password: "ClaveSegura123!",
+      phone: "3584123456",
+      verificationCode: "8596",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/auth/register/");
+    expect(JSON.parse(init.body)).toEqual({
+      email: "miembro@callejeros.ar",
+      password: "ClaveSegura123!",
+      first_name: "Lucía",
+      last_name: "Gómez",
+      phone: "3584123456",
+      verification_code: "8596",
+    });
+    expect(
+      window.sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY),
+    ).not.toBeNull();
   });
 
   it("getSafeRedirect solo permite rutas internas que no sean de autenticación", () => {

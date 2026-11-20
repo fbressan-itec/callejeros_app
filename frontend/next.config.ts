@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   agentRules: false,
   cacheComponents: true,
   partialPrefetching: true,
+  env: {
+    NEXT_PUBLIC_MOCK_VERIFICATION_CODE: process.env.MOCK_VERIFICATION_CODE,
+  },
   turbopack: {
     rules: {
       "*.css": {
