@@ -4,15 +4,15 @@ Plataforma web comunitaria de **adopción responsable** y **alertas de animales 
 
 Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Superior en Desarrollo de Software, ITEC, 2026.
 
-> 🚧 **En desarrollo.** Este README se completa a medida que avanza el proyecto (arquitectura, base de datos, instalación, variables de entorno, tests y API).
+> 🚧 **En desarrollo · versión actual: v0.1** ([qué trae cada versión](#versiones)). Este README se completa a medida que avanza el proyecto (arquitectura, base de datos, instalación, variables de entorno, tests y API).
 
 ## Equipo
 
 | Integrante | GitHub |
 | :--- | :--- |
 | Franco Nicolás Bressan Nadal | [@fbressan-itec](https://github.com/fbressan-itec) |
-| Ulises Cabrera | — |
-| Leandro Odetto | — |
+| Ulises Cabrera | [@Ulicrack](https://github.com/Ulicrack) |
+| Leandro Odetto | [@leandroitec](https://github.com/leandroitec) |
 
 ## Tecnologías
 
@@ -88,6 +88,21 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 ```
 
 **Datos de prueba (`seed`):** cada app guarda los suyos en su propio `seed.py` (por ejemplo, `apps/users/seed.py`), con una función `run()` que los crea o actualiza sin duplicar y devuelve un resumen. El comando `seed` encuentra el `seed.py` de cada app y los ejecuta en el orden de `INSTALLED_APPS`. Para sumar datos de una app nueva, creá su `seed.py`: no hace falta tocar el comando. Solo corre con `DJANGO_DEBUG=True`.
+
+#### Cuentas de prueba
+
+`python manage.py seed` carga un usuario por rol. Todos usan la contraseña de `SEED_USER_PASSWORD` de tu `.env` (en el `.env.example`, `cambiame-clave-seed-123`) y tienen el teléfono ya verificado.
+
+| Rol | Email | Nombre | Qué permite probar |
+| :--- | :--- | :--- | :--- |
+| Miembro | `miembro@callejeros.ar` | Tomás Gómez | Usuario común, sin insignia. Publicó 4 mascotas del `seed`. |
+| Refugio verificado | `refugio@callejeros.ar` | Refugio Patitas Río Cuarto | Insignia "✓ Refugio verificado". Publicó 5 mascotas del `seed`. |
+| Staff | `staff@callejeros.ar` | Valentina López | Insignia "🛡️ Staff Callejeros". Revisa publicaciones y solicitudes (desde v0.2). |
+| Admin | `admin@callejeros.ar` | Admin Callejeros | Lo mismo que Staff, y además entra al panel de Django (<http://localhost:8000/admin/>). |
+
+**Código de verificación:** la verificación por SMS del registro y el código para recuperar la contraseña todavía están maquetados (no se envía ningún SMS ni correo). El código es siempre el de `MOCK_VERIFICATION_CODE` en tu `.env`: por defecto, **`8596`**.
+
+> ⚠️ Son datos de prueba: el `seed` solo corre con `DJANGO_DEBUG=True` y nunca se usa en producción.
 
 #### Frontend
 
@@ -577,6 +592,18 @@ Las claves primarias, las foráneas y los campos únicos ya tienen índice autom
 | `Comment` | `alert_id` + `created_at` · `news_id` + `created_at` | Comentarios de una alerta o noticia, en orden. |
 | `News` | `created_at` | Listado de noticias, las más recientes primero. |
 | `Notification` | `recipient_id` + `is_read` + `created_at` | Campanita: consulta cada 30–60 s las no leídas. |
+
+## Versiones
+
+Cada versión es un hito del tablero: al cerrarlo, `develop` pasa a `main` por PR y se marca con una etiqueta (`v0.1`, `v0.2`…). El detalle de cada una está en [Releases](https://github.com/fbressan-itec/callejeros_app/releases).
+
+| Versión | Estado | Qué trae |
+| :--- | :--- | :--- |
+| **v0.1** | ✅ Publicada | Proyecto base (Django, Next, Docker y CI), base de datos (DB-01), usuarios, roles y autenticación con JWT, layout general (barra, menú, modo oscuro, footer y botón de alerta), login, registro con verificación por SMS (maquetada) y recuperar contraseña. Adelanto de v0.2: modelos de mascotas y su `seed`. |
+| v0.2 | 🚧 En curso | Adopción: mascotas, insignias, favoritos, solicitudes y panel de Staff. |
+| v0.3 | Pendiente | Alertas, mapa, comentarios y notificaciones. |
+| v0.4 | Pendiente | Apadrinamiento, tienda, noticias, Mi Cuenta y panel de Admin. |
+| v1.0 | Pendiente | Cierre: README, Swagger, accesibilidad y deploy si hay tiempo. |
 
 ## Flujo de trabajo
 
