@@ -62,10 +62,11 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
     - Paso 3: campos `"Nueva contraseña"` y `"Repetí la contraseña"` con botón mostrar/ocultar (`👁️`), validados con `zod` (mínimo 6 caracteres con el mensaje exacto `"La contraseña debe tener al menos 6 caracteres"` y coincidencia de ambas contraseñas con `"Las contraseñas no coinciden."`).
     - Paso 4 (Éxito): confirmación `"¡Contraseña actualizada!"` con botón `"Iniciar sesión"` hacia `/login`.
   - Escribí 4 tests nuevos con Vitest y Testing Library en `recuperar/page.test.tsx` (54 tests en total pasando), y comparé `/recuperar` en el navegador contra `recuperar.html` en 375 px y escritorio, en modo claro y oscuro.
+  - Apliqué el ajuste de la revisión del PR #95: tanto en `/recuperar` como en `/registro` (#90), cuando se ingresa un código OTP incorrecto, ahora se vacían los 4 casilleros y el foco vuelve automáticamente al primero manteniendo visible el mensaje de error, con su test correspondiente en ambas pantallas (55 tests en total pasando).
 - **Decisiones tomadas:**
   - Reutilicé `getMockVerificationCode()` en el Paso 2 para que tanto el registro por SMS como la recuperación de contraseña lean el mismo código único (`8596`) expuesto desde `MOCK_VERIFICATION_CODE` en `next.config.ts`, como establece `03-reglas-de-negocio.md`.
 - **Problemas y cómo los resolví:**
   - En la primera comparación en el navegador detecté que al pasar de Email a Teléfono y volver a tocar la tarjeta de Email en el Paso 1, el `registerMethod("method")` de `react-hook-form` interfería con el atributo `checked` controlado del radio y no restauraba el campo a `"Correo electrónico"`; lo corregí sincronizando el radio con `checked={selectedMethod === ...}` y `setMethodValue("method", nextMethod)` en `handleMethodChange`, y sumé el caso bidireccional al test de Vitest.
-- **Pendiente:** abrir el PR de #91 hacia `develop` para revisión de Franco y cerrar la épica #21 (`[FR-03] Login, registro y recuperar contraseña`).
-- **PR:** pendiente de abrir
+- **Pendiente:** que Franco revise el ajuste del PR #95 y cierre la épica #21 (`[FR-03] Login, registro y recuperar contraseña`).
+- **PR:** #95
 - **IA usada:** Antigravity — para implementar la pantalla `/recuperar` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
