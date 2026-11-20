@@ -89,6 +89,21 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 
 **Datos de prueba (`seed`):** cada app guarda los suyos en su propio `seed.py` (por ejemplo, `apps/users/seed.py`), con una función `run()` que los crea o actualiza sin duplicar y devuelve un resumen. El comando `seed` encuentra el `seed.py` de cada app y los ejecuta en el orden de `INSTALLED_APPS`. Para sumar datos de una app nueva, creá su `seed.py`: no hace falta tocar el comando. Solo corre con `DJANGO_DEBUG=True`.
 
+#### Cuentas de prueba
+
+`python manage.py seed` carga un usuario por rol. Todos usan la contraseña de `SEED_USER_PASSWORD` de tu `.env` (en el `.env.example`, `cambiame-clave-seed-123`) y tienen el teléfono ya verificado.
+
+| Rol | Email | Nombre | Qué permite probar |
+| :--- | :--- | :--- | :--- |
+| Miembro | `miembro@callejeros.ar` | Tomás Gómez | Usuario común, sin insignia. Publicó 4 mascotas del `seed`. |
+| Refugio verificado | `refugio@callejeros.ar` | Refugio Patitas Río Cuarto | Insignia "✓ Refugio verificado". Publicó 5 mascotas del `seed`. |
+| Staff | `staff@callejeros.ar` | Valentina López | Insignia "🛡️ Staff Callejeros". Revisa publicaciones y solicitudes (desde v0.2). |
+| Admin | `admin@callejeros.ar` | Admin Callejeros | Lo mismo que Staff, y además entra al panel de Django (<http://localhost:8000/admin/>). |
+
+**Código de verificación:** la verificación por SMS del registro y el código para recuperar la contraseña todavía están maquetados (no se envía ningún SMS ni correo). El código es siempre el de `MOCK_VERIFICATION_CODE` en tu `.env`: por defecto, **`8596`**.
+
+> ⚠️ Son datos de prueba: el `seed` solo corre con `DJANGO_DEBUG=True` y nunca se usa en producción.
+
 #### Frontend
 
 **Requisito:** [Node.js](https://nodejs.org/) 22 o más nuevo (trae npm). Desde `frontend/`:
