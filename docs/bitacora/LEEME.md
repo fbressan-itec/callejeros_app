@@ -20,7 +20,7 @@ Cada integrante registra su avance en su propio archivo. Al final del proyecto s
 ## AAAA-MM-DD — <título corto>
 
 - **Tarjeta:** #<n°> (<código de orden de trabajo, ej. BK-03>)
-- **Rama:** feature/<n°>-<nombre>
+- **Rama:** feature/<épica>-<n°>-<nombre>
 - **Área:** back / front / db / test / devops / docs
 - **Qué hice:**
   - ...

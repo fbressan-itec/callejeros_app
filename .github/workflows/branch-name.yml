@@ -1,0 +1,39 @@
+# Revisa que el nombre de la rama del PR siga la convención del equipo.
+# Si no cumple, el PR queda en rojo y no se puede mergear.
+#   feature/<épica>-<n°>-<descripción>   ej.: feature/bk02-68-modelo-usuario
+#   bugfix/<épica>-<n°>-<descripción>    ej.: bugfix/fr06-90-filtro-edad
+#   hotfix/<descripción>                 ej.: hotfix/login-caido
+#   develop                              (solo en los PR de develop hacia main, al cerrar un hito)
+name: Ramas
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-name:
+    name: nombre de rama
+    runs-on: ubuntu-latest
+    steps:
+      - name: Revisar el nombre de la rama
+        env:
+          BRANCH: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          feature='^(feature|bugfix)/[a-z]{2}[0-9]{2}-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+          hotfix='^hotfix/[a-z0-9]+(-[a-z0-9]+)*$'
+
+          if [[ "$BRANCH" =~ $feature || "$BRANCH" =~ $hotfix ]]; then
+            echo "✅ La rama \"$BRANCH\" sigue la convención."
+          elif [[ "$BRANCH" == "develop" && "$BASE" == "main" ]]; then
+            echo "✅ PR de develop hacia main (cierre de hito)."
+          else
+            echo "::error::La rama \"$BRANCH\" no sigue la convención."
+            echo "Usá feature/<épica>-<n°>-<descripción> o bugfix/<épica>-<n°>-<descripción>"
+            echo "(ej.: feature/bk02-68-modelo-usuario), en minúsculas, con guiones y sin acentos."
+            echo "Para corregirla: git branch -m <nombre-nuevo>, subí la rama nueva y abrí el PR de nuevo."
+            exit 1
+          fi
