@@ -19,6 +19,7 @@ from apps.pets.services import (
     SPECIAL_CARE_TOO_LONG_ERROR,
     AgeGroup,
     calculate_age_group,
+    is_pet_urgent,
 )
 from apps.users.models import User
 from apps.users.serializers import RoleSummarySerializer
@@ -97,12 +98,13 @@ class PetPhotoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class PetManageSerializer(serializers.ModelSerializer):
-    """Respuesta de gestión de mascota (no expone `contact_phone`)."""
+class PetPublicSerializer(serializers.ModelSerializer):
+    """Respuesta pública de catálogo y ficha (expone solo `is_urgent`, nunca `contact_phone`)."""
 
     published_by = PetPublisherSerializer(read_only=True)
     health = PetHealthSerializer(read_only=True)
     age_group = serializers.SerializerMethodField()
+    is_urgent = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
 
     class Meta:
@@ -118,8 +120,7 @@ class PetManageSerializer(serializers.ModelSerializer):
             "good_with_children",
             "good_with_animals",
             "is_neutered",
-            "is_urgent_requested",
-            "is_urgent_validated",
+            "is_urgent",
             "special_care",
             "description",
             "notes",
@@ -136,12 +137,66 @@ class PetManageSerializer(serializers.ModelSerializer):
     def get_age_group(self, obj: Pet) -> str:
         return calculate_age_group(obj.estimated_birth_date)
 
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_urgent(self, obj: Pet) -> bool:
+        return is_pet_urgent(obj)
+
     @extend_schema_field(PetPhotoSerializer(many=True))
     def get_photos(self, obj: Pet) -> list[dict]:
         active_photos = getattr(obj, "prefetched_active_photos", None)
         if active_photos is None:
             active_photos = obj.photos.active().order_by("position", "id")
         return PetPhotoSerializer(active_photos, many=True, context=self.context).data
+
+
+class PetManageSerializer(PetPublicSerializer):
+    """Respuesta de gestión para autor, Staff o Admin (incluye `contact_phone` y flags internos)."""
+
+    class Meta(PetPublicSerializer.Meta):
+        fields = (
+            "id",
+            "name",
+            "species",
+            "sex",
+            "estimated_birth_date",
+            "age_group",
+            "is_sociable",
+            "good_with_children",
+            "good_with_animals",
+            "is_neutered",
+            "is_urgent",
+            "is_urgent_requested",
+            "is_urgent_validated",
+            "special_care",
+            "description",
+            "notes",
+            "contact_phone",
+            "status",
+            "published_by",
+            "health",
+            "photos",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class PaginatedPetPublicSerializer(serializers.Serializer):
+    """Respuesta paginada del catálogo público de mascotas (12 resultados por página)."""
+
+    count = serializers.IntegerField(read_only=True)
+    next = serializers.URLField(allow_null=True, read_only=True)
+    previous = serializers.URLField(allow_null=True, read_only=True)
+    results = PetPublicSerializer(many=True, read_only=True)
+
+
+class PaginatedPetManageSerializer(serializers.Serializer):
+    """Respuesta paginada del listado propio de mascotas (12 resultados por página)."""
+
+    count = serializers.IntegerField(read_only=True)
+    next = serializers.URLField(allow_null=True, read_only=True)
+    previous = serializers.URLField(allow_null=True, read_only=True)
+    results = PetManageSerializer(many=True, read_only=True)
 
 
 class PetCreateSerializer(serializers.Serializer):

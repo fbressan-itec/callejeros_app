@@ -10,15 +10,19 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.pagination import StandardPageNumberPagination
 from apps.pets.filters import PetCatalogFilter
 from apps.pets.models import Pet, PetPhoto
-from apps.pets.permissions import IsPetOwnerOrStaffOrAdmin
+from apps.pets.permissions import IsPetOwnerOrStaffOrAdmin, can_manage_pet
 from apps.pets.serializers import (
+    PaginatedPetManageSerializer,
+    PaginatedPetPublicSerializer,
     PetAdoptSerializer,
     PetCreateSerializer,
     PetManageSerializer,
     PetPhotoSerializer,
     PetPhotoUploadSerializer,
+    PetPublicSerializer,
     PetUpdateSerializer,
 )
 from apps.pets.services import (
@@ -56,15 +60,23 @@ class PetListCreateView(APIView):
         return [IsAuthenticated()]
 
     @extend_schema(
+        operation_id="pets_list",
         tags=[PETS_TAG],
         summary="Explorar catálogo público de mascotas",
         description=(
-            "Devuelve por defecto las mascotas activas en estado `published` (sin exponer "
-            "`contact_phone`). Con `adopted=true` devuelve únicamente mascotas en estado "
-            "`adopted` (nunca se mezclan disponibles con adoptadas). "
+            "Devuelve paginado de a 12 (`count`, `next`, `previous`, `results`) las mascotas "
+            "activas en estado `published` por defecto, con `is_urgent` calculado (validado "
+            "por Staff y no adoptada) y sin exponer `contact_phone` ni campos internos de "
+            "revisión. Con `adopted=true` devuelve únicamente mascotas en estado `adopted` "
+            "(nunca se mezclan disponibles con adoptadas). "
             "Permiso: público (`AllowAny`)."
         ),
         parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                description="Número de página (12 resultados por página).",
+            ),
             OpenApiParameter(
                 name="species",
                 type=OpenApiTypes.STR,
@@ -124,8 +136,8 @@ class PetListCreateView(APIView):
             ),
         ],
         responses={
-            200: PetManageSerializer(many=True),
-            400: OpenApiResponse(description="Parámetro de filtro inválido."),
+            200: PaginatedPetPublicSerializer,
+            400: OpenApiResponse(description="Parámetro de filtro o página inválido."),
         },
     )
     def get(self, request: Request) -> Response:
@@ -136,12 +148,14 @@ class PetListCreateView(APIView):
         if not filterset.is_valid():
             raise ValidationError(filterset.errors)
 
-        serializer = PetManageSerializer(
-            filterset.qs,
+        paginator = StandardPageNumberPagination()
+        page = paginator.paginate_queryset(filterset.qs, request, view=self)
+        serializer = PetPublicSerializer(
+            page,
             many=True,
             context={"request": request},
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return paginator.get_paginated_response(serializer.data)
 
     @extend_schema(
         tags=[PETS_TAG],
@@ -181,19 +195,27 @@ class PetListCreateView(APIView):
 
 
 class MyPetListView(APIView):
-    """GET /api/pets/mine/ — Lista las mascotas activas del usuario autenticado."""
+    """GET /api/pets/mine/ — Lista paginada de mascotas activas del usuario autenticado."""
 
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
+        operation_id="pets_mine_list",
         tags=[PETS_TAG],
         summary="Listar mis publicaciones de mascotas",
         description=(
-            "Devuelve todas las mascotas activas publicadas por el usuario autenticado en "
-            "cualquier estado (`in_review`, `published`, `rejected` o `adopted`). "
+            "Devuelve paginadas de a 12 (`count`, `next`, `previous`, `results`) todas las "
+            "mascotas activas publicadas por el usuario autenticado en cualquier estado "
+            "(`in_review`, `published`, `rejected` o `adopted`), incluyendo `contact_phone` "
+            "y flags de urgencia para gestión/edición. "
             "Permiso: usuario autenticado (`IsAuthenticated`)."
         ),
         parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                description="Número de página (12 resultados por página).",
+            ),
             OpenApiParameter(
                 name="status",
                 type=OpenApiTypes.STR,
@@ -202,7 +224,7 @@ class MyPetListView(APIView):
             ),
         ],
         responses={
-            200: PetManageSerializer(many=True),
+            200: PaginatedPetManageSerializer,
             400: OpenApiResponse(description="Estado de filtro inválido."),
             401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
         },
@@ -210,8 +232,10 @@ class MyPetListView(APIView):
     def get(self, request: Request) -> Response:
         status_filter = request.query_params.get("status")
         pets = get_my_pets_queryset(actor=request.user, status_filter=status_filter)
-        serializer = PetManageSerializer(pets, many=True, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = StandardPageNumberPagination()
+        page = paginator.paginate_queryset(pets, request, view=self)
+        serializer = PetManageSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 class PetDetailView(APIView):
@@ -226,21 +250,25 @@ class PetDetailView(APIView):
         tags=[PETS_TAG],
         summary="Consultar ficha completa de una mascota",
         description=(
-            "Devuelve la ficha completa sin exponer `contact_phone`. Es pública para "
-            "mascotas en estado `published` y `adopted`; para `in_review` y `rejected`, "
-            "solo es visible para el autor, `staff` o `admin` (para terceros responde `404`). "
-            "Permiso: público para `published`/`adopted` (`AllowAny`); autor o Staff/Admin "
-            "en otros estados."
+            "Devuelve la ficha completa. Para el público devuelve `is_urgent` calculado y "
+            "nunca expone `contact_phone` ni los flags internos `is_urgent_requested` / "
+            "`is_urgent_validated`. Cuando consulta el autor, `staff` o `admin`, incluye "
+            "además `contact_phone` y esos flags internos para gestión/edición. "
+            "Es pública para `published` y `adopted`; para `in_review` y `rejected`, solo "
+            "es visible para autor, `staff` o `admin` (`404` para terceros)."
         ),
         responses={
-            200: PetManageSerializer,
+            200: PetPublicSerializer,
             404: OpenApiResponse(description="Mascota inexistente, inactiva o no visible."),
         },
     )
     def get(self, request: Request, pet_id: int) -> Response:
         pet = get_visible_pet_or_404(pet_id=pet_id, actor=request.user)
+        serializer_cls = (
+            PetManageSerializer if can_manage_pet(request.user, pet) else PetPublicSerializer
+        )
         return Response(
-            PetManageSerializer(pet, context={"request": request}).data,
+            serializer_cls(pet, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
 

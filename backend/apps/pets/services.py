@@ -98,6 +98,13 @@ def calculate_age_group(estimated_birth_date: date, *, today: date | None = None
     return AgeGroup.SENIOR.value
 
 
+def is_pet_urgent(pet: Pet) -> bool:
+    """Devuelve True solo si la urgencia fue pedida, validada por Staff y no está adoptada."""
+    return bool(
+        pet.is_urgent_requested and pet.is_urgent_validated and pet.status != Pet.Status.ADOPTED
+    )
+
+
 def _base_active_pets_queryset() -> QuerySet[Pet]:
     """QuerySet base de mascotas activas con autor, rol, salud y fotos activas precargadas."""
     active_photos_prefetch = Prefetch(
