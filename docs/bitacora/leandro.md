@@ -70,3 +70,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise el ajuste del PR #95 y cierre la épica #21 (`[FR-03] Login, registro y recuperar contraseña`).
 - **PR:** #95
 - **IA usada:** Antigravity — para implementar la pantalla `/recuperar` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
+
+## 2026-11-20 — Servicio de cálculo de insignias, edad legible y tests unitarios (BK-04a)
+
+- **Tarjeta:** #100 (BK-04a, sub-tarjeta de #7 BK-04)
+- **Rama:** feature/bk04-100-servicio-insignias
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Dividí la épica #7 (BK-04) en dos sub-tarjetas (#100 BK-04a y #101 BK-04b), las colgué como sub-issues de #7 en el tablero y las asigné a mi usuario.
+  - Implementé `backend/apps/pets/badges.py` con los enums `AgeGroup`, `BadgeKey`, `BadgeTone`, `BadgeIcon`, el tipo `PetBadge`, el formateo de edad legible `format_pet_age` y el servicio `get_pet_badges`, respetando exactamente el orden, tonos y textos de `03-reglas-de-negocio.md` y `contexto-ia/maquetado/js/mascota.js`.
+  - Reexporté los símbolos de edad e insignias desde `backend/apps/pets/services.py` para centralizar la lógica de negocio sin duplicar código ni romper importaciones existentes de `filters.py`, `serializers.py` y `views.py`.
+  - Escribí 36 casos de prueba unitarios en `backend/apps/pets/tests/test_badges.py` cubriendo cada insignia, todas sus variantes, el orden exacto, la prioridad de `"¡Ya encontró hogar! 🧡"` sobre `"Caso urgente"`, el requerimiento de validación de urgencia, la concordancia de género en castración, los cuidados especiales y los bordes de edad (incluido el 29 de febrero).
+- **Decisiones tomadas:**
+  - Separé la lógica de cálculo de insignias en `apps/pets/badges.py` (reexportado desde `services.py`) para mantener `services.py` legible y sin dependencias circulares, devolviendo cada insignia con la estructura `{key, tone, icon, text}` desacoplada del HTML/SVG del frontend.
+  - Calculé `format_pet_age` con el mismo helper calendario `subtract_years` que usa `calculate_age_group`, garantizando consistencia entre el grupo de edad (`cachorro`, `adulto`, `senior`) y el texto mostrado.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos técnicos; al verificar la dependencia BK-03 (#6) confirmé que sus tres sub-tarjetas (#85, #86 y #87) ya estaban cerradas y mergeadas en `develop` (aunque la épica #6 seguía abierta en el tablero).
+- **Pendiente:** abrir el PR de #100 para revisión de Franco y luego continuar con #101 (BK-04b: exposición de `badges` en la API, Swagger, README y tests de integración).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para dividir la épica, implementar el servicio de cálculo de insignias y edad legible, y escribir los tests unitarios con `pytest`.
