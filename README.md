@@ -178,10 +178,10 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 
 | Método y ruta | Permiso | Qué hace |
 | :--- | :--- | :--- |
-| `GET /api/pets/` | Público (`AllowAny`) | Catálogo de mascotas activas (`published` por defecto; con `?adopted=true` solo `adopted`). Soporta filtros (`species`, `sex`, `age_group`, `is_sociable`, `good_with_children`, `good_with_animals`, `is_neutered`, `urgent`, `adopted`) y búsqueda por nombre (`search`). Nunca expone `contact_phone`. |
+| `GET /api/pets/` | Público (`AllowAny`) | Catálogo paginado de a 12 (`{ count, next, previous, results }`, `?page=2`) de mascotas activas (`published` por defecto; con `?adopted=true` solo `adopted`). Soporta filtros (`species`, `sex`, `age_group`, `is_sociable`, `good_with_children`, `good_with_animals`, `is_neutered`, `urgent`, `adopted`) y búsqueda por nombre (`search`). Devuelve solo `is_urgent` calculado y nunca expone `contact_phone` ni flags internos. |
 | `POST /api/pets/` | Sesión activa (`IsAuthenticated`) | Publica una mascota en `in_review` con `is_urgent_validated=False`, bloque de salud (`health`), al menos 1 foto válida (JPG/PNG/WEBP ≤ 5 MB) y log inicial en `PetStatusLog`. |
-| `GET /api/pets/mine/` | Sesión activa (`IsAuthenticated`) | Lista las mascotas activas publicadas por el usuario autenticado en todos los estados (filtro opcional `?status=`). |
-| `GET /api/pets/{id}/` | Público (`published`/`adopted`) · Autor o Staff/Admin en otros estados | Devuelve la ficha completa sin exponer `contact_phone`. |
+| `GET /api/pets/mine/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las mascotas activas publicadas por el usuario autenticado en todos los estados (filtro opcional `?status=`), incluyendo `contact_phone` para edición. |
+| `GET /api/pets/{id}/` | Público (`published`/`adopted`) · Autor o Staff/Admin en otros estados | Devuelve la ficha completa. Para el público expone solo `is_urgent` calculado (sin `contact_phone` ni flags internos); para autor, Staff o Admin incluye `contact_phone` y flags internos para edición/gestión. |
 | `PATCH /api/pets/{id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Edita campos permitidos y `health` sin modificar `status`, `is_urgent_validated` ni `published_by`. Si el autor edita una mascota `published`, vuelve a `in_review` y queda en `PetStatusLog`. |
 | `DELETE /api/pets/{id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Da de baja lógica la mascota (`is_active=False`). |
 | `POST /api/pets/{id}/adopt/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Marca como `adopted` una mascota en estado `published` y registra la transición en `PetStatusLog`. |
