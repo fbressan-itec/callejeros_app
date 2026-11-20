@@ -1,6 +1,7 @@
 """Vistas de API para publicar, editar, adoptar, dar de baja mascotas y gestionar fotos."""
 
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -27,6 +28,8 @@ from apps.pets.services import (
     update_pet,
 )
 
+PETS_TAG = "Mascotas"
+
 
 def _get_active_pet_or_404(pet_id: int) -> Pet:
     """Obtiene una mascota activa precargando autor, rol y salud o devuelve 404."""
@@ -42,6 +45,22 @@ class PetCreateView(APIView):
     permission_classes = (IsAuthenticated,)
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Publicar una mascota en adopción",
+        description=(
+            "Crea una nueva publicación en estado `in_review` con `is_urgent_validated=False`, "
+            "sus datos de salud (`PetHealth`), al menos una foto válida (JPG, PNG o WEBP de "
+            "hasta 5 MB) y el registro inicial en `PetStatusLog`. "
+            "Permiso: usuario autenticado (`IsAuthenticated`)."
+        ),
+        request={"multipart/form-data": PetCreateSerializer},
+        responses={
+            201: PetManageSerializer,
+            400: OpenApiResponse(description="Datos inválidos, faltan fotos o archivo no válido."),
+            401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+        },
+    )
     def post(self, request: Request) -> Response:
         serializer = PetCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -68,6 +87,25 @@ class PetDetailView(APIView):
 
     permission_classes = (IsAuthenticated, IsPetOwnerOrStaffOrAdmin)
 
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Editar una publicación de mascota",
+        description=(
+            "Actualiza los campos editables y el bloque `health` sin permitir modificar "
+            "`status`, `is_urgent_validated` ni `published_by`. Si el autor (no Staff/Admin) "
+            "edita una mascota en estado `published`, vuelve automáticamente a `in_review` "
+            "y se registra en `PetStatusLog`. "
+            "Permiso: autor de la mascota, `staff` o `admin` (`IsPetOwnerOrStaffOrAdmin`)."
+        ),
+        request=PetUpdateSerializer,
+        responses={
+            200: PetManageSerializer,
+            400: OpenApiResponse(description="Datos de edición inválidos."),
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
+            404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
+        },
+    )
     def patch(self, request: Request, pet_id: int) -> Response:
         pet = _get_active_pet_or_404(pet_id)
         self.check_object_permissions(request, pet)
@@ -90,6 +128,21 @@ class PetDetailView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Dar de baja lógica una mascota",
+        description=(
+            "Marca la publicación como inactiva (`is_active=False`) sin borrar el registro "
+            "físico de la base. "
+            "Permiso: autor de la mascota, `staff` o `admin` (`IsPetOwnerOrStaffOrAdmin`)."
+        ),
+        responses={
+            204: OpenApiResponse(description="Mascota dada de baja lógica."),
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
+            404: OpenApiResponse(description="Mascota inexistente o ya dada de baja."),
+        },
+    )
     def delete(self, request: Request, pet_id: int) -> Response:
         pet = _get_active_pet_or_404(pet_id)
         self.check_object_permissions(request, pet)
@@ -103,6 +156,23 @@ class PetAdoptView(APIView):
 
     permission_classes = (IsAuthenticated, IsPetOwnerOrStaffOrAdmin)
 
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Marcar una mascota como adoptada",
+        description=(
+            "Cambia el estado de `published` a `adopted` y registra la transición en "
+            "`PetStatusLog`. Rechaza mascotas en `in_review`, `rejected` o ya `adopted`. "
+            "Permiso: autor de la mascota, `staff` o `admin` (`IsPetOwnerOrStaffOrAdmin`)."
+        ),
+        request=PetAdoptSerializer,
+        responses={
+            200: PetManageSerializer,
+            400: OpenApiResponse(description="La mascota no está en estado `published`."),
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
+            404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
+        },
+    )
     def post(self, request: Request, pet_id: int) -> Response:
         pet = _get_active_pet_or_404(pet_id)
         self.check_object_permissions(request, pet)
@@ -128,6 +198,24 @@ class PetPhotoCreateView(APIView):
     permission_classes = (IsAuthenticated, IsPetOwnerOrStaffOrAdmin)
     parser_classes = (MultiPartParser, FormParser)
 
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Agregar una foto al carrusel de la mascota",
+        description=(
+            "Sube una imagen válida (JPG, PNG o WEBP de hasta 5 MB) al final del carrusel "
+            "activo. Si el autor (no Staff/Admin) agrega una foto a una mascota `published`, "
+            "la publicación vuelve a `in_review` y se registra en `PetStatusLog`. "
+            "Permiso: autor de la mascota, `staff` o `admin` (`IsPetOwnerOrStaffOrAdmin`)."
+        ),
+        request={"multipart/form-data": PetPhotoUploadSerializer},
+        responses={
+            201: PetPhotoSerializer,
+            400: OpenApiResponse(description="Archivo faltante, formato inválido o mayor a 5 MB."),
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
+            404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
+        },
+    )
     def post(self, request: Request, pet_id: int) -> Response:
         pet = _get_active_pet_or_404(pet_id)
         self.check_object_permissions(request, pet)
@@ -151,6 +239,24 @@ class PetPhotoDeleteView(APIView):
 
     permission_classes = (IsAuthenticated, IsPetOwnerOrStaffOrAdmin)
 
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Dar de baja lógica una foto del carrusel",
+        description=(
+            "Marca la foto como inactiva (`is_active=False`) y reordena las posiciones "
+            "activas restantes desde `0`. Impide dejar a la mascota sin fotos activas. "
+            "Si el autor (no Staff/Admin) borra una foto de una mascota `published`, "
+            "la publicación vuelve a `in_review` y se registra en `PetStatusLog`. "
+            "Permiso: autor de la mascota, `staff` o `admin` (`IsPetOwnerOrStaffOrAdmin`)."
+        ),
+        responses={
+            204: OpenApiResponse(description="Foto dada de baja lógica."),
+            400: OpenApiResponse(description="Es la última foto activa de la mascota."),
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
+            404: OpenApiResponse(description="Mascota o foto inexistente o dada de baja."),
+        },
+    )
     def delete(self, request: Request, pet_id: int, photo_id: int) -> Response:
         pet = _get_active_pet_or_404(pet_id)
         self.check_object_permissions(request, pet)

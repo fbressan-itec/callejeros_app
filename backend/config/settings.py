@@ -163,6 +163,9 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
     "SERVE_AUTHENTICATION": [],
+    "ENUM_NAME_OVERRIDES": {
+        "PetCompatibilityEnum": "apps.pets.serializers.PET_COMPATIBILITY_CHOICES",
+    },
 }
 
 JWT_ACCESS_LIFETIME_MINUTES = env("JWT_ACCESS_LIFETIME_MINUTES")
