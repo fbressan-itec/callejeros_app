@@ -2,7 +2,6 @@
 
 from collections.abc import Sequence
 from datetime import date
-from enum import StrEnum
 from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -14,6 +13,39 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.core.validators import validate_image_file
+from apps.pets.badges import (
+    AGE_GROUP_CHOICES as AGE_GROUP_CHOICES,
+)
+from apps.pets.badges import (
+    AgeGroup as AgeGroup,
+)
+from apps.pets.badges import (
+    BadgeIcon as BadgeIcon,
+)
+from apps.pets.badges import (
+    BadgeKey as BadgeKey,
+)
+from apps.pets.badges import (
+    BadgeTone as BadgeTone,
+)
+from apps.pets.badges import (
+    PetBadge as PetBadge,
+)
+from apps.pets.badges import (
+    calculate_age_group as calculate_age_group,
+)
+from apps.pets.badges import (
+    format_pet_age as format_pet_age,
+)
+from apps.pets.badges import (
+    get_pet_badges as get_pet_badges,
+)
+from apps.pets.badges import (
+    is_pet_urgent as is_pet_urgent,
+)
+from apps.pets.badges import (
+    subtract_years as subtract_years,
+)
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.pets.permissions import can_manage_pet, can_view_pet, is_staff_or_admin
 from apps.users.models import User
@@ -21,21 +53,6 @@ from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
 
 MAX_DESCRIPTION_LENGTH = 400
 MAX_SPECIAL_CARE_LENGTH = 150
-
-
-class AgeGroup(StrEnum):
-    """Grupos de edad compartidos entre insignias y filtros del catálogo."""
-
-    CACHORRO = "cachorro"
-    ADULTO = "adulto"
-    SENIOR = "senior"
-
-
-AGE_GROUP_CHOICES = (
-    (AgeGroup.CACHORRO.value, "Cachorro"),
-    (AgeGroup.ADULTO.value, "Adulto"),
-    (AgeGroup.SENIOR.value, "Senior"),
-)
 
 MIN_PHOTOS_ERROR = "Debés subir al menos una foto de la mascota."
 LAST_PHOTO_ERROR = "La mascota debe conservar al menos una foto activa."
@@ -78,31 +95,6 @@ HEALTH_FIELDS = (
 )
 
 TEXT_PET_FIELDS = frozenset({"name", "special_care", "description", "notes", "contact_phone"})
-
-
-def subtract_years(reference_date: date, years: int) -> date:
-    """Resta años calendario exactos manejando el 29 de febrero."""
-    try:
-        return reference_date.replace(year=reference_date.year - years)
-    except ValueError:
-        return reference_date.replace(year=reference_date.year - years, day=28)
-
-
-def calculate_age_group(estimated_birth_date: date, *, today: date | None = None) -> str:
-    """Calcula el grupo de edad (`cachorro` < 1 año, `adulto` 1-7 años, `senior` > 7)."""
-    reference = today or timezone.localdate()
-    if estimated_birth_date > subtract_years(reference, 1):
-        return AgeGroup.CACHORRO.value
-    if estimated_birth_date >= subtract_years(reference, 7):
-        return AgeGroup.ADULTO.value
-    return AgeGroup.SENIOR.value
-
-
-def is_pet_urgent(pet: Pet) -> bool:
-    """Devuelve True solo si la urgencia fue pedida, validada por Staff y no está adoptada."""
-    return bool(
-        pet.is_urgent_requested and pet.is_urgent_validated and pet.status != Pet.Status.ADOPTED
-    )
 
 
 def _base_active_pets_queryset() -> QuerySet[Pet]:
