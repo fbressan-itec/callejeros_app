@@ -163,3 +163,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #88 para continuar con #86 (BK-03b: publicar, editar, adoptar y dar de baja mascotas con validación de fotos).
 - **PR:** #88
 - **IA usada:** Antigravity — para dividir la épica, implementar los modelos según DB-01, migración, admin, seed y tests con `pytest`.
+
+## 2026-11-20 — Publicar, editar, adoptar, dar de baja mascotas y validación de fotos (BK-03b)
+
+- **Tarjeta:** #86 (BK-03b, sub-tarjeta de #6 BK-03)
+- **Rama:** feature/bk03-86-crud-mascotas-fotos
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Actualicé la rama `feature/bk03-86-crud-mascotas-fotos` con los últimos cambios de `develop` antes de empezar.
+  - Creé el validador reutilizable `validate_image_file` en `apps/core/validators.py` (verifica tamaño ≤ 5 MB y formato real `JPEG`, `PNG` o `WEBP` con Pillow) y lo asocié a `PetPhoto.image` con la migración nueva `apps/pets/migrations/0002_alter_petphoto_image.py`, aplicando la sugerencia de Franco del PR #88.
+  - Implementé `apps/pets/permissions.py` (`can_manage_pet` e `IsPetOwnerOrStaffOrAdmin`) y la capa de servicios en `apps/pets/services.py` (`create_pet`, `update_pet`, `deactivate_pet`, `adopt_pet`, `add_pet_photo` y `remove_pet_photo`) con todas las reglas de negocio en transacciones atómicas.
+  - Implementé serializers, vistas y rutas bajo `/api/pets/`: `POST /api/pets/` (nace siempre en `in_review` y `is_urgent_validated=False`, exige ≥ 1 foto válida, valida largos de texto y fecha de nacimiento, crea `PetHealth`, `PetPhoto` y `PetStatusLog` inicial, y no expone `contact_phone`), `PATCH /api/pets/{id}/`, `DELETE /api/pets/{id}/` (baja lógica), `POST /api/pets/{id}/adopt/` (solo desde `published`, con registro en `PetStatusLog`), `POST /api/pets/{id}/photos/` y `DELETE /api/pets/{id}/photos/{photo_id}/` (baja lógica impidiendo dejar la mascota sin fotos activas).
+  - Escribí 29 tests nuevos con `pytest` en `apps/core/tests/test_validators.py` y `apps/pets/tests/test_api.py` cubriendo validaciones de fotos y textos, flujo completo, protección de campos sensibles, historial `PetStatusLog` y matriz de permisos; verifiqué `ruff check .` y la suite completa de 104 tests en verde.
+- **Decisiones tomadas:**
+  - Al dar de baja lógica una foto del carrusel (`remove_pet_photo`), compacté las posiciones de las fotos activas restantes (`0..n`) para asegurar que siempre exista una foto principal en `position=0` sin chocar con la restricción de unicidad activa.
+  - En `validate_image_file` validé los bytes reales en memoria con `BytesIO` (después de chequear el límite de 5 MB) y restauré el puntero del archivo con `seek(0)` para que Pillow no cierre el archivo subido antes de que Django lo guarde.
+- **Problemas y cómo los resolví:**
+  - En `POST /api/pets/` con `multipart/form-data`, DRF ignoraba el campo anidado `health` cuando se enviaba como string JSON porque `html.parse_html_dict` espera claves planas; lo resolví sobrescribiendo `get_value` en `PetHealthInputSerializer` para aceptar tanto JSON string en multipart como objetos JSON estándar.
+- **Pendiente:** subir la rama, abrir el PR hacia `develop` con `Closes #86` para revisión de Franco y luego continuar con #87 (`BK-03c`: catálogo público, filtros, ficha pública y Swagger).
+- **PR:** pendiente de abrir
+- **IA usada:** Antigravity — para implementar el validador de imágenes, servicios, permisos, serializers, vistas y batería de tests siguiendo las reglas del proyecto.
