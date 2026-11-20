@@ -192,7 +192,9 @@ export function RegisterForm() {
         const codeErrors = error.fieldErrors.verification_code;
 
         if (codeErrors?.length && step === "verify") {
+          setOtpDigits(["", "", "", ""]);
           setOtpError(codeErrors[0]);
+          otpRefs.current[0]?.focus();
           return;
         }
 
@@ -264,7 +266,7 @@ export function RegisterForm() {
   }
 
   function handleOtpChange(index: number, rawValue: string) {
-    const digit = rawValue.replace(/\D/g, "").slice(0, 1);
+    const digit = rawValue.replace(/\D/g, "").slice(-1);
     setOtpError(null);
     setResendMessage(null);
     setOtpDigits((prev) => {
