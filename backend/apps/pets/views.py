@@ -1,14 +1,16 @@
 """Vistas de API para publicar, editar, adoptar, dar de baja mascotas y gestionar fotos."""
 
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.pets.filters import PetCatalogFilter
 from apps.pets.models import Pet, PetPhoto
 from apps.pets.permissions import IsPetOwnerOrStaffOrAdmin
 from apps.pets.serializers import (
@@ -20,10 +22,14 @@ from apps.pets.serializers import (
     PetUpdateSerializer,
 )
 from apps.pets.services import (
+    AgeGroup,
     add_pet_photo,
     adopt_pet,
     create_pet,
     deactivate_pet,
+    get_catalog_pets_queryset,
+    get_my_pets_queryset,
+    get_visible_pet_or_404,
     remove_pet_photo,
     update_pet,
 )
@@ -39,11 +45,103 @@ def _get_active_pet_or_404(pet_id: int) -> Pet:
     )
 
 
-class PetCreateView(APIView):
-    """POST /api/pets/ — Publica una mascota en revisión con sus fotos y salud."""
+class PetListCreateView(APIView):
+    """GET/POST /api/pets/ — Catálogo público con filtros y alta de mascotas."""
 
-    permission_classes = (IsAuthenticated,)
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Explorar catálogo público de mascotas",
+        description=(
+            "Devuelve por defecto las mascotas activas en estado `published` (sin exponer "
+            "`contact_phone`). Con `adopted=true` devuelve únicamente mascotas en estado "
+            "`adopted` (nunca se mezclan disponibles con adoptadas). "
+            "Permiso: público (`AllowAny`)."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="species",
+                type=OpenApiTypes.STR,
+                enum=[choice for choice, _ in Pet.Species.choices],
+                description="Filtra por especie (`dog` o `cat`).",
+            ),
+            OpenApiParameter(
+                name="sex",
+                type=OpenApiTypes.STR,
+                enum=[choice for choice, _ in Pet.Sex.choices],
+                description="Filtra por sexo (`male` o `female`).",
+            ),
+            OpenApiParameter(
+                name="age_group",
+                type=OpenApiTypes.STR,
+                enum=[group.value for group in AgeGroup],
+                description="Filtra por grupo de edad (`cachorro`, `adulto` o `senior`).",
+            ),
+            OpenApiParameter(
+                name="is_sociable",
+                type=OpenApiTypes.BOOL,
+                description="Filtra por sociabilidad (`true` o `false`).",
+            ),
+            OpenApiParameter(
+                name="good_with_children",
+                type=OpenApiTypes.STR,
+                enum=[choice for choice, _ in Pet.Compatibility.choices],
+                description="Filtra por convivencia con niños (`yes`, `no`, `not_evaluated`).",
+            ),
+            OpenApiParameter(
+                name="good_with_animals",
+                type=OpenApiTypes.STR,
+                enum=[choice for choice, _ in Pet.Compatibility.choices],
+                description=(
+                    "Filtra por convivencia con otros animales (`yes`, `no`, `not_evaluated`)."
+                ),
+            ),
+            OpenApiParameter(
+                name="is_neutered",
+                type=OpenApiTypes.BOOL,
+                description="Filtra por castración (`true` o `false`).",
+            ),
+            OpenApiParameter(
+                name="urgent",
+                type=OpenApiTypes.BOOL,
+                description="Con `true`, devuelve solo casos urgentes validados (no adoptados).",
+            ),
+            OpenApiParameter(
+                name="adopted",
+                type=OpenApiTypes.BOOL,
+                description="Con `true`, devuelve solo mascotas adoptadas en lugar de disponibles.",
+            ),
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                description="Busca mascotas por nombre (insensible a mayúsculas).",
+            ),
+        ],
+        responses={
+            200: PetManageSerializer(many=True),
+            400: OpenApiResponse(description="Parámetro de filtro inválido."),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        filterset = PetCatalogFilter(
+            request.query_params,
+            queryset=get_catalog_pets_queryset(),
+        )
+        if not filterset.is_valid():
+            raise ValidationError(filterset.errors)
+
+        serializer = PetManageSerializer(
+            filterset.qs,
+            many=True,
+            context={"request": request},
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
         tags=[PETS_TAG],
@@ -82,10 +180,69 @@ class PetCreateView(APIView):
         )
 
 
-class PetDetailView(APIView):
-    """PATCH/DELETE /api/pets/{id}/ — Edita o da de baja lógica una mascota."""
+class MyPetListView(APIView):
+    """GET /api/pets/mine/ — Lista las mascotas activas del usuario autenticado."""
 
-    permission_classes = (IsAuthenticated, IsPetOwnerOrStaffOrAdmin)
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Listar mis publicaciones de mascotas",
+        description=(
+            "Devuelve todas las mascotas activas publicadas por el usuario autenticado en "
+            "cualquier estado (`in_review`, `published`, `rejected` o `adopted`). "
+            "Permiso: usuario autenticado (`IsAuthenticated`)."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                type=OpenApiTypes.STR,
+                enum=[choice for choice, _ in Pet.Status.choices],
+                description="Opcional: filtra las publicaciones propias por estado.",
+            ),
+        ],
+        responses={
+            200: PetManageSerializer(many=True),
+            400: OpenApiResponse(description="Estado de filtro inválido."),
+            401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        status_filter = request.query_params.get("status")
+        pets = get_my_pets_queryset(actor=request.user, status_filter=status_filter)
+        serializer = PetManageSerializer(pets, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PetDetailView(APIView):
+    """GET/PATCH/DELETE /api/pets/{id}/ — Ficha de mascota, edición o baja lógica."""
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [IsAuthenticated(), IsPetOwnerOrStaffOrAdmin()]
+
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Consultar ficha completa de una mascota",
+        description=(
+            "Devuelve la ficha completa sin exponer `contact_phone`. Es pública para "
+            "mascotas en estado `published` y `adopted`; para `in_review` y `rejected`, "
+            "solo es visible para el autor, `staff` o `admin` (para terceros responde `404`). "
+            "Permiso: público para `published`/`adopted` (`AllowAny`); autor o Staff/Admin "
+            "en otros estados."
+        ),
+        responses={
+            200: PetManageSerializer,
+            404: OpenApiResponse(description="Mascota inexistente, inactiva o no visible."),
+        },
+    )
+    def get(self, request: Request, pet_id: int) -> Response:
+        pet = get_visible_pet_or_404(pet_id=pet_id, actor=request.user)
+        return Response(
+            PetManageSerializer(pet, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=[PETS_TAG],

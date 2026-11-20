@@ -17,6 +17,8 @@ from apps.pets.services import (
     MIN_PHOTOS_ERROR,
     NAME_REQUIRED_ERROR,
     SPECIAL_CARE_TOO_LONG_ERROR,
+    AgeGroup,
+    calculate_age_group,
 )
 from apps.users.models import User
 from apps.users.serializers import RoleSummarySerializer
@@ -100,6 +102,7 @@ class PetManageSerializer(serializers.ModelSerializer):
 
     published_by = PetPublisherSerializer(read_only=True)
     health = PetHealthSerializer(read_only=True)
+    age_group = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
 
     class Meta:
@@ -110,6 +113,7 @@ class PetManageSerializer(serializers.ModelSerializer):
             "species",
             "sex",
             "estimated_birth_date",
+            "age_group",
             "is_sociable",
             "good_with_children",
             "good_with_animals",
@@ -128,9 +132,15 @@ class PetManageSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    @extend_schema_field(serializers.ChoiceField(choices=[group.value for group in AgeGroup]))
+    def get_age_group(self, obj: Pet) -> str:
+        return calculate_age_group(obj.estimated_birth_date)
+
     @extend_schema_field(PetPhotoSerializer(many=True))
     def get_photos(self, obj: Pet) -> list[dict]:
-        active_photos = obj.photos.active().order_by("position", "id")
+        active_photos = getattr(obj, "prefetched_active_photos", None)
+        if active_photos is None:
+            active_photos = obj.photos.active().order_by("position", "id")
         return PetPhotoSerializer(active_photos, many=True, context=self.context).data
 
 
