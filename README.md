@@ -11,8 +11,8 @@ Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Sup
 | Integrante | GitHub |
 | :--- | :--- |
 | Franco Nicolás Bressan Nadal | [@fbressan-itec](https://github.com/fbressan-itec) |
-| Ulises Cabrera | — |
-| Leandro Odetto | — |
+| Ulises Cabrera | [@Ulicrack](https://github.com/Ulicrack) |
+| Leandro Odetto | [@leandroitec](https://github.com/leandroitec) |
 
 ## Tecnologías
 
