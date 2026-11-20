@@ -62,6 +62,13 @@ describe("RecoverPasswordPage", () => {
     expect(
       await screen.findByText("Ingresá un número de teléfono válido."),
     ).toBeInTheDocument();
+
+    // Vuelve a cambiar a Email
+    fireEvent.click(screen.getByRole("radio", { name: /Email/i }));
+    expect(screen.getByLabelText("Correo electrónico")).toHaveAttribute(
+      "type",
+      "email",
+    );
   });
 
   it("en el Paso 2 muestra el código maquetado 8596 en rojo con asterisco y valida el código OTP", async () => {

@@ -161,8 +161,8 @@ export default function RecoverPasswordPage() {
 
   function handleMethodChange(nextMethod: "email" | "phone") {
     setSelectedMethod(nextMethod);
-    setMethodValue("method", nextMethod);
-    setMethodValue("contact", "");
+    setMethodValue("method", nextMethod, { shouldDirty: true });
+    setMethodValue("contact", "", { shouldValidate: false });
     clearMethodErrors("contact");
   }
 
@@ -295,11 +295,10 @@ export default function RecoverPasswordPage() {
                 <label className="flex min-h-[64px] cursor-pointer items-center gap-4 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 transition-colors hover:border-orange-400 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 dark:border-slate-700 dark:bg-slate-850 dark:has-[:checked]:bg-orange-950/30">
                   <input
                     type="radio"
+                    name="recover-method"
                     value="email"
                     checked={selectedMethod === "email"}
-                    {...registerMethod("method", {
-                      onChange: () => handleMethodChange("email"),
-                    })}
+                    onChange={() => handleMethodChange("email")}
                     className="sr-only"
                   />
                   <span
@@ -321,11 +320,10 @@ export default function RecoverPasswordPage() {
                 <label className="flex min-h-[64px] cursor-pointer items-center gap-4 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 transition-colors hover:border-orange-400 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 dark:border-slate-700 dark:bg-slate-850 dark:has-[:checked]:bg-orange-950/30">
                   <input
                     type="radio"
+                    name="recover-method"
                     value="phone"
                     checked={selectedMethod === "phone"}
-                    {...registerMethod("method", {
-                      onChange: () => handleMethodChange("phone"),
-                    })}
+                    onChange={() => handleMethodChange("phone")}
                     className="sr-only"
                   />
                   <span
