@@ -17,6 +17,7 @@ from apps.core.validators import (
     MAX_IMAGE_SIZE_BYTES,
 )
 from apps.pets.models import Pet, PetPhoto, PetStatusLog
+from apps.pets.serializers import IS_NEUTERED_REQUIRED_ERROR, IS_SOCIABLE_REQUIRED_ERROR
 from apps.pets.services import (
     ADOPT_ONLY_PUBLISHED_ERROR,
     DESCRIPTION_TOO_LONG_ERROR,
@@ -141,6 +142,29 @@ def test_create_pet_requires_at_least_one_photo() -> None:
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert MIN_PHOTOS_ERROR in response.json()["photos"]
+
+
+@pytest.mark.parametrize(
+    ("missing_field", "expected_error"),
+    [
+        ("is_sociable", IS_SOCIABLE_REQUIRED_ERROR),
+        ("is_neutered", IS_NEUTERED_REQUIRED_ERROR),
+    ],
+)
+def test_create_pet_requires_explicit_booleans_in_multipart(
+    missing_field: str,
+    expected_error: str,
+) -> None:
+    member = UserFactory(role__code=RoleCode.MEMBER)
+    client = _auth_client(member)
+    payload = _valid_pet_payload()
+    payload.pop(missing_field)
+
+    response = client.post(PETS_URL, payload, format="multipart")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert expected_error in response.json()[missing_field]
+    assert Pet.objects.count() == 0
 
 
 def test_create_pet_rejects_oversized_and_invalid_photos() -> None:
@@ -500,3 +524,125 @@ def test_photo_endpoints_enforce_owner_or_staff_admin_permissions() -> None:
         == status.HTTP_204_NO_CONTENT
     )
     assert photo_0.is_active is True
+
+
+# ---------------------------------------------------------------------------
+# Regla de vuelta a revisión al editar mascota publicada + Swagger
+# ---------------------------------------------------------------------------
+
+
+def test_owner_editing_published_pet_returns_to_in_review_and_logs() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED, description="Original")
+    PetHealthFactory(pet=pet)
+
+    client = _auth_client(owner)
+    response = client.patch(
+        f"{PETS_URL}{pet.id}/",
+        {"description": "Descripción editada por el autor."},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == Pet.Status.IN_REVIEW
+
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.IN_REVIEW
+    log = PetStatusLog.objects.filter(pet=pet, new_status=Pet.Status.IN_REVIEW).get()
+    assert log.previous_status == Pet.Status.PUBLISHED
+    assert log.performed_by_id == owner.id
+
+
+def test_owner_editing_photos_of_published_pet_returns_to_in_review_and_logs() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED)
+    photo_0 = PetPhotoFactory(pet=pet, position=0)
+
+    client = _auth_client(owner)
+
+    # 1. Agregar foto en estado `published` vuelve a `in_review` y deja log
+    add_response = client.post(
+        f"{PETS_URL}{pet.id}/photos/",
+        {"image": _make_image(filename="extra.jpg")},
+        format="multipart",
+    )
+    assert add_response.status_code == status.HTTP_201_CREATED
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.IN_REVIEW
+    assert (
+        PetStatusLog.objects.filter(
+            pet=pet,
+            previous_status=Pet.Status.PUBLISHED,
+            new_status=Pet.Status.IN_REVIEW,
+            performed_by=owner,
+        ).count()
+        == 1
+    )
+
+    # 2. Volvemos a aprobar y borramos una foto: también debe volver a `in_review` y loguear
+    pet.status = Pet.Status.PUBLISHED
+    pet.save(update_fields=["status", "updated_at"])
+
+    delete_response = client.delete(f"{PETS_URL}{pet.id}/photos/{photo_0.id}/")
+    assert delete_response.status_code == status.HTTP_204_NO_CONTENT
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.IN_REVIEW
+    assert (
+        PetStatusLog.objects.filter(
+            pet=pet,
+            previous_status=Pet.Status.PUBLISHED,
+            new_status=Pet.Status.IN_REVIEW,
+            performed_by=owner,
+        ).count()
+        == 2
+    )
+
+
+@pytest.mark.parametrize("role_code", [RoleCode.STAFF, RoleCode.ADMIN])
+def test_staff_and_admin_editing_published_pet_and_photos_keeps_published(
+    role_code: str,
+) -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    moderator = UserFactory(role__code=role_code)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED)
+    PetHealthFactory(pet=pet)
+    photo_0 = PetPhotoFactory(pet=pet, position=0)
+
+    client = _auth_client(moderator)
+
+    patch_response = client.patch(
+        f"{PETS_URL}{pet.id}/",
+        {"description": "Ajuste de moderación."},
+        format="json",
+    )
+    assert patch_response.status_code == status.HTTP_200_OK
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.PUBLISHED
+
+    add_response = client.post(
+        f"{PETS_URL}{pet.id}/photos/",
+        {"image": _make_image(filename="mod.jpg")},
+        format="multipart",
+    )
+    assert add_response.status_code == status.HTTP_201_CREATED
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.PUBLISHED
+
+    delete_response = client.delete(f"{PETS_URL}{pet.id}/photos/{photo_0.id}/")
+    assert delete_response.status_code == status.HTTP_204_NO_CONTENT
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.PUBLISHED
+    assert not PetStatusLog.objects.filter(pet=pet, new_status=Pet.Status.IN_REVIEW).exists()
+
+
+def test_pets_endpoints_are_documented_in_openapi_schema() -> None:
+    client = APIClient()
+    response = client.get("/api/schema/", {"format": "json"})
+
+    assert response.status_code == status.HTTP_200_OK
+    paths = response.json()["paths"]
+    assert "/api/pets/" in paths
+    assert "/api/pets/{pet_id}/" in paths
+    assert "/api/pets/{pet_id}/adopt/" in paths
+    assert "/api/pets/{pet_id}/photos/" in paths
+    assert "/api/pets/{pet_id}/photos/{photo_id}/" in paths
