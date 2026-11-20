@@ -1,7 +1,9 @@
 """Serializers de gestión de mascotas y fotos del carrusel (BK-03b)."""
 
 import json
+from collections.abc import Mapping
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.utils import html
 
@@ -18,6 +20,10 @@ from apps.pets.services import (
 )
 from apps.users.models import User
 from apps.users.serializers import RoleSummarySerializer
+
+IS_SOCIABLE_REQUIRED_ERROR = "Indicá si la mascota es sociable."
+IS_NEUTERED_REQUIRED_ERROR = "Indicá si la mascota está castrada."
+PET_COMPATIBILITY_CHOICES = Pet.Compatibility.choices
 
 
 class PetPublisherSerializer(serializers.ModelSerializer):
@@ -122,6 +128,7 @@ class PetManageSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    @extend_schema_field(PetPhotoSerializer(many=True))
     def get_photos(self, obj: Pet) -> list[dict]:
         active_photos = obj.photos.active().order_by("position", "id")
         return PetPhotoSerializer(active_photos, many=True, context=self.context).data
@@ -187,6 +194,27 @@ class PetCreateSerializer(serializers.Serializer):
             "empty": MIN_PHOTOS_ERROR,
         },
     )
+
+    def validate(self, attrs: dict) -> dict:
+        """Exige envío explícito de `is_sociable` e `is_neutered` (también en multipart)."""
+        raw_data = self.initial_data if isinstance(self.initial_data, Mapping) else {}
+        errors: dict[str, list[str]] = {}
+
+        for field_name, error_message in (
+            ("is_sociable", IS_SOCIABLE_REQUIRED_ERROR),
+            ("is_neutered", IS_NEUTERED_REQUIRED_ERROR),
+        ):
+            if field_name not in raw_data:
+                errors[field_name] = [error_message]
+                continue
+            raw_value = raw_data.get(field_name)
+            if raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()):
+                errors[field_name] = [error_message]
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return attrs
 
 
 class PetUpdateSerializer(serializers.Serializer):

@@ -11,15 +11,22 @@ from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
 STAFF_OR_ADMIN_ROLES = frozenset({RoleCode.STAFF, RoleCode.ADMIN})
 
 
+def is_staff_or_admin(user) -> bool:
+    """Devuelve True si el usuario está activo y tiene rol Staff o Admin."""
+    if not user or not user.is_authenticated or not getattr(user, "is_active", False):
+        return False
+    if getattr(user, "role_id", None) is None:
+        return False
+    return user.role.code in STAFF_OR_ADMIN_ROLES
+
+
 def can_manage_pet(user, pet: Pet) -> bool:
     """Devuelve True si el usuario es el autor de la mascota o tiene rol Staff/Admin."""
     if not user or not user.is_authenticated or not getattr(user, "is_active", False):
         return False
     if pet.published_by_id == user.id:
         return True
-    if getattr(user, "role_id", None) is None:
-        return False
-    return user.role.code in STAFF_OR_ADMIN_ROLES
+    return is_staff_or_admin(user)
 
 
 class IsPetOwnerOrStaffOrAdmin(BasePermission):

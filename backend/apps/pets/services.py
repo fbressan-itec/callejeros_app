@@ -12,7 +12,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.core.validators import validate_image_file
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
-from apps.pets.permissions import can_manage_pet
+from apps.pets.permissions import can_manage_pet, is_staff_or_admin
 from apps.users.models import User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
 
@@ -68,6 +68,24 @@ def _ensure_can_manage_pet(pet: Pet, actor: User) -> None:
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
     if not pet.is_active:
         raise ValidationError({"detail": [INACTIVE_PET_ERROR]})
+
+
+def _return_to_review_if_edited_by_author(pet: Pet, actor: User, *, note: str) -> None:
+    """Si un autor (no Staff/Admin) edita una mascota publicada, vuelve a `in_review`."""
+    if pet.status != Pet.Status.PUBLISHED or is_staff_or_admin(actor):
+        return
+
+    previous_status = pet.status
+    pet.status = Pet.Status.IN_REVIEW
+    pet.save(update_fields=["status", "updated_at"])
+
+    PetStatusLog.objects.create(
+        pet=pet,
+        previous_status=previous_status,
+        new_status=Pet.Status.IN_REVIEW,
+        performed_by=actor,
+        note=note,
+    )
 
 
 def _validate_pet_fields(
@@ -176,12 +194,8 @@ def create_pet(
         sex=cleaned_data["sex"],
         estimated_birth_date=cleaned_data["estimated_birth_date"],
         is_sociable=cleaned_data["is_sociable"],
-        good_with_children=cleaned_data.get(
-            "good_with_children", Pet.Compatibility.NOT_EVALUATED
-        ),
-        good_with_animals=cleaned_data.get(
-            "good_with_animals", Pet.Compatibility.NOT_EVALUATED
-        ),
+        good_with_children=cleaned_data.get("good_with_children", Pet.Compatibility.NOT_EVALUATED),
+        good_with_animals=cleaned_data.get("good_with_animals", Pet.Compatibility.NOT_EVALUATED),
         is_neutered=cleaned_data["is_neutered"],
         is_urgent_requested=cleaned_data.get("is_urgent_requested", False),
         is_urgent_validated=False,
@@ -248,6 +262,13 @@ def update_pet(
             setattr(health, field, value)
         health.save(update_fields=[*cleaned_health.keys(), "updated_at"])
 
+    if updated_fields or cleaned_health:
+        _return_to_review_if_edited_by_author(
+            pet,
+            actor,
+            note="Publicación editada por el autor; vuelve a revisión.",
+        )
+
     return pet
 
 
@@ -298,12 +319,18 @@ def add_pet_photo(*, pet: Pet, actor: User, image: Any) -> PetPhoto:
     max_position = pet.photos.active().aggregate(max_pos=Max("position"))["max_pos"]
     next_position = 0 if max_position is None else max_position + 1
 
-    return PetPhoto.objects.create(
+    photo = PetPhoto.objects.create(
         pet=pet,
         image=image,
         position=next_position,
         is_active=True,
     )
+    _return_to_review_if_edited_by_author(
+        pet,
+        actor,
+        note="Fotos editadas por el autor; vuelve a revisión.",
+    )
+    return photo
 
 
 @transaction.atomic
@@ -326,5 +353,11 @@ def remove_pet_photo(*, pet: Pet, photo: PetPhoto, actor: User) -> PetPhoto:
         if item.position != new_position:
             item.position = new_position
             item.save(update_fields=["position", "updated_at"])
+
+    _return_to_review_if_edited_by_author(
+        pet,
+        actor,
+        note="Fotos editadas por el autor; vuelve a revisión.",
+    )
 
     return photo
