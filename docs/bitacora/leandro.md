@@ -49,3 +49,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise el ajuste del PR #93 para continuar con #91 (FR-03c: pantalla de recuperar contraseña en 3 pasos maquetada).
 - **PR:** #93
 - **IA usada:** Antigravity — para implementar el servicio de registro, la pantalla `/registro` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
+
+## 2026-11-20 — Pantalla de recuperar contraseña en 3 pasos maquetada (FR-03c)
+
+- **Tarjeta:** #91 (FR-03c, sub-tarjeta de #21 FR-03)
+- **Rama:** feature/fr03-91-recuperar-contrasena
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Implementé la pantalla `/recuperar` (`src/app/recuperar/page.tsx`) en 3 pasos (+ pantalla de confirmación `"¡Contraseña actualizada!"`) fiel a `contexto-ia/maquetado/recuperar.html` y `js/auth.js`, adaptada a Tailwind 4:
+    - Paso 1: selección en tarjetas entre **Email** (`"Te enviamos un código a tu correo"`) y **Teléfono** (`"Te enviamos un código por SMS"`), campo de contacto dinámico con validación `zod` y botón `"Siguiente"`.
+    - Paso 2 (A5 maquetado): contacto enmascarado (`maskRecoverContact`), 4 casilleros OTP numéricos (con avance automático, retroceso con `Backspace` y pegado de 4 dígitos), mensaje en rojo con asterisco debajo del campo del código mostrando `8596` (`getMockVerificationCode()`) y aclarando que esa parte está maquetada, temporizador `(02:30)` y botones `"Verificar"` y `"Reenviar código"`.
+    - Paso 3: campos `"Nueva contraseña"` y `"Repetí la contraseña"` con botón mostrar/ocultar (`👁️`), validados con `zod` (mínimo 6 caracteres con el mensaje exacto `"La contraseña debe tener al menos 6 caracteres"` y coincidencia de ambas contraseñas con `"Las contraseñas no coinciden."`).
+    - Paso 4 (Éxito): confirmación `"¡Contraseña actualizada!"` con botón `"Iniciar sesión"` hacia `/login`.
+  - Escribí 4 tests nuevos con Vitest y Testing Library en `recuperar/page.test.tsx` (54 tests en total pasando), y comparé `/recuperar` en el navegador contra `recuperar.html` en 375 px y escritorio, en modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Reutilicé `getMockVerificationCode()` en el Paso 2 para que tanto el registro por SMS como la recuperación de contraseña lean el mismo código único (`8596`) expuesto desde `MOCK_VERIFICATION_CODE` en `next.config.ts`, como establece `03-reglas-de-negocio.md`.
+- **Problemas y cómo los resolví:**
+  - En la primera comparación en el navegador detecté que al pasar de Email a Teléfono y volver a tocar la tarjeta de Email en el Paso 1, el `registerMethod("method")` de `react-hook-form` interfería con el atributo `checked` controlado del radio y no restauraba el campo a `"Correo electrónico"`; lo corregí sincronizando el radio con `checked={selectedMethod === ...}` y `setMethodValue("method", nextMethod)` en `handleMethodChange`, y sumé el caso bidireccional al test de Vitest.
+- **Pendiente:** abrir el PR de #91 hacia `develop` para revisión de Franco y cerrar la épica #21 (`[FR-03] Login, registro y recuperar contraseña`).
+- **PR:** pendiente de abrir
+- **IA usada:** Antigravity — para implementar la pantalla `/recuperar` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
