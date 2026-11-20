@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.core.validators import validate_image_file
 
 
 class Pet(BaseModel):
@@ -128,7 +129,11 @@ class PetPhoto(BaseModel):
         related_name="photos",
         verbose_name="mascota",
     )
-    image = models.ImageField("imagen", upload_to="pets/photos/")
+    image = models.ImageField(
+        "imagen",
+        upload_to="pets/photos/",
+        validators=[validate_image_file],
+    )
     position = models.PositiveSmallIntegerField("posición", default=0)
 
     class Meta:
