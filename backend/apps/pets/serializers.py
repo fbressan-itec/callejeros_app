@@ -3,6 +3,7 @@
 import json
 
 from rest_framework import serializers
+from rest_framework.utils import html
 
 from apps.pets.models import Pet, PetHealth, PetPhoto
 from apps.pets.services import (
@@ -53,6 +54,13 @@ class PetHealthInputSerializer(serializers.Serializer):
     deworming = serializers.CharField(max_length=255, required=False, allow_blank=True)
     flea_tick_treatment = serializers.CharField(max_length=255, required=False, allow_blank=True)
     other = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def get_value(self, dictionary):
+        if html.is_html_input(dictionary) and self.field_name in dictionary:
+            raw_value = dictionary.get(self.field_name)
+            if isinstance(raw_value, str):
+                return raw_value
+        return super().get_value(dictionary)
 
     def to_internal_value(self, data):
         if isinstance(data, str):
