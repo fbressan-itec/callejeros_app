@@ -4,7 +4,7 @@ Plataforma web comunitaria de **adopción responsable** y **alertas de animales 
 
 Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Superior en Desarrollo de Software, ITEC, 2026.
 
-> 🚧 **En desarrollo.** Este README se completa a medida que avanza el proyecto (arquitectura, base de datos, instalación, variables de entorno, tests y API).
+> 🚧 **En desarrollo · versión actual: v0.1** ([qué trae cada versión](#versiones)). Este README se completa a medida que avanza el proyecto (arquitectura, base de datos, instalación, variables de entorno, tests y API).
 
 ## Equipo
 
@@ -592,6 +592,18 @@ Las claves primarias, las foráneas y los campos únicos ya tienen índice autom
 | `Comment` | `alert_id` + `created_at` · `news_id` + `created_at` | Comentarios de una alerta o noticia, en orden. |
 | `News` | `created_at` | Listado de noticias, las más recientes primero. |
 | `Notification` | `recipient_id` + `is_read` + `created_at` | Campanita: consulta cada 30–60 s las no leídas. |
+
+## Versiones
+
+Cada versión es un hito del tablero: al cerrarlo, `develop` pasa a `main` por PR y se marca con una etiqueta (`v0.1`, `v0.2`…). El detalle de cada una está en [Releases](https://github.com/fbressan-itec/callejeros_app/releases).
+
+| Versión | Estado | Qué trae |
+| :--- | :--- | :--- |
+| **v0.1** | ✅ Publicada | Proyecto base (Django, Next, Docker y CI), base de datos (DB-01), usuarios, roles y autenticación con JWT, layout general (barra, menú, modo oscuro, footer y botón de alerta), login, registro con verificación por SMS (maquetada) y recuperar contraseña. Adelanto de v0.2: modelos de mascotas y su `seed`. |
+| v0.2 | 🚧 En curso | Adopción: mascotas, insignias, favoritos, solicitudes y panel de Staff. |
+| v0.3 | Pendiente | Alertas, mapa, comentarios y notificaciones. |
+| v0.4 | Pendiente | Apadrinamiento, tienda, noticias, Mi Cuenta y panel de Admin. |
+| v1.0 | Pendiente | Cierre: README, Swagger, accesibilidad y deploy si hay tiempo. |
 
 ## Flujo de trabajo
 
