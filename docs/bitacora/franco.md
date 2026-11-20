@@ -172,3 +172,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** pasarles a Ulises y Leandro `AGENTS.md` y `contexto-ia/` (versión 2026-11-17b) y pedirles que corran `git fetch --prune`.
 - **PR:** este
 - **IA usada:** Claude Code — para proponer la convención, renombrar las ramas y actualizar las reglas.
+
+## 2026-11-19 — Revisión de PR, estado de carga y arreglo de la carga del `.env` en el front
+
+- **Tarjeta:** #77 (BF-01, bugfix y correcciones chicas)
+- **Rama:** bugfix/bf01-77-carga-env-raiz-front
+- **Área:** front, devops, docs
+- **Qué hice:**
+  - Revisé las correcciones del PR #88 (BK-03a, Ulises) y los PR #92 (FR-03a, login y rutas protegidas) y #93 (FR-03b, registro) de Leandro, probando cada uno en una copia aparte del repo.
+  - Definí el **estado de carga** (no está en el maquetado): un único componente compartido `LoadingScreen` para toda espera de datos, y botones deshabilitados con el texto en gerundio al enviar. Lo agregué al contexto de las IAs y como criterio en las tarjetas del front que cargan datos (#23 a #36) y en #89.
+  - Arreglé `frontend/next.config.ts`: con `npm run dev` fuera de Docker, el front no leía el `.env` de la raíz y faltaban `NEXT_PUBLIC_API_URL` y el código `MOCK_VERIFICATION_CODE`. Ahora `loadEnvConfig` fuerza la lectura (`forceReload`).
+- **Decisiones tomadas:**
+  - `LoadingScreen` de página completa con `min-h-[60vh]`, para que el pie no suba mientras carga. Los *skeletons* quedan anotados como idea para el final del proyecto.
+  - El enmascarado del teléfono del registro (`+54 •••• 456`) se queda así aunque muestre menos dígitos que el maquetado, porque da más privacidad.
+- **Problemas y cómo los resolví:**
+  - Next lee `frontend/` antes de cargar `next.config.ts` y `@next/env` reusa esa lectura, así que la segunda llamada no hacía nada. Lo reproduje con un script y lo comprobé con `npm run dev`: con el arreglo llegan las variables y el registro muestra el código `8596`.
+  - A mi `.env` le faltaba `MOCK_VERIFICATION_CODE` (se agregó al `.env.example` el 2026-11-18); lo agregué y avisé a Ulises y Leandro que revisen el suyo.
+- **Pendiente:** que Ulises y Leandro actualicen su `.env` y hagan `git pull` cuando se mergee este PR.
+- **PR:** este
+- **IA usada:** Claude Code — para revisar y probar los PR, definir el estado de carga y encontrar y arreglar el error de la carga del `.env`.
