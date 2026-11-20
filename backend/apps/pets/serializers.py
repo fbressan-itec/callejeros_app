@@ -1,0 +1,242 @@
+"""Serializers de gestión de mascotas y fotos del carrusel (BK-03b)."""
+
+import json
+
+from rest_framework import serializers
+
+from apps.pets.models import Pet, PetHealth, PetPhoto
+from apps.pets.services import (
+    CONTACT_PHONE_REQUIRED_ERROR,
+    DESCRIPTION_REQUIRED_ERROR,
+    DESCRIPTION_TOO_LONG_ERROR,
+    MAX_DESCRIPTION_LENGTH,
+    MAX_SPECIAL_CARE_LENGTH,
+    MIN_PHOTOS_ERROR,
+    NAME_REQUIRED_ERROR,
+    SPECIAL_CARE_TOO_LONG_ERROR,
+)
+from apps.users.models import User
+from apps.users.serializers import RoleSummarySerializer
+
+
+class PetPublisherSerializer(serializers.ModelSerializer):
+    """Datos públicos mínimos de quien publicó la mascota (nunca expone dirección ni teléfono)."""
+
+    role = RoleSummarySerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ("id", "first_name", "last_name", "role")
+        read_only_fields = fields
+
+
+class PetHealthSerializer(serializers.ModelSerializer):
+    """Bloque de estado de salud asociado a una mascota."""
+
+    class Meta:
+        model = PetHealth
+        fields = (
+            "general_status",
+            "vaccines",
+            "deworming",
+            "flea_tick_treatment",
+            "other",
+        )
+        read_only_fields = fields
+
+
+class PetHealthInputSerializer(serializers.Serializer):
+    """Valida datos opcionales de `PetHealth`, aceptando objeto JSON o string JSON en multipart."""
+
+    general_status = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    vaccines = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    deworming = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    flea_tick_treatment = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    other = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            raw = data.strip()
+            if not raw:
+                return {}
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise serializers.ValidationError(
+                    "Los datos de salud deben enviarse como un objeto JSON válido."
+                ) from exc
+            if not isinstance(data, dict):
+                raise serializers.ValidationError(
+                    "Los datos de salud deben enviarse como un objeto JSON válido."
+                )
+        return super().to_internal_value(data)
+
+
+class PetPhotoSerializer(serializers.ModelSerializer):
+    """Foto activa del carrusel de una mascota."""
+
+    class Meta:
+        model = PetPhoto
+        fields = ("id", "image", "position", "created_at")
+        read_only_fields = fields
+
+
+class PetManageSerializer(serializers.ModelSerializer):
+    """Respuesta de gestión de mascota (no expone `contact_phone`)."""
+
+    published_by = PetPublisherSerializer(read_only=True)
+    health = PetHealthSerializer(read_only=True)
+    photos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pet
+        fields = (
+            "id",
+            "name",
+            "species",
+            "sex",
+            "estimated_birth_date",
+            "is_sociable",
+            "good_with_children",
+            "good_with_animals",
+            "is_neutered",
+            "is_urgent_requested",
+            "is_urgent_validated",
+            "special_care",
+            "description",
+            "notes",
+            "status",
+            "published_by",
+            "health",
+            "photos",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_photos(self, obj: Pet) -> list[dict]:
+        active_photos = obj.photos.active().order_by("position", "id")
+        return PetPhotoSerializer(active_photos, many=True, context=self.context).data
+
+
+class PetCreateSerializer(serializers.Serializer):
+    """Valida el formato de entrada para publicar una mascota con al menos una foto."""
+
+    name = serializers.CharField(
+        max_length=100,
+        error_messages={
+            "required": NAME_REQUIRED_ERROR,
+            "blank": NAME_REQUIRED_ERROR,
+        },
+    )
+    species = serializers.ChoiceField(choices=Pet.Species.choices)
+    sex = serializers.ChoiceField(choices=Pet.Sex.choices)
+    estimated_birth_date = serializers.DateField()
+    is_sociable = serializers.BooleanField()
+    good_with_children = serializers.ChoiceField(
+        choices=Pet.Compatibility.choices,
+        required=False,
+        default=Pet.Compatibility.NOT_EVALUATED,
+    )
+    good_with_animals = serializers.ChoiceField(
+        choices=Pet.Compatibility.choices,
+        required=False,
+        default=Pet.Compatibility.NOT_EVALUATED,
+    )
+    is_neutered = serializers.BooleanField()
+    is_urgent_requested = serializers.BooleanField(required=False, default=False)
+    special_care = serializers.CharField(
+        max_length=MAX_SPECIAL_CARE_LENGTH,
+        required=False,
+        allow_blank=True,
+        default="",
+        error_messages={"max_length": SPECIAL_CARE_TOO_LONG_ERROR},
+    )
+    description = serializers.CharField(
+        max_length=MAX_DESCRIPTION_LENGTH,
+        error_messages={
+            "required": DESCRIPTION_REQUIRED_ERROR,
+            "blank": DESCRIPTION_REQUIRED_ERROR,
+            "max_length": DESCRIPTION_TOO_LONG_ERROR,
+        },
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    contact_phone = serializers.CharField(
+        max_length=30,
+        write_only=True,
+        error_messages={
+            "required": CONTACT_PHONE_REQUIRED_ERROR,
+            "blank": CONTACT_PHONE_REQUIRED_ERROR,
+        },
+    )
+    health = PetHealthInputSerializer(required=False)
+    photos = serializers.ListField(
+        child=serializers.FileField(),
+        allow_empty=False,
+        write_only=True,
+        error_messages={
+            "required": MIN_PHOTOS_ERROR,
+            "empty": MIN_PHOTOS_ERROR,
+        },
+    )
+
+
+class PetUpdateSerializer(serializers.Serializer):
+    """Valida edición parcial; excluye `status`, `is_urgent_validated` y `published_by`."""
+
+    name = serializers.CharField(
+        max_length=100,
+        required=False,
+        error_messages={"blank": NAME_REQUIRED_ERROR},
+    )
+    species = serializers.ChoiceField(choices=Pet.Species.choices, required=False)
+    sex = serializers.ChoiceField(choices=Pet.Sex.choices, required=False)
+    estimated_birth_date = serializers.DateField(required=False)
+    is_sociable = serializers.BooleanField(required=False)
+    good_with_children = serializers.ChoiceField(
+        choices=Pet.Compatibility.choices,
+        required=False,
+    )
+    good_with_animals = serializers.ChoiceField(
+        choices=Pet.Compatibility.choices,
+        required=False,
+    )
+    is_neutered = serializers.BooleanField(required=False)
+    is_urgent_requested = serializers.BooleanField(required=False)
+    special_care = serializers.CharField(
+        max_length=MAX_SPECIAL_CARE_LENGTH,
+        required=False,
+        allow_blank=True,
+        error_messages={"max_length": SPECIAL_CARE_TOO_LONG_ERROR},
+    )
+    description = serializers.CharField(
+        max_length=MAX_DESCRIPTION_LENGTH,
+        required=False,
+        error_messages={
+            "blank": DESCRIPTION_REQUIRED_ERROR,
+            "max_length": DESCRIPTION_TOO_LONG_ERROR,
+        },
+    )
+    notes = serializers.CharField(required=False, allow_blank=True)
+    contact_phone = serializers.CharField(
+        max_length=30,
+        required=False,
+        write_only=True,
+        error_messages={"blank": CONTACT_PHONE_REQUIRED_ERROR},
+    )
+    health = PetHealthInputSerializer(required=False)
+
+
+class PetAdoptSerializer(serializers.Serializer):
+    """Valida la nota opcional al marcar una mascota como adoptada."""
+
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
+class PetPhotoUploadSerializer(serializers.Serializer):
+    """Valida la subida de una nueva foto al carrusel de una mascota."""
+
+    image = serializers.FileField(
+        write_only=True,
+        error_messages={"required": MIN_PHOTOS_ERROR},
+    )
