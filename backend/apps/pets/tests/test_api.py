@@ -119,7 +119,8 @@ def test_create_pet_creates_in_review_with_health_photos_and_initial_log() -> No
     assert body["health"]["general_status"] == "Sano"
     assert body["health"]["vaccines"] == "Séxtuple al día"
     assert [photo["position"] for photo in body["photos"]] == [0, 1]
-    assert "contact_phone" not in body
+    assert body["is_urgent"] is False
+    assert body["contact_phone"] == "+54 9 358 4123456"
 
     pet = Pet.objects.get(pk=body["id"])
     assert pet.contact_phone == "+54 9 358 4123456"

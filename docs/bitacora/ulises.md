@@ -185,3 +185,26 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise y apruebe los ajustes del PR #98 para continuar con #87 (`BK-03c`: catálogo público, filtros, ficha pública y Swagger del catálogo).
 - **PR:** #98
 - **IA usada:** Antigravity — para implementar el validador de imágenes, servicios, permisos, serializers, vistas y batería de tests siguiendo las reglas del proyecto.
+
+## 2026-11-20 — Catálogo público, filtros, búsqueda, ficha de mascota y Swagger (BK-03c)
+
+- **Tarjeta:** #87 (BK-03c, sub-tarjeta de #6 BK-03)
+- **Rama:** feature/bk03-87-catalogo-filtros-ficha
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Instalé `django-filter` con `uv` y lo registré en `THIRD_PARTY_APPS` de `config/settings.py`.
+  - Creé `apps/pets/filters.py` con `PetCatalogFilter` soportando `species`, `sex`, `age_group` (`cachorro`, `adulto`, `senior`), `is_sociable`, `good_with_children`, `good_with_animals`, `is_neutered`, `urgent` (solo urgentes validados y no adoptados), `adopted` (sin mezclar disponibles con adoptados) y `search` por nombre.
+  - Agregué en `apps/pets/permissions.py` y `apps/pets/services.py` las reglas de visibilidad de ficha (`can_view_pet`, `get_visible_pet_or_404`), los cortes exactos de edad compartidos (`calculate_age_group`, `subtract_years`) y las consultas optimizadas con `select_related` y `Prefetch` de fotos activas (`get_catalog_pets_queryset`, `get_my_pets_queryset`).
+  - Implementé `GET /api/pets/` (público), `GET /api/pets/{id}/` (público para `published` y `adopted`, restringido a autor/Staff/Admin para `in_review` y `rejected`, sin exponer `contact_phone`) y `GET /api/pets/mine/` (`IsAuthenticated`), todos documentados con `@extend_schema` en Swagger (`spectacular --validate --fail-on-warn` sin warnings).
+  - Escribí 17 tests en `apps/pets/tests/test_catalog_api.py` cubriendo catálogo, todos los filtros y bordes exactos de edad, paginación de a 12 combinada con filtros, privacidad de `contact_phone` e `is_urgent`, visibilidad de ficha, listado propio y esquema OpenAPI (128 tests en total en verde).
+  - Actualicé `README.md` con `django-filter` y la tabla completa de endpoints `/api/pets/` (incluyendo paginación `{ count, next, previous, results }`, `is_urgent` público y `contact_phone` solo para autor/Staff/Admin).
+  - Apliqué las 3 mejoras de la revisión del PR #99: creé `PetPublicSerializer` con `is_urgent` calculado (`is_pet_urgent`: solicitado, validado y no adoptada) sin exponer `is_urgent_requested`, `is_urgent_validated` ni `contact_phone` al público; expuse `contact_phone` en `PetManageSerializer` únicamente cuando consulta el autor, Staff o Admin (en la ficha y en `mine/`); y agregué `StandardPageNumberPagination` (`page_size = 12`) en `apps/core/pagination.py` aplicada a `GET /api/pets/` y `GET /api/pets/mine/` con su documentación en Swagger y README.
+- **Decisiones tomadas:**
+  - Usé un único helper `subtract_years` / `calculate_age_group` tanto en el filtro `age_group` como en el campo calculado `age_group` del serializer, garantizando cortes consistentes con el maquetado (`< 1 año` cachorro, `1..7` adulto, `> 7` senior) incluso en años bisiestos.
+  - En `GET /api/pets/{id}/`, devolví `404` (y no `403`) a terceros cuando una publicación está en `in_review` o `rejected` para no filtrar la existencia de mascotas aún no aprobadas.
+  - Separé `PetPublicSerializer` y `PetManageSerializer` (heredando del primero para mantener DRY) para garantizar que ni el catálogo ni la ficha pública expongan flags internos de urgencia ni el teléfono de contacto.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; `PetCatalogFilter.qs` aplica `status=published` por defecto cuando no se envía `adopted`, evitando que disponibles y adoptados se mezclen en el catálogo.
+- **Pendiente:** que Franco revise y apruebe los ajustes del PR #99 para cerrar la épica #6 (`[BK-03] Mascotas y fotos`).
+- **PR:** #99
+- **IA usada:** Antigravity — para instalar `django-filter`, implementar los filtros, endpoints de lectura, Swagger, actualización del README y tests con `pytest`.

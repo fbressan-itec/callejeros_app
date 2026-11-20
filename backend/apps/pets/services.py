@@ -2,22 +2,40 @@
 
 from collections.abc import Sequence
 from datetime import date
+from enum import StrEnum
 from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Prefetch, QuerySet
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.core.validators import validate_image_file
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
-from apps.pets.permissions import can_manage_pet, is_staff_or_admin
+from apps.pets.permissions import can_manage_pet, can_view_pet, is_staff_or_admin
 from apps.users.models import User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
 
 MAX_DESCRIPTION_LENGTH = 400
 MAX_SPECIAL_CARE_LENGTH = 150
+
+
+class AgeGroup(StrEnum):
+    """Grupos de edad compartidos entre insignias y filtros del catálogo."""
+
+    CACHORRO = "cachorro"
+    ADULTO = "adulto"
+    SENIOR = "senior"
+
+
+AGE_GROUP_CHOICES = (
+    (AgeGroup.CACHORRO.value, "Cachorro"),
+    (AgeGroup.ADULTO.value, "Adulto"),
+    (AgeGroup.SENIOR.value, "Senior"),
+)
 
 MIN_PHOTOS_ERROR = "Debés subir al menos una foto de la mascota."
 LAST_PHOTO_ERROR = "La mascota debe conservar al menos una foto activa."
@@ -60,6 +78,73 @@ HEALTH_FIELDS = (
 )
 
 TEXT_PET_FIELDS = frozenset({"name", "special_care", "description", "notes", "contact_phone"})
+
+
+def subtract_years(reference_date: date, years: int) -> date:
+    """Resta años calendario exactos manejando el 29 de febrero."""
+    try:
+        return reference_date.replace(year=reference_date.year - years)
+    except ValueError:
+        return reference_date.replace(year=reference_date.year - years, day=28)
+
+
+def calculate_age_group(estimated_birth_date: date, *, today: date | None = None) -> str:
+    """Calcula el grupo de edad (`cachorro` < 1 año, `adulto` 1-7 años, `senior` > 7)."""
+    reference = today or timezone.localdate()
+    if estimated_birth_date > subtract_years(reference, 1):
+        return AgeGroup.CACHORRO.value
+    if estimated_birth_date >= subtract_years(reference, 7):
+        return AgeGroup.ADULTO.value
+    return AgeGroup.SENIOR.value
+
+
+def is_pet_urgent(pet: Pet) -> bool:
+    """Devuelve True solo si la urgencia fue pedida, validada por Staff y no está adoptada."""
+    return bool(
+        pet.is_urgent_requested and pet.is_urgent_validated and pet.status != Pet.Status.ADOPTED
+    )
+
+
+def _base_active_pets_queryset() -> QuerySet[Pet]:
+    """QuerySet base de mascotas activas con autor, rol, salud y fotos activas precargadas."""
+    active_photos_prefetch = Prefetch(
+        "photos",
+        queryset=PetPhoto.objects.active().order_by("position", "id"),
+        to_attr="prefetched_active_photos",
+    )
+    return (
+        Pet.objects.active()
+        .select_related("published_by__role", "health")
+        .prefetch_related(active_photos_prefetch)
+    )
+
+
+def get_catalog_pets_queryset() -> QuerySet[Pet]:
+    """Devuelve mascotas activas elegibles para catálogo público (`published` o `adopted`)."""
+    return (
+        _base_active_pets_queryset()
+        .filter(status__in=(Pet.Status.PUBLISHED, Pet.Status.ADOPTED))
+        .order_by("-created_at", "-id")
+    )
+
+
+def get_my_pets_queryset(*, actor: User, status_filter: str | None = None) -> QuerySet[Pet]:
+    """Devuelve todas las mascotas activas publicadas por `actor` en cualquier estado."""
+    queryset = _base_active_pets_queryset().filter(published_by=actor)
+    if status_filter:
+        valid_statuses = {choice for choice, _ in Pet.Status.choices}
+        if status_filter not in valid_statuses:
+            raise ValidationError({"status": ["Estado de mascota inválido."]})
+        queryset = queryset.filter(status=status_filter)
+    return queryset.order_by("-created_at", "-id")
+
+
+def get_visible_pet_or_404(*, pet_id: int, actor: Any) -> Pet:
+    """Obtiene una ficha si es pública (`published`/`adopted`) o visible para autor/Staff/Admin."""
+    pet = get_object_or_404(_base_active_pets_queryset(), pk=pet_id)
+    if not can_view_pet(actor, pet):
+        raise Http404
+    return pet
 
 
 def _ensure_can_manage_pet(pet: Pet, actor: User) -> None:

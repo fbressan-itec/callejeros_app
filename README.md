@@ -18,7 +18,7 @@ Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Sup
 
 | Parte | Tecnologías |
 | :--- | :--- |
-| Backend | Python · Django · Django REST Framework · SimpleJWT · drf-spectacular (Swagger) · uv · pytest · ruff |
+| Backend | Python · Django · Django REST Framework · SimpleJWT · django-filter · drf-spectacular (Swagger) · uv · pytest · ruff |
 | Base de datos | ORM de Django · SQLite |
 | Frontend | Next.js · React · TypeScript · Tailwind CSS 4 · Vitest · ESLint · Prettier |
 | DevOps | Docker · GitHub Actions |
@@ -173,6 +173,20 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `POST /api/auth/refresh/` | Público (`AllowAny`) | Emite un nuevo token `access` a partir de un `refresh` vigente. |
 | `POST /api/auth/logout/` | Público (`AllowAny`) | Invalida el token `refresh` agregándolo a la lista negra (`token_blacklist`). |
 | `GET /api/auth/me/` | Sesión activa (`IsAuthenticated`) | Devuelve los datos y el rol (`member`, `verified_shelter`, `staff`, `admin`) del usuario autenticado. |
+
+#### Endpoints de mascotas (`/api/pets/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `GET /api/pets/` | Público (`AllowAny`) | Catálogo paginado de a 12 (`{ count, next, previous, results }`, `?page=2`) de mascotas activas (`published` por defecto; con `?adopted=true` solo `adopted`). Soporta filtros (`species`, `sex`, `age_group`, `is_sociable`, `good_with_children`, `good_with_animals`, `is_neutered`, `urgent`, `adopted`) y búsqueda por nombre (`search`). Devuelve solo `is_urgent` calculado y nunca expone `contact_phone` ni flags internos. |
+| `POST /api/pets/` | Sesión activa (`IsAuthenticated`) | Publica una mascota en `in_review` con `is_urgent_validated=False`, bloque de salud (`health`), al menos 1 foto válida (JPG/PNG/WEBP ≤ 5 MB) y log inicial en `PetStatusLog`. |
+| `GET /api/pets/mine/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las mascotas activas publicadas por el usuario autenticado en todos los estados (filtro opcional `?status=`), incluyendo `contact_phone` para edición. |
+| `GET /api/pets/{id}/` | Público (`published`/`adopted`) · Autor o Staff/Admin en otros estados | Devuelve la ficha completa. Para el público expone solo `is_urgent` calculado (sin `contact_phone` ni flags internos); para autor, Staff o Admin incluye `contact_phone` y flags internos para edición/gestión. |
+| `PATCH /api/pets/{id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Edita campos permitidos y `health` sin modificar `status`, `is_urgent_validated` ni `published_by`. Si el autor edita una mascota `published`, vuelve a `in_review` y queda en `PetStatusLog`. |
+| `DELETE /api/pets/{id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Da de baja lógica la mascota (`is_active=False`). |
+| `POST /api/pets/{id}/adopt/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Marca como `adopted` una mascota en estado `published` y registra la transición en `PetStatusLog`. |
+| `POST /api/pets/{id}/photos/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Sube una nueva foto validada al carrusel (si el autor edita una `published`, vuelve a `in_review`). |
+| `DELETE /api/pets/{id}/photos/{photo_id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Da de baja lógica una foto impidiendo dejar a la mascota sin fotos activas y compacta posiciones desde `0`. |
 
 #### Variables de entorno (`.env` / `.env.example`)
 

@@ -3,9 +3,10 @@
 from django.urls import path
 
 from apps.pets.views import (
+    MyPetListView,
     PetAdoptView,
-    PetCreateView,
     PetDetailView,
+    PetListCreateView,
     PetPhotoCreateView,
     PetPhotoDeleteView,
 )
@@ -13,7 +14,8 @@ from apps.pets.views import (
 app_name = "pets"
 
 urlpatterns = [
-    path("", PetCreateView.as_view(), name="pet-create"),
+    path("", PetListCreateView.as_view(), name="pet-list-create"),
+    path("mine/", MyPetListView.as_view(), name="pet-mine"),
     path("<int:pet_id>/", PetDetailView.as_view(), name="pet-detail"),
     path("<int:pet_id>/adopt/", PetAdoptView.as_view(), name="pet-adopt"),
     path("<int:pet_id>/photos/", PetPhotoCreateView.as_view(), name="pet-photo-create"),

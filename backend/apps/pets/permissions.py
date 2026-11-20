@@ -9,6 +9,7 @@ from apps.users.models import RoleCode
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
 
 STAFF_OR_ADMIN_ROLES = frozenset({RoleCode.STAFF, RoleCode.ADMIN})
+PUBLIC_PET_STATUSES = frozenset({Pet.Status.PUBLISHED, Pet.Status.ADOPTED})
 
 
 def is_staff_or_admin(user) -> bool:
@@ -27,6 +28,15 @@ def can_manage_pet(user, pet: Pet) -> bool:
     if pet.published_by_id == user.id:
         return True
     return is_staff_or_admin(user)
+
+
+def can_view_pet(user, pet: Pet) -> bool:
+    """Devuelve True si la ficha de la mascota es visible para el usuario dado."""
+    if not pet.is_active:
+        return False
+    if pet.status in PUBLIC_PET_STATUSES:
+        return True
+    return can_manage_pet(user, pet)
 
 
 class IsPetOwnerOrStaffOrAdmin(BasePermission):
