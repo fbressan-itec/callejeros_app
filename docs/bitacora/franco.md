@@ -191,3 +191,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Ulises y Leandro actualicen su `.env` y hagan `git pull` cuando se mergee este PR.
 - **PR:** este
 - **IA usada:** Claude Code — para revisar y probar los PR, definir el estado de carga y encontrar y arreglar el error de la carga del `.env`.
+
+## 2026-11-20 — Cierre de la versión v0.1: README y capturas
+
+- **Tarjeta:** #67 (GE-01, gestión)
+- **Rama:** feature/ge01-67-version-v01
+- **Área:** docs
+- **Qué hice:**
+  - Comprobé que el hito v0.1 está completo (42 tarjetas cerradas, ninguna abierta) y preparé el pase de `develop` a `main`, como pide la consigna al cerrar cada hito.
+  - Agregué al README las **cuentas de prueba** del `seed` (una por rol, con lo que permite probar cada una) y el código de verificación maquetado (`MOCK_VERIFICATION_CODE`, `8596` por defecto).
+  - Agregué la sección **Versiones** (qué trae cada hito y en qué estado está) y la versión actual arriba de todo.
+  - Completé los usuarios de GitHub de Ulises y Leandro en la tabla del equipo.
+  - Saqué las capturas de FR-03 (login en celular, claro y oscuro, con errores de validación, registro, recuperar y escritorio) para la Wiki.
+- **Decisiones tomadas:**
+  - La tabla de cuentas no muestra una contraseña real: remite a `SEED_USER_PASSWORD` del `.env` y da el valor de ejemplo del `.env.example`, que ya es público.
+  - BK-03a (modelos de mascotas) ya está en `develop` y entra en la v0.1 como adelanto de v0.2: funciona sola, y el flujo es pasar `develop` entera a `main`.
+  - La Wiki se arma después de definir entre todos sus secciones.
+- **Problemas y cómo los resolví:** en las capturas del front aparecía el botón de desarrollo de Next; las saqué sobre la versión de producción (`next build` + `next start`).
+- **Pendiente:** PR `develop` → `main`, etiqueta `v0.1`, Release, cerrar el hito y armar la Wiki.
+- **PR:** este
+- **IA usada:** Claude Code — para revisar el hito, redactar el README y sacar las capturas.
