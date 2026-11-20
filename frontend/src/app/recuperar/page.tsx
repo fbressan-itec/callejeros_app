@@ -177,7 +177,7 @@ export default function RecoverPasswordPage() {
   }
 
   function handleOtpChange(index: number, rawValue: string) {
-    const digit = rawValue.replace(/\D/g, "").slice(0, 1);
+    const digit = rawValue.replace(/\D/g, "").slice(-1);
     setCodeError(null);
     setResendMessage(null);
     setOtpDigits((prev) => {
@@ -244,9 +244,11 @@ export default function RecoverPasswordPage() {
 
     const expectedCode = getMockVerificationCode();
     if (code !== expectedCode) {
+      setOtpDigits(["", "", "", ""]);
       setCodeError(
         `Código incorrecto. Probá con el código de demostración ${expectedCode}.`,
       );
+      otpRefs.current[0]?.focus();
       return;
     }
 

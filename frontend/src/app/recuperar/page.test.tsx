@@ -100,7 +100,7 @@ describe("RecoverPasswordPage", () => {
       await screen.findByText("Ingresá los 4 dígitos del código."),
     ).toBeInTheDocument();
 
-    // Código incorrecto
+    // Código incorrecto: muestra el error, vacía los 4 casilleros y vuelve el foco al primero
     fireEvent.change(screen.getByLabelText("Dígito 2"), {
       target: { value: "2" },
     });
@@ -116,6 +116,13 @@ describe("RecoverPasswordPage", () => {
         "Código incorrecto. Probá con el código de demostración 8596.",
       ),
     ).toBeInTheDocument();
+
+    const otp1 = screen.getByLabelText("Dígito 1");
+    expect(otp1).toHaveValue("");
+    expect(screen.getByLabelText("Dígito 2")).toHaveValue("");
+    expect(screen.getByLabelText("Dígito 3")).toHaveValue("");
+    expect(screen.getByLabelText("Dígito 4")).toHaveValue("");
+    expect(document.activeElement).toBe(otp1);
 
     // Código correcto (8596)
     fireEvent.change(screen.getByLabelText("Dígito 1"), {

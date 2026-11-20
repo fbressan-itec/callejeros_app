@@ -286,4 +286,53 @@ describe("RegisterPage", () => {
       { timeout: 2500 },
     );
   });
+
+  it("en el Paso 3 vacía los 4 casilleros y vuelve el foco al primero si el código SMS es incorrecto", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        verification_code: ["El código de verificación es incorrecto."],
+      }),
+    );
+
+    render(
+      <AuthProvider>
+        <RegisterPage />
+      </AuthProvider>,
+    );
+
+    fillStep1Form();
+    fireEvent.click(screen.getByRole("button", { name: "Registrarme" }));
+
+    const phoneInput = await screen.findByLabelText("Número de Teléfono");
+    fireEvent.change(phoneInput, { target: { value: "358 4123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
+
+    await screen.findByRole("heading", { name: "Verificá tu teléfono" });
+
+    fireEvent.change(screen.getByLabelText("Dígito 1"), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText("Dígito 2"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Dígito 3"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Dígito 4"), {
+      target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
+
+    expect(
+      await screen.findByText("El código de verificación es incorrecto."),
+    ).toBeInTheDocument();
+
+    const otp1 = screen.getByLabelText("Dígito 1");
+    expect(otp1).toHaveValue("");
+    expect(screen.getByLabelText("Dígito 2")).toHaveValue("");
+    expect(screen.getByLabelText("Dígito 3")).toHaveValue("");
+    expect(screen.getByLabelText("Dígito 4")).toHaveValue("");
+    expect(document.activeElement).toBe(otp1);
+  });
 });
