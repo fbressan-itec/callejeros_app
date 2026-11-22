@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.pagination import StandardPageNumberPagination
+from apps.pets.badges import AgeGroup
 from apps.pets.filters import PetCatalogFilter
 from apps.pets.models import Pet, PetPhoto
 from apps.pets.permissions import IsPetOwnerOrStaffOrAdmin, can_manage_pet
@@ -26,7 +27,6 @@ from apps.pets.serializers import (
     PetUpdateSerializer,
 )
 from apps.pets.services import (
-    AgeGroup,
     add_pet_photo,
     adopt_pet,
     create_pet,

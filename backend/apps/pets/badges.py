@@ -117,26 +117,26 @@ def subtract_years(reference_date: date, years: int) -> date:
 
 
 def calculate_age_group(estimated_birth_date: date, *, today: date | None = None) -> str:
-    """Calcula el grupo de edad (`cachorro` < 1 año, `adulto` 1-7 años, `senior` > 7)."""
+    """Calcula el grupo de edad (`cachorro` < 1 año, `adulto` 1-7 años cumplidos, `senior` >= 8)."""
     reference = today or timezone.localdate()
     if estimated_birth_date > subtract_years(reference, 1):
         return AgeGroup.CACHORRO.value
-    if estimated_birth_date >= subtract_years(reference, 7):
+    if estimated_birth_date > subtract_years(reference, 8):
         return AgeGroup.ADULTO.value
     return AgeGroup.SENIOR.value
 
 
 def format_pet_age(estimated_birth_date: date, *, today: date | None = None) -> str:
-    """Devuelve la edad legible en español a partir de `estimated_birth_date`."""
+    """Devuelve la edad legible en español con el formato del maquetado."""
     reference = today or timezone.localdate()
     if estimated_birth_date >= reference:
-        return "menos de 1 mes"
+        return "Menos de 1 Mes"
 
     if estimated_birth_date <= subtract_years(reference, 1):
         years = reference.year - estimated_birth_date.year
         if estimated_birth_date > subtract_years(reference, years):
             years -= 1
-        return "1 año" if years == 1 else f"{years} años"
+        return "1 Año" if years == 1 else f"{years} Años"
 
     months = (reference.year - estimated_birth_date.year) * 12 + (
         reference.month - estimated_birth_date.month
@@ -144,10 +144,10 @@ def format_pet_age(estimated_birth_date: date, *, today: date | None = None) -> 
     if reference.day < estimated_birth_date.day:
         months -= 1
     if months <= 0:
-        return "menos de 1 mes"
+        return "Menos de 1 Mes"
     if months == 1:
-        return "1 mes"
-    return f"{min(months, 11)} meses"
+        return "1 Mes"
+    return f"{min(months, 11)} Meses"
 
 
 def is_pet_urgent(pet: Pet) -> bool:

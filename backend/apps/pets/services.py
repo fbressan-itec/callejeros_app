@@ -13,39 +13,6 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.core.validators import validate_image_file
-from apps.pets.badges import (
-    AGE_GROUP_CHOICES as AGE_GROUP_CHOICES,
-)
-from apps.pets.badges import (
-    AgeGroup as AgeGroup,
-)
-from apps.pets.badges import (
-    BadgeIcon as BadgeIcon,
-)
-from apps.pets.badges import (
-    BadgeKey as BadgeKey,
-)
-from apps.pets.badges import (
-    BadgeTone as BadgeTone,
-)
-from apps.pets.badges import (
-    PetBadge as PetBadge,
-)
-from apps.pets.badges import (
-    calculate_age_group as calculate_age_group,
-)
-from apps.pets.badges import (
-    format_pet_age as format_pet_age,
-)
-from apps.pets.badges import (
-    get_pet_badges as get_pet_badges,
-)
-from apps.pets.badges import (
-    is_pet_urgent as is_pet_urgent,
-)
-from apps.pets.badges import (
-    subtract_years as subtract_years,
-)
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.pets.permissions import can_manage_pet, can_view_pet, is_staff_or_admin
 from apps.users.models import User

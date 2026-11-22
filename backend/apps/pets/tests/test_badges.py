@@ -189,61 +189,73 @@ def test_sex_badge_variants(
             date(2026, 11, 20),
             AgeGroup.CACHORRO.value,
             BadgeIcon.AGE_CACHORRO.value,
-            "Cachorro (menos de 1 año): menos de 1 mes",
+            "Cachorro (menos de 1 año): Menos de 1 Mes",
         ),
         (
             date(2026, 11, 5),
             AgeGroup.CACHORRO.value,
             BadgeIcon.AGE_CACHORRO.value,
-            "Cachorro (menos de 1 año): menos de 1 mes",
+            "Cachorro (menos de 1 año): Menos de 1 Mes",
         ),
         (
             date(2026, 10, 20),
             AgeGroup.CACHORRO.value,
             BadgeIcon.AGE_CACHORRO.value,
-            "Cachorro (menos de 1 año): 1 mes",
+            "Cachorro (menos de 1 año): 1 Mes",
         ),
         (
             date(2026, 5, 20),
             AgeGroup.CACHORRO.value,
             BadgeIcon.AGE_CACHORRO.value,
-            "Cachorro (menos de 1 año): 6 meses",
+            "Cachorro (menos de 1 año): 6 Meses",
         ),
         (
             date(2025, 11, 21),
             AgeGroup.CACHORRO.value,
             BadgeIcon.AGE_CACHORRO.value,
-            "Cachorro (menos de 1 año): 11 meses",
+            "Cachorro (menos de 1 año): 11 Meses",
         ),
         (
             date(2025, 11, 20),
             AgeGroup.ADULTO.value,
             BadgeIcon.AGE_ADULTO.value,
-            "Adulto (de 1 a 7 años): 1 año",
+            "Adulto (de 1 a 7 años): 1 Año",
         ),
         (
             date(2022, 11, 20),
             AgeGroup.ADULTO.value,
             BadgeIcon.AGE_ADULTO.value,
-            "Adulto (de 1 a 7 años): 4 años",
+            "Adulto (de 1 a 7 años): 4 Años",
         ),
         (
             date(2019, 11, 20),
             AgeGroup.ADULTO.value,
             BadgeIcon.AGE_ADULTO.value,
-            "Adulto (de 1 a 7 años): 7 años",
+            "Adulto (de 1 a 7 años): 7 Años",
         ),
         (
-            date(2019, 11, 19),
+            date(2019, 6, 1),
+            AgeGroup.ADULTO.value,
+            BadgeIcon.AGE_ADULTO.value,
+            "Adulto (de 1 a 7 años): 7 Años",
+        ),
+        (
+            date(2018, 11, 21),
+            AgeGroup.ADULTO.value,
+            BadgeIcon.AGE_ADULTO.value,
+            "Adulto (de 1 a 7 años): 7 Años",
+        ),
+        (
+            date(2018, 11, 20),
             AgeGroup.SENIOR.value,
             BadgeIcon.AGE_SENIOR.value,
-            "Senior (más de 7 años): 7 años",
+            "Senior (más de 7 años): 8 Años",
         ),
         (
             date(2016, 11, 20),
             AgeGroup.SENIOR.value,
             BadgeIcon.AGE_SENIOR.value,
-            "Senior (más de 7 años): 10 años",
+            "Senior (más de 7 años): 10 Años",
         ),
     ],
 )
@@ -270,9 +282,9 @@ def test_leap_year_birth_date_handling() -> None:
 
     assert subtract_years(date(2024, 2, 29), 1) == date(2023, 2, 28)
     assert calculate_age_group(leap_birth, today=date(2025, 2, 28)) == AgeGroup.CACHORRO.value
-    assert format_pet_age(leap_birth, today=date(2025, 2, 28)) == "11 meses"
+    assert format_pet_age(leap_birth, today=date(2025, 2, 28)) == "11 Meses"
     assert calculate_age_group(leap_birth, today=date(2025, 3, 1)) == AgeGroup.ADULTO.value
-    assert format_pet_age(leap_birth, today=date(2025, 3, 1)) == "1 año"
+    assert format_pet_age(leap_birth, today=date(2025, 3, 1)) == "1 Año"
 
 
 @pytest.mark.parametrize(
