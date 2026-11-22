@@ -257,3 +257,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de la #104; después, BK-06c (#105), la cola de revisión del panel.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para proponer las opciones de diseño, escribir el código y los tests, y redactar la documentación.
+
+## 2026-11-22 — Revisión de publicaciones por Staff: cola de revisión del panel (BK-06c)
+
+- **Tarjeta:** #105 (BK-06c, sub-tarjeta de la épica #9, BK-06)
+- **Rama:** feature/bk06-105-cola-revision-panel
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Mergeé el PR #107 (BK-06b) y arranqué la última sub-tarjeta de BK-06.
+  - Agregué el servicio `get_review_queue_queryset` y el endpoint `GET /api/pets/review-queue/` (solo Staff y Admin): la lista paginada de las mascotas que esperan revisión, que va a usar la pantalla del panel de Staff (FR-10, #28).
+  - Tests del endpoint y del servicio: contenido, orden, datos de la ficha de gestión, paginación, cola vacía, que una aprobada sale de la cola, permisos por rol y Swagger. Actualicé Swagger y el README.
+- **Decisiones tomadas:**
+  - Ruta `/api/pets/review-queue/`, junto a los demás endpoints de mascotas (como `/mine/`), en lugar de una sección `/api/staff/` aparte o de reusar el catálogo público (que podría exponer `contact_phone`).
+  - Orden: primero las que pidieron caso urgente y, dentro de cada grupo, la más vieja primero, como una fila de atención.
+  - Sin filtros por ahora (con pocas pendientes por día alcanza con el orden); quedó comentado en el código cómo sumarlos si FR-10 los necesita.
+  - Cada mascota se devuelve con `PetManageSerializer`, la misma ficha de gestión que devuelven `/approve/`, `/reject/` y `/urgency/`, para no repetir código y que el front reciba siempre la misma forma.
+- **Problemas y cómo los resolví:** para probar el orden por antigüedad, `created_at` se completa solo al crear (`auto_now_add`); en los tests lo ajusté después de crear cada mascota.
+- **Pendiente:** PR de la #105 y, al mergearlo, cerrar la épica BK-06 (#9).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer las opciones de diseño, escribir el código y los tests, y redactar la documentación.

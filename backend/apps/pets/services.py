@@ -535,3 +535,24 @@ def set_pet_urgency(*, pet: Pet, actor: User, validated: bool) -> Pet:
         note=URGENCY_VALIDATED_NOTE if validated else URGENCY_UNVALIDATED_NOTE,
     )
     return locked
+
+
+def get_review_queue_queryset(*, actor: User) -> QuerySet[Pet]:
+    """Cola de revisión del panel de Staff (BK-06c): mascotas activas en `in_review`.
+
+    Orden: primero las que pidieron "caso urgente" (pueden ser una emergencia) y, dentro de
+    cada grupo, de la más vieja a la más nueva (quien esperó más se revisa primero).
+
+    Filtros: por ahora no tiene (decisión 2026-11-22: con pocas pendientes por día alcanza
+    con este orden). Si FR-10 los necesita, se aplica un `FilterSet` sobre este queryset en
+    la vista, igual que hace el catálogo con `PetCatalogFilter` (`apps/pets/filters.py`),
+    por ejemplo por especie, urgencia pedida o nombre.
+    """
+    if not pet_review_workflow.can_review(actor):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+    return (
+        _base_active_pets_queryset()
+        .filter(status=Pet.Status.IN_REVIEW)
+        .order_by("-is_urgent_requested", "created_at", "id")
+    )
