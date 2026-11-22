@@ -5,10 +5,12 @@ from django.urls import path
 from apps.pets.views import (
     MyPetListView,
     PetAdoptView,
+    PetApproveView,
     PetDetailView,
     PetListCreateView,
     PetPhotoCreateView,
     PetPhotoDeleteView,
+    PetRejectView,
 )
 
 app_name = "pets"
@@ -18,6 +20,8 @@ urlpatterns = [
     path("mine/", MyPetListView.as_view(), name="pet-mine"),
     path("<int:pet_id>/", PetDetailView.as_view(), name="pet-detail"),
     path("<int:pet_id>/adopt/", PetAdoptView.as_view(), name="pet-adopt"),
+    path("<int:pet_id>/approve/", PetApproveView.as_view(), name="pet-approve"),
+    path("<int:pet_id>/reject/", PetRejectView.as_view(), name="pet-reject"),
     path("<int:pet_id>/photos/", PetPhotoCreateView.as_view(), name="pet-photo-create"),
     path(
         "<int:pet_id>/photos/<int:photo_id>/",

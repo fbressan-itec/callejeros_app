@@ -1,4 +1,4 @@
-"""Vistas de API para publicar, editar, adoptar, dar de baja mascotas y gestionar fotos."""
+"""Vistas de API para publicar, editar, adoptar, revisar, dar de baja mascotas y gestionar fotos."""
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
@@ -23,20 +23,24 @@ from apps.pets.serializers import (
     PetPhotoSerializer,
     PetPhotoUploadSerializer,
     PetPublicSerializer,
+    PetReviewSerializer,
     PetUpdateSerializer,
 )
 from apps.pets.services import (
     AgeGroup,
     add_pet_photo,
     adopt_pet,
+    approve_pet,
     create_pet,
     deactivate_pet,
     get_catalog_pets_queryset,
     get_my_pets_queryset,
     get_visible_pet_or_404,
+    reject_pet,
     remove_pet_photo,
     update_pet,
 )
+from apps.users.permissions import IsStaffOrAdmin
 
 PETS_TAG = "Mascotas"
 
@@ -449,3 +453,79 @@ class PetPhotoDeleteView(APIView):
         photo = get_object_or_404(PetPhoto.objects.active(), pk=photo_id, pet=pet)
         remove_pet_photo(pet=pet, photo=photo, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+_REVIEW_ERROR_RESPONSES = {
+    400: OpenApiResponse(
+        description=(
+            "La mascota no está en `in_review` (ya fue revisada, está adoptada o rechazada) "
+            "o el motivo supera los 255 caracteres."
+        )
+    ),
+    401: OpenApiResponse(description="Sin token Bearer válido."),
+    403: OpenApiResponse(description="El usuario no tiene rol `staff` ni `admin`."),
+    404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
+}
+
+
+class _PetReviewBaseView(APIView):
+    """Base de las acciones de revisión: mismo permiso, validación y respuesta (BK-06a)."""
+
+    permission_classes = (IsAuthenticated, IsStaffOrAdmin)
+
+    def _review(self, request: Request, pet_id: int, review_service) -> Response:
+        pet = _get_active_pet_or_404(pet_id)
+
+        serializer = PetReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pet = review_service(
+            pet=pet,
+            actor=request.user,
+            note=serializer.validated_data["note"],
+        )
+        pet = _get_active_pet_or_404(pet.id)
+        return Response(
+            PetManageSerializer(pet, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class PetApproveView(_PetReviewBaseView):
+    """POST /api/pets/{id}/approve/ — Staff o Admin aprueba una mascota en revisión."""
+
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Aprobar una publicación de mascota",
+        description=(
+            "Cambia el estado de `in_review` a `published` (la mascota aparece en el catálogo) "
+            "y registra la transición en `PetStatusLog` con quién aprobó y el motivo. "
+            '`note` es opcional: si llega vacío se guarda "Publicación aprobada por Staff.". '
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        request=PetReviewSerializer,
+        responses={200: PetManageSerializer, **_REVIEW_ERROR_RESPONSES},
+    )
+    def post(self, request: Request, pet_id: int) -> Response:
+        return self._review(request, pet_id, approve_pet)
+
+
+class PetRejectView(_PetReviewBaseView):
+    """POST /api/pets/{id}/reject/ — Staff o Admin rechaza una mascota en revisión."""
+
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Rechazar una publicación de mascota",
+        description=(
+            "Cambia el estado de `in_review` a `rejected` y registra en `PetStatusLog` quién "
+            "rechazó y el motivo. Si `note` llega vacío se guarda el motivo genérico "
+            '"Tu publicación no fue aprobada porque no cumple con las pautas de Callejeros '
+            'Río Cuarto.". Una mascota rechazada es final: para volver a intentar, el autor '
+            "la carga de nuevo. "
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        request=PetReviewSerializer,
+        responses={200: PetManageSerializer, **_REVIEW_ERROR_RESPONSES},
+    )
+    def post(self, request: Request, pet_id: int) -> Response:
+        return self._review(request, pet_id, reject_pet)

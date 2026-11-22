@@ -334,6 +334,15 @@ class PetAdoptSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
 
 
+class PetReviewSerializer(serializers.Serializer):
+    """Valida el motivo opcional al aprobar o rechazar una mascota (BK-06a).
+
+    Si llega vacío, el servicio guarda un texto por defecto en `PetStatusLog`.
+    """
+
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+
+
 class PetPhotoUploadSerializer(serializers.Serializer):
     """Valida la subida de una nueva foto al carrusel de una mascota."""
 
