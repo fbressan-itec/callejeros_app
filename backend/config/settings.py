@@ -167,6 +167,8 @@ SPECTACULAR_SETTINGS = {
     "SERVE_AUTHENTICATION": [],
     "ENUM_NAME_OVERRIDES": {
         "PetCompatibilityEnum": "apps.pets.serializers.PET_COMPATIBILITY_CHOICES",
+        "PetStatusEnum": "apps.pets.serializers.PET_STATUS_CHOICES",
+        "AdoptionRequestStatusEnum": ("apps.adoptions.serializers.ADOPTION_REQUEST_STATUS_CHOICES"),
     },
 }
 
