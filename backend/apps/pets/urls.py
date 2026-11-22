@@ -11,6 +11,7 @@ from apps.pets.views import (
     PetPhotoCreateView,
     PetPhotoDeleteView,
     PetRejectView,
+    PetUrgencyView,
 )
 
 app_name = "pets"
@@ -22,6 +23,7 @@ urlpatterns = [
     path("<int:pet_id>/adopt/", PetAdoptView.as_view(), name="pet-adopt"),
     path("<int:pet_id>/approve/", PetApproveView.as_view(), name="pet-approve"),
     path("<int:pet_id>/reject/", PetRejectView.as_view(), name="pet-reject"),
+    path("<int:pet_id>/urgency/", PetUrgencyView.as_view(), name="pet-urgency"),
     path("<int:pet_id>/photos/", PetPhotoCreateView.as_view(), name="pet-photo-create"),
     path(
         "<int:pet_id>/photos/<int:photo_id>/",

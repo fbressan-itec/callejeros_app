@@ -343,6 +343,22 @@ class PetReviewSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
 
 
+URGENCY_VALIDATED_REQUIRED_ERROR = "Indicá si el caso urgente queda validado (true o false)."
+
+
+class PetUrgencySerializer(serializers.Serializer):
+    """Valida el pedido de Staff para validar o no el caso urgente de una mascota (BK-06b)."""
+
+    validated = serializers.BooleanField(
+        required=True,
+        error_messages={
+            "required": URGENCY_VALIDATED_REQUIRED_ERROR,
+            "invalid": URGENCY_VALIDATED_REQUIRED_ERROR,
+            "null": URGENCY_VALIDATED_REQUIRED_ERROR,
+        },
+    )
+
+
 class PetPhotoUploadSerializer(serializers.Serializer):
     """Valida la subida de una nueva foto al carrusel de una mascota."""
 

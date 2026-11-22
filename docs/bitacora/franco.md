@@ -237,3 +237,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** abrir el PR de la #103 y dejar los avisos en la #15 (productos) y la #11 (notificaciones). Después, BK-06b (#104) y BK-06c (#105).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para proponer la división y las opciones de diseño, escribir el código y los tests, y redactar la documentación.
+
+## 2026-11-22 — Revisión de publicaciones por Staff: validar el caso urgente (BK-06b)
+
+- **Tarjeta:** #104 (BK-06b, sub-tarjeta de la épica #9, BK-06)
+- **Rama:** feature/bk06-104-validar-caso-urgente
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Mergeé el PR #106 (BK-06a) y arranqué la segunda sub-tarjeta de BK-06.
+  - Agregué el servicio `set_pet_urgency` y el endpoint `POST /api/pets/{id}/urgency/` (solo Staff y Admin) para validar o quitar la validación del "caso urgente" que pide quien publica.
+  - Tests del endpoint y del servicio: permisos por rol, casos válidos e inválidos, historial, efecto en la insignia y en el filtro `urgent` del catálogo, y Swagger. Actualicé Swagger y el README.
+- **Decisiones tomadas:**
+  - Un solo endpoint que recibe `validated` (`true` o `false`), en lugar de dos rutas: es un sí/no y permite también quitar la validación cuando el animal deja de estar en riesgo.
+  - Se puede usar en mascotas `in_review` (al revisar) o `published` (si la situación cambia después). No en adoptadas ni rechazadas, ni si quien publicó no pidió urgencia.
+  - Cada cambio queda en `PetStatusLog` con el mismo estado antes y después y una nota, sin tocar la base, para tener todo el historial de la revisión en un solo lugar.
+  - Pedir el valor que ya tiene responde `200` sin cambios ni registro, para que un doble clic no duplique el historial.
+  - El servicio reusa `can_review` del flujo de revisión, así "quién revisa" se define en un solo lugar.
+- **Problemas y cómo los resolví:** ninguno.
+- **Pendiente:** PR de la #104; después, BK-06c (#105), la cola de revisión del panel.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer las opciones de diseño, escribir el código y los tests, y redactar la documentación.
