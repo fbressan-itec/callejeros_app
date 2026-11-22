@@ -36,6 +36,7 @@ from apps.pets.services import (
     deactivate_pet,
     get_catalog_pets_queryset,
     get_my_pets_queryset,
+    get_review_queue_queryset,
     get_visible_pet_or_404,
     reject_pet,
     remove_pet_photo,
@@ -590,3 +591,42 @@ class PetUrgencyView(APIView):
             PetManageSerializer(pet, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
+
+
+class PetReviewQueueView(APIView):
+    """GET /api/pets/review-queue/ — Cola de revisión del panel de Staff (BK-06c)."""
+
+    permission_classes = (IsAuthenticated, IsStaffOrAdmin)
+
+    @extend_schema(
+        operation_id="pets_review_queue_list",
+        tags=[PETS_TAG],
+        summary="Listar la cola de revisión del panel de Staff",
+        description=(
+            "Devuelve paginadas de a 12 (`count`, `next`, `previous`, `results`) las mascotas "
+            "activas en estado `in_review`, con la ficha de gestión (autor con su rol, "
+            "`contact_phone`, `is_urgent_requested`, `is_urgent_validated`, fotos y salud). "
+            "Orden: primero las que pidieron caso urgente y, dentro de cada grupo, de la más "
+            "vieja a la más nueva. Desde acá Staff usa `/approve/`, `/reject/` y `/urgency/`. "
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                description="Número de página (12 resultados por página).",
+            ),
+        ],
+        responses={
+            200: PaginatedPetManageSerializer,
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="El usuario no tiene rol `staff` ni `admin`."),
+            404: OpenApiResponse(description="Número de página inexistente."),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        pets = get_review_queue_queryset(actor=request.user)
+        paginator = StandardPageNumberPagination()
+        page = paginator.paginate_queryset(pets, request, view=self)
+        serializer = PetManageSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
