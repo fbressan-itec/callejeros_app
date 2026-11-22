@@ -52,6 +52,9 @@ SPECIAL_CARE_TOO_LONG_ERROR = (
 FUTURE_BIRTH_DATE_ERROR = "La fecha de nacimiento estimada no puede ser futura."
 ADOPT_ONLY_PUBLISHED_ERROR = "Solo se puede marcar como adoptada una mascota que esté publicada."
 INACTIVE_PET_ERROR = "La publicación de la mascota no está activa."
+REJECTED_PET_NOT_EDITABLE_ERROR = (
+    "Una publicación rechazada no se puede editar. Para volver a publicarla, cargala de nuevo."
+)
 PHOTO_NOT_FOUND_ERROR = "La foto no pertenece a esta mascota o ya fue dada de baja."
 
 EDITABLE_PET_FIELDS = (
@@ -154,6 +157,15 @@ def _ensure_can_manage_pet(pet: Pet, actor: User) -> None:
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
     if not pet.is_active:
         raise ValidationError({"detail": [INACTIVE_PET_ERROR]})
+
+
+def _ensure_not_rejected(pet: Pet) -> None:
+    """Una publicación rechazada es final: no se edita ni se cambian sus fotos (BK-06a).
+
+    Para volver a intentar, el autor la carga de nuevo. Darla de baja sí está permitido.
+    """
+    if pet.status == Pet.Status.REJECTED:
+        raise ValidationError({"status": [REJECTED_PET_NOT_EDITABLE_ERROR]})
 
 
 def _return_to_review_if_edited_by_author(pet: Pet, actor: User, *, note: str) -> None:
@@ -333,6 +345,7 @@ def update_pet(
 ) -> Pet:
     """Edita los campos permitidos de una mascota sin tocar estado, validación ni autor."""
     _ensure_can_manage_pet(pet, actor)
+    _ensure_not_rejected(pet)
 
     cleaned_data = _validate_pet_fields(data, partial=True)
     cleaned_health = _clean_health_data(health_data)
@@ -401,6 +414,7 @@ def adopt_pet(*, pet: Pet, actor: User, note: str = "") -> Pet:
 def add_pet_photo(*, pet: Pet, actor: User, image: Any) -> PetPhoto:
     """Agrega una foto validada al final del carrusel activo de la mascota."""
     _ensure_can_manage_pet(pet, actor)
+    _ensure_not_rejected(pet)
 
     if image is None:
         raise ValidationError({"image": [MIN_PHOTOS_ERROR]})
@@ -431,6 +445,7 @@ def add_pet_photo(*, pet: Pet, actor: User, image: Any) -> PetPhoto:
 def remove_pet_photo(*, pet: Pet, photo: PetPhoto, actor: User) -> PetPhoto:
     """Da de baja lógica una foto del carrusel sin dejar a la mascota sin fotos activas."""
     _ensure_can_manage_pet(pet, actor)
+    _ensure_not_rejected(pet)
 
     if photo.pet_id != pet.id or not photo.is_active:
         raise ValidationError({"photo": [PHOTO_NOT_FOUND_ERROR]})

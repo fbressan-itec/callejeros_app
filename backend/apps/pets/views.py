@@ -291,7 +291,9 @@ class PetDetailView(APIView):
         request=PetUpdateSerializer,
         responses={
             200: PetManageSerializer,
-            400: OpenApiResponse(description="Datos de edición inválidos."),
+            400: OpenApiResponse(
+                description="Datos de edición inválidos o mascota rechazada (no se edita)."
+            ),
             401: OpenApiResponse(description="Sin token Bearer válido."),
             403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
             404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
@@ -401,7 +403,11 @@ class PetPhotoCreateView(APIView):
         request={"multipart/form-data": PetPhotoUploadSerializer},
         responses={
             201: PetPhotoSerializer,
-            400: OpenApiResponse(description="Archivo faltante, formato inválido o mayor a 5 MB."),
+            400: OpenApiResponse(
+                description=(
+                    "Archivo faltante, formato inválido, mayor a 5 MB o mascota rechazada."
+                )
+            ),
             401: OpenApiResponse(description="Sin token Bearer válido."),
             403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
             404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
@@ -442,7 +448,9 @@ class PetPhotoDeleteView(APIView):
         ),
         responses={
             204: OpenApiResponse(description="Foto dada de baja lógica."),
-            400: OpenApiResponse(description="Es la última foto activa de la mascota."),
+            400: OpenApiResponse(
+                description="Es la última foto activa o la mascota está rechazada."
+            ),
             401: OpenApiResponse(description="Sin token Bearer válido."),
             403: OpenApiResponse(description="No es autor de la mascota ni Staff/Admin."),
             404: OpenApiResponse(description="Mascota o foto inexistente o dada de baja."),

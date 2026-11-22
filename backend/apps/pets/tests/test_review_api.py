@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.core.review import DEFAULT_REJECT_NOTE, ONLY_IN_REVIEW_ERROR
 from apps.pets.models import Pet, PetStatusLog
+from apps.pets.services import REJECTED_PET_NOT_EDITABLE_ERROR
 from apps.pets.tests.factories import (
     PetFactory,
     PetHealthFactory,
@@ -259,3 +260,66 @@ def test_non_admin_creates_pet_in_review_without_validated_urgency(role_code: st
 
     catalog_ids = [item["id"] for item in APIClient().get(PETS_URL).json()["results"]]
     assert body["id"] not in catalog_ids
+
+
+# ---------------------------------------------------------------------------
+# Una mascota rechazada es final (decisión 2026-11-22)
+# ---------------------------------------------------------------------------
+
+
+def _rejected_pet(owner) -> Pet:
+    pet = PetFactory(published_by=owner, status=Pet.Status.REJECTED, name="Original")
+    PetHealthFactory(pet=pet)
+    PetPhotoFactory(pet=pet, position=0)
+    PetPhotoFactory(pet=pet, position=1)
+    return pet
+
+
+@pytest.mark.parametrize("actor_role", [RoleCode.MEMBER, RoleCode.STAFF, RoleCode.ADMIN])
+def test_rejected_pet_cannot_be_edited_by_anyone(actor_role: str) -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    actor = owner if actor_role == RoleCode.MEMBER else UserFactory(role__code=actor_role)
+    pet = _rejected_pet(owner)
+
+    response = _auth_client(actor).patch(
+        f"{PETS_URL}{pet.id}/",
+        {"name": "Nuevo nombre"},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["status"] == [REJECTED_PET_NOT_EDITABLE_ERROR]
+    pet.refresh_from_db()
+    assert pet.name == "Original"
+    assert pet.status == Pet.Status.REJECTED
+
+
+def test_rejected_pet_photos_cannot_be_added_or_removed() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = _rejected_pet(owner)
+    client = _auth_client(owner)
+    photo = pet.photos.active().first()
+
+    add_response = client.post(
+        f"{PETS_URL}{pet.id}/photos/",
+        {"image": make_test_image_file()},
+        format="multipart",
+    )
+    remove_response = client.delete(f"{PETS_URL}{pet.id}/photos/{photo.id}/")
+
+    assert add_response.status_code == status.HTTP_400_BAD_REQUEST
+    assert add_response.json()["status"] == [REJECTED_PET_NOT_EDITABLE_ERROR]
+    assert remove_response.status_code == status.HTTP_400_BAD_REQUEST
+    assert remove_response.json()["status"] == [REJECTED_PET_NOT_EDITABLE_ERROR]
+    assert pet.photos.active().count() == 2
+
+
+def test_rejected_pet_can_still_be_soft_deleted_by_owner() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = _rejected_pet(owner)
+
+    response = _auth_client(owner).delete(f"{PETS_URL}{pet.id}/")
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    pet.refresh_from_db()
+    assert pet.is_active is False
