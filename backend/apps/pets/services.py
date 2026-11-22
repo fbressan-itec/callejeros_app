@@ -55,6 +55,12 @@ INACTIVE_PET_ERROR = "La publicación de la mascota no está activa."
 REJECTED_PET_NOT_EDITABLE_ERROR = (
     "Una publicación rechazada no se puede editar. Para volver a publicarla, cargala de nuevo."
 )
+URGENCY_INVALID_STATUS_ERROR = (
+    "Solo se puede validar la urgencia de una mascota en revisión o publicada."
+)
+URGENCY_NOT_REQUESTED_ERROR = "La mascota no fue marcada como caso urgente por quien la publicó."
+URGENCY_VALIDATED_NOTE = "Caso urgente validado por Staff."
+URGENCY_UNVALIDATED_NOTE = "Validación de caso urgente quitada por Staff."
 PHOTO_NOT_FOUND_ERROR = "La foto no pertenece a esta mascota o ya fue dada de baja."
 
 EDITABLE_PET_FIELDS = (
@@ -490,3 +496,42 @@ def approve_pet(*, pet: Pet, actor: User, note: str = "") -> Pet:
 def reject_pet(*, pet: Pet, actor: User, note: str = "") -> Pet:
     """Rechaza una mascota en revisión (Staff o Admin) con motivo: pasa a `rejected`."""
     return pet_review_workflow.reject(obj=pet, actor=actor, note=note)
+
+
+URGENCY_EDITABLE_STATUSES = frozenset({Pet.Status.IN_REVIEW, Pet.Status.PUBLISHED})
+
+
+@transaction.atomic
+def set_pet_urgency(*, pet: Pet, actor: User, validated: bool) -> Pet:
+    """Valida o quita la validación del "caso urgente" que pidió quien publicó (BK-06b).
+
+    Solo Staff o Admin, sobre mascotas activas en `in_review` o `published`. Pedir el mismo
+    valor que ya tiene no cambia nada ni registra (así un doble clic no duplica el historial).
+    Cada cambio queda en `PetStatusLog` con el mismo estado antes y después.
+    """
+    if not pet_review_workflow.can_review(actor):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+    # Bloquea la fila para que dos personas de Staff no se pisen al mismo tiempo.
+    locked = Pet.objects.select_for_update().get(pk=pet.pk)
+
+    if not locked.is_active:
+        raise ValidationError({"detail": [INACTIVE_PET_ERROR]})
+    if locked.status not in URGENCY_EDITABLE_STATUSES:
+        raise ValidationError({"status": [URGENCY_INVALID_STATUS_ERROR]})
+    if locked.is_urgent_validated == validated:
+        return locked
+    if validated and not locked.is_urgent_requested:
+        raise ValidationError({"is_urgent_requested": [URGENCY_NOT_REQUESTED_ERROR]})
+
+    locked.is_urgent_validated = validated
+    locked.save(update_fields=["is_urgent_validated", "updated_at"])
+
+    pet_review_workflow.log_status_change(
+        obj=locked,
+        actor=actor,
+        previous_status=locked.status,
+        new_status=locked.status,
+        note=URGENCY_VALIDATED_NOTE if validated else URGENCY_UNVALIDATED_NOTE,
+    )
+    return locked

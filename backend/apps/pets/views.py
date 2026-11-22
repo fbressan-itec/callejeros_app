@@ -25,6 +25,7 @@ from apps.pets.serializers import (
     PetPublicSerializer,
     PetReviewSerializer,
     PetUpdateSerializer,
+    PetUrgencySerializer,
 )
 from apps.pets.services import (
     AgeGroup,
@@ -38,6 +39,7 @@ from apps.pets.services import (
     get_visible_pet_or_404,
     reject_pet,
     remove_pet_photo,
+    set_pet_urgency,
     update_pet,
 )
 from apps.users.permissions import IsStaffOrAdmin
@@ -539,3 +541,52 @@ class PetRejectView(_PetReviewBaseView):
     )
     def post(self, request: Request, pet_id: int) -> Response:
         return self._review(request, pet_id, reject_pet)
+
+
+class PetUrgencyView(APIView):
+    """POST /api/pets/{id}/urgency/ — Staff o Admin valida o no el caso urgente (BK-06b)."""
+
+    permission_classes = (IsAuthenticated, IsStaffOrAdmin)
+
+    @extend_schema(
+        tags=[PETS_TAG],
+        summary="Validar o no el caso urgente de una mascota",
+        description=(
+            'Con `validated=true` valida el "caso urgente" que pidió quien publicó '
+            "(`is_urgent_requested`); con `validated=false` le quita la validación. La "
+            "insignia y el filtro `urgent` del catálogo muestran solo urgencias pedidas, "
+            "validadas y no adoptadas. Se puede usar en mascotas `in_review` o `published`. "
+            "Cada cambio queda en `PetStatusLog` (mismo estado antes y después, con nota); "
+            "pedir el valor que ya tiene responde `200` sin cambios ni registro. "
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        request=PetUrgencySerializer,
+        responses={
+            200: PetManageSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "Falta `validated`, la mascota no está `in_review` ni `published` o "
+                    "se quiere validar una urgencia que quien publicó no pidió."
+                )
+            ),
+            401: OpenApiResponse(description="Sin token Bearer válido."),
+            403: OpenApiResponse(description="El usuario no tiene rol `staff` ni `admin`."),
+            404: OpenApiResponse(description="Mascota inexistente o dada de baja."),
+        },
+    )
+    def post(self, request: Request, pet_id: int) -> Response:
+        pet = _get_active_pet_or_404(pet_id)
+
+        serializer = PetUrgencySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pet = set_pet_urgency(
+            pet=pet,
+            actor=request.user,
+            validated=serializer.validated_data["validated"],
+        )
+        pet = _get_active_pet_or_404(pet.id)
+        return Response(
+            PetManageSerializer(pet, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
