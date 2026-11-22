@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from apps.core.review import ReviewWorkflow
 from apps.core.validators import validate_image_file
 from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.pets.permissions import can_manage_pet, can_view_pet, is_staff_or_admin
@@ -446,3 +447,23 @@ def remove_pet_photo(*, pet: Pet, photo: PetPhoto, actor: User) -> PetPhoto:
     )
 
     return photo
+
+
+class PetReviewWorkflow(ReviewWorkflow):
+    """Flujo de revisión de publicaciones de mascotas (BK-06): historial en `PetStatusLog`."""
+
+    log_model = PetStatusLog
+    log_object_field = "pet"
+
+
+pet_review_workflow = PetReviewWorkflow()
+
+
+def approve_pet(*, pet: Pet, actor: User, note: str = "") -> Pet:
+    """Aprueba una mascota en revisión (Staff o Admin): pasa a `published` y se registra."""
+    return pet_review_workflow.approve(obj=pet, actor=actor, note=note)
+
+
+def reject_pet(*, pet: Pet, actor: User, note: str = "") -> Pet:
+    """Rechaza una mascota en revisión (Staff o Admin) con motivo: pasa a `rejected`."""
+    return pet_review_workflow.reject(obj=pet, actor=actor, note=note)

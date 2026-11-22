@@ -9,6 +9,19 @@ from apps.users.models import RoleCode
 FORBIDDEN_ERROR_MESSAGE = "No tenés permiso para hacer esto."
 
 
+def user_has_role(user, roles) -> bool:
+    """Devuelve True si el usuario está autenticado, activo y tiene uno de los roles dados.
+
+    La usan los servicios (por ejemplo, el flujo de revisión de `apps.core.review`) para
+    repetir en la capa de negocio el mismo control que hacen las clases de permiso.
+    """
+    if not user or not user.is_authenticated or not getattr(user, "is_active", False):
+        return False
+    if getattr(user, "role_id", None) is None:
+        return False
+    return user.role.code in roles
+
+
 class HasRole(BasePermission):
     """Permiso base que verifica que el usuario esté activo y tenga uno de los roles permitidos."""
 
