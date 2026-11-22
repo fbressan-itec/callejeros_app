@@ -70,3 +70,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise el ajuste del PR #95 y cierre la épica #21 (`[FR-03] Login, registro y recuperar contraseña`).
 - **PR:** #95
 - **IA usada:** Antigravity — para implementar la pantalla `/recuperar` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
+
+## 2026-11-20 — Servicio de cálculo de insignias, edad legible y tests unitarios (BK-04a)
+
+- **Tarjeta:** #100 (BK-04a, sub-tarjeta de #7 BK-04)
+- **Rama:** feature/bk04-100-servicio-insignias
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Dividí la épica #7 (BK-04) en dos sub-tarjetas (#100 BK-04a y #101 BK-04b), las colgué como sub-issues de #7 en el tablero y las asigné a mi usuario.
+  - Implementé `backend/apps/pets/badges.py` con los enums `AgeGroup`, `BadgeKey`, `BadgeTone`, `BadgeIcon`, el tipo `PetBadge`, el formateo de edad legible `format_pet_age` y el servicio `get_pet_badges`, respetando exactamente el orden, tonos y textos de `03-reglas-de-negocio.md` y `contexto-ia/maquetado/js/mascota.js`.
+  - Reexporté los símbolos de edad e insignias desde `backend/apps/pets/services.py` para centralizar la lógica de negocio sin duplicar código ni romper importaciones existentes de `filters.py`, `serializers.py` y `views.py`.
+  - Escribí 36 casos de prueba unitarios en `backend/apps/pets/tests/test_badges.py` cubriendo cada insignia, todas sus variantes, el orden exacto, la prioridad de `"¡Ya encontró hogar! 🧡"` sobre `"Caso urgente"`, el requerimiento de validación de urgencia, la concordancia de género en castración, los cuidados especiales y los bordes de edad (incluido el 29 de febrero).
+  - Apliqué los ajustes de la revisión del PR #102: pasé el corte de `senior` a 8 años cumplidos en `calculate_age_group` y en `PetCatalogFilter.filter_age_group` (con tests en `7 años y 364 días` → `adulto` y `8 años` → `senior`, 38 casos en `test_badges.py`), igualé las mayúsculas del texto de edad al maquetado (`"1 Año"`, `"2 Años"`, `"1 Mes"`, `"8 Meses"`, `"Menos de 1 Mes"`), quité los reexports de `services.py` para importar directo desde `apps.pets.badges`, corregí la dependencia de `#101` a `#100` y agregué etiquetas e hito (`v0.2`) al PR #102.
+- **Decisiones tomadas:**
+  - Separé la lógica de cálculo de insignias en `apps/pets/badges.py` y actualicé `filters.py`, `serializers.py` y `views.py` para importarla directo desde allí sin reexports intermedios en `services.py`, devolviendo cada insignia con la estructura `{key, tone, icon, text}` desacoplada del HTML/SVG del frontend.
+  - Unifiqué el corte de `senior` en 8 años cumplidos (`subtract_years(today, 8)`) entre `calculate_age_group`, `format_pet_age` y el filtro del catálogo para que una mascota de 7 años y algunos meses siga siendo `Adulto`.
+- **Problemas y cómo los resolví:**
+  - En la revisión del PR #102 Franco detectó que cortar `senior` por días al superar los 7 años exactos producía `"Senior (más de 7 años): 7 años"` para mascotas de 7 años y meses; lo resolví alineando el corte de `senior` a 8 años cumplidos en servicio y filtro, y cubriendo ambos bordes en los tests.
+- **Pendiente:** que Franco revise los ajustes del PR #102 para continuar con #101 (BK-04b: exposición de `badges` en la API, Swagger, README y tests de integración).
+- **PR:** #102
+- **IA usada:** Antigravity — para dividir la épica, implementar el servicio de cálculo de insignias y edad legible, y escribir los tests unitarios con `pytest`.

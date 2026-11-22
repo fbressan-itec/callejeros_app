@@ -7,8 +7,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.pets.badges import AgeGroup, subtract_years
 from apps.pets.models import Pet
-from apps.pets.services import AgeGroup, subtract_years
 from apps.pets.tests.factories import PetFactory, PetHealthFactory, PetPhotoFactory
 from apps.users.models import RoleCode
 from apps.users.tests.factories import UserFactory
@@ -123,7 +123,7 @@ def test_catalog_filters_by_species_sex_sociability_compatibility_and_neutered()
 def test_catalog_filters_by_age_group_including_exact_boundaries() -> None:
     today = timezone.localdate()
     cutoff_1y = subtract_years(today, 1)
-    cutoff_7y = subtract_years(today, 7)
+    cutoff_8y = subtract_years(today, 8)
 
     cachorro = PetFactory(
         name="Cachorro",
@@ -136,14 +136,14 @@ def test_catalog_filters_by_age_group_including_exact_boundaries() -> None:
         estimated_birth_date=cutoff_1y,
     )
     adulto_max = PetFactory(
-        name="Adulto7Anos",
+        name="Adulto7Anos364Dias",
         status=Pet.Status.PUBLISHED,
-        estimated_birth_date=cutoff_7y,
+        estimated_birth_date=cutoff_8y + timedelta(days=1),
     )
     senior = PetFactory(
-        name="Senior",
+        name="Senior8Anos",
         status=Pet.Status.PUBLISHED,
-        estimated_birth_date=cutoff_7y - timedelta(days=1),
+        estimated_birth_date=cutoff_8y,
     )
 
     client = APIClient()

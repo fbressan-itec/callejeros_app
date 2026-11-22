@@ -4,8 +4,8 @@ import django_filters
 from django.db.models import QuerySet
 from django.utils import timezone
 
+from apps.pets.badges import AGE_GROUP_CHOICES, AgeGroup, subtract_years
 from apps.pets.models import Pet
-from apps.pets.services import AGE_GROUP_CHOICES, AgeGroup, subtract_years
 
 
 class PetCatalogFilter(django_filters.FilterSet):
@@ -59,17 +59,17 @@ class PetCatalogFilter(django_filters.FilterSet):
     ) -> QuerySet[Pet]:
         today = timezone.localdate()
         cutoff_1y = subtract_years(today, 1)
-        cutoff_7y = subtract_years(today, 7)
+        cutoff_8y = subtract_years(today, 8)
 
         if value == AgeGroup.CACHORRO.value:
             return queryset.filter(estimated_birth_date__gt=cutoff_1y)
         if value == AgeGroup.ADULTO.value:
             return queryset.filter(
                 estimated_birth_date__lte=cutoff_1y,
-                estimated_birth_date__gte=cutoff_7y,
+                estimated_birth_date__gt=cutoff_8y,
             )
         if value == AgeGroup.SENIOR.value:
-            return queryset.filter(estimated_birth_date__lt=cutoff_7y)
+            return queryset.filter(estimated_birth_date__lte=cutoff_8y)
         return queryset
 
     def filter_urgent(

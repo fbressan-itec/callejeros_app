@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.utils import html
 
+from apps.pets.badges import AgeGroup, calculate_age_group, is_pet_urgent
 from apps.pets.models import Pet, PetHealth, PetPhoto
 from apps.pets.services import (
     CONTACT_PHONE_REQUIRED_ERROR,
@@ -17,9 +18,6 @@ from apps.pets.services import (
     MIN_PHOTOS_ERROR,
     NAME_REQUIRED_ERROR,
     SPECIAL_CARE_TOO_LONG_ERROR,
-    AgeGroup,
-    calculate_age_group,
-    is_pet_urgent,
 )
 from apps.users.models import User
 from apps.users.serializers import RoleSummarySerializer
