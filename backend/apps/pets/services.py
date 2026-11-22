@@ -266,13 +266,21 @@ def create_pet(
     photos: Sequence[Any],
     health_data: dict[str, Any] | None = None,
 ) -> Pet:
-    """Crea una publicación de mascota en `in_review` con salud, fotos e historial inicial."""
+    """Crea una mascota con salud, fotos e historial inicial.
+
+    Nace en `in_review`, salvo que la cargue un Admin: entonces nace en `published` (BK-06a).
+    """
     if not actor or not actor.is_authenticated or not actor.is_active:
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
     cleaned_data = _validate_pet_fields(data, partial=False)
     valid_photos = _validate_photos(photos)
     cleaned_health = _clean_health_data(health_data)
+
+    # Solo Admin publica sin revisión; si pide "urgente", su urgencia queda validada (BK-06a).
+    initial_status = pet_review_workflow.get_initial_status(actor)
+    publishes_directly = pet_review_workflow.publishes_directly(actor)
+    is_urgent_requested = cleaned_data.get("is_urgent_requested", False)
 
     pet = Pet.objects.create(
         name=cleaned_data["name"],
@@ -283,13 +291,13 @@ def create_pet(
         good_with_children=cleaned_data.get("good_with_children", Pet.Compatibility.NOT_EVALUATED),
         good_with_animals=cleaned_data.get("good_with_animals", Pet.Compatibility.NOT_EVALUATED),
         is_neutered=cleaned_data["is_neutered"],
-        is_urgent_requested=cleaned_data.get("is_urgent_requested", False),
-        is_urgent_validated=False,
+        is_urgent_requested=is_urgent_requested,
+        is_urgent_validated=is_urgent_requested and publishes_directly,
         special_care=cleaned_data.get("special_care", ""),
         description=cleaned_data["description"],
         notes=cleaned_data.get("notes", ""),
         contact_phone=cleaned_data["contact_phone"],
-        status=Pet.Status.IN_REVIEW,
+        status=initial_status,
         published_by=actor,
         is_active=True,
     )
@@ -304,12 +312,12 @@ def create_pet(
             is_active=True,
         )
 
-    PetStatusLog.objects.create(
-        pet=pet,
+    pet_review_workflow.log_status_change(
+        obj=pet,
+        actor=actor,
         previous_status="",
-        new_status=Pet.Status.IN_REVIEW,
-        performed_by=actor,
-        note="Alta inicial de la publicación.",
+        new_status=initial_status,
+        note=pet_review_workflow.get_creation_note(actor),
     )
 
     return pet

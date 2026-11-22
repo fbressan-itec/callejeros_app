@@ -9,9 +9,12 @@ Cómo se reutiliza en BK-12 (#15, productos de la tienda):
     class ProductReviewWorkflow(ReviewWorkflow):
         log_model = ProductStatusLog       # misma forma que `PetStatusLog` (ver README)
         log_object_field = "product"       # FK de `ProductStatusLog` hacia `Product`
+        # Productos: Staff y Admin publican directo; Refugio verificado pasa por revisión.
+        direct_publish_roles = frozenset({RoleCode.STAFF, RoleCode.ADMIN})
 
     product_review_workflow = ProductReviewWorkflow()
-    product_review_workflow.approve(obj=product, actor=request.user)
+    status = product_review_workflow.get_initial_status(request.user)  # al crear
+    product_review_workflow.approve(obj=product, actor=request.user)    # al revisar
 
 Requisitos del modelo revisado: campos `status` (con los valores `in_review`,
 `published` y `rejected`), `is_active` y `updated_at`. El modelo de historial necesita
@@ -33,6 +36,7 @@ DEFAULT_APPROVE_NOTE = "Publicación aprobada por Staff."
 DEFAULT_REJECT_NOTE = (
     "Tu publicación no fue aprobada porque no cumple con las pautas de Callejeros Río Cuarto."
 )
+CREATED_IN_REVIEW_NOTE = "Alta inicial de la publicación."
 
 
 class ReviewWorkflow:
@@ -41,6 +45,8 @@ class ReviewWorkflow:
     log_model: ClassVar[type[models.Model]]
     log_object_field: ClassVar[str]
     reviewer_roles: ClassVar[frozenset[str]] = frozenset({RoleCode.STAFF, RoleCode.ADMIN})
+    # Roles cuyas publicaciones no pasan por revisión (decisión 2026-11-22: solo Admin).
+    direct_publish_roles: ClassVar[frozenset[str]] = frozenset({RoleCode.ADMIN})
 
     IN_REVIEW = "in_review"
     PUBLISHED = "published"
@@ -57,6 +63,22 @@ class ReviewWorkflow:
         lugar: recibir `obj` y comparar su autor con `actor`.
         """
         return user_has_role(actor, self.reviewer_roles)
+
+    def publishes_directly(self, actor: Any) -> bool:
+        """True si lo que publica `actor` sale publicado sin pasar por revisión."""
+        return user_has_role(actor, self.direct_publish_roles)
+
+    # -- Alta de una publicación ----------------------------------------------
+
+    def get_initial_status(self, actor: Any) -> str:
+        """Estado con el que nace una publicación según el rol de quien la carga."""
+        return self.PUBLISHED if self.publishes_directly(actor) else self.IN_REVIEW
+
+    def get_creation_note(self, actor: Any) -> str:
+        """Nota del primer registro del historial (alta en revisión o publicación directa)."""
+        if self.publishes_directly(actor):
+            return f"Publicada directamente por {actor.role.name}, sin revisión."
+        return CREATED_IN_REVIEW_NOTE
 
     # -- Acciones -------------------------------------------------------------
 

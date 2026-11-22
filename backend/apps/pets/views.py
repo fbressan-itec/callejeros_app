@@ -165,9 +165,11 @@ class PetListCreateView(APIView):
         tags=[PETS_TAG],
         summary="Publicar una mascota en adopción",
         description=(
-            "Crea una nueva publicación en estado `in_review` con `is_urgent_validated=False`, "
-            "sus datos de salud (`PetHealth`), al menos una foto válida (JPG, PNG o WEBP de "
-            "hasta 5 MB) y el registro inicial en `PetStatusLog`. "
+            "Crea una nueva publicación con sus datos de salud (`PetHealth`), al menos una foto "
+            "válida (JPG, PNG o WEBP de hasta 5 MB) y el registro inicial en `PetStatusLog`. "
+            "Si la carga Miembro, Refugio verificado o Staff, nace en `in_review` con "
+            "`is_urgent_validated=False`; si la carga un `admin`, nace en `published` y, si "
+            "pidió urgente, con la urgencia ya validada. "
             "Permiso: usuario autenticado (`IsAuthenticated`)."
         ),
         request={"multipart/form-data": PetCreateSerializer},
