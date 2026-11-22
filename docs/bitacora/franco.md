@@ -211,3 +211,29 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR `develop` → `main`, etiqueta `v0.1`, Release, cerrar el hito y armar la Wiki.
 - **PR:** este
 - **IA usada:** Claude Code — para revisar el hito, redactar el README y sacar las capturas.
+
+## 2026-11-22 — Revisión de publicaciones por Staff: aprobar y rechazar (BK-06a)
+
+- **Tarjeta:** #103 (BK-06a, sub-tarjeta de la épica #9, BK-06)
+- **Rama:** feature/bk06-103-aprobar-rechazar-publicaciones
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Dividí la épica BK-06 (#9) en tres sub-tarjetas: aprobar y rechazar (#103), validar el caso urgente (#104) y la cola de revisión del panel (#105). Me asigné la épica y la #103 y las pasé a "En curso".
+  - Armé el **flujo de revisión reutilizable** (`ReviewWorkflow` en `apps/core/review.py`): controla el rol, el estado, el motivo y el historial en un solo lugar. Las mascotas lo usan con `PetReviewWorkflow`; los productos (BK-12, #15) lo van a usar con una clase hija de pocas líneas, que dejé de ejemplo en el código.
+  - Agregué los endpoints `POST /api/pets/{id}/approve/` y `POST /api/pets/{id}/reject/`, solo para Staff y Admin.
+  - El Admin publica mascotas sin revisión y, si marca "urgente", queda validado.
+  - Una mascota rechazada ya no se puede editar ni cambiar sus fotos (sí darla de baja).
+  - Tests de servicios y de endpoints: permisos por rol, cambios de estado válidos e inválidos, historial, catálogo y Swagger. Actualicé Swagger y el README.
+- **Decisiones tomadas:**
+  - Una clase base con clases hijas para el flujo, en lugar de funciones sueltas o una tabla de historial genérica: no toca la base, deja configurado cada caso en un lugar y tiene ganchos (`on_approved`, `on_rejected`) para enchufar las notificaciones de BK-08 (#11).
+  - Endpoints separados `/approve/` y `/reject/`, igual que `/adopt/`. Si la mascota no está en revisión, devuelve `400`.
+  - El motivo es opcional; si Staff rechaza sin escribir nada, se guarda uno genérico ("Tu publicación no fue aprobada porque no cumple con las pautas de Callejeros Río Cuarto."), para no darle explicaciones a los trolls.
+  - Siguen revisándose **todas** las publicaciones (no solo las urgentes): protege al catálogo de estafas y de venta de animales.
+  - **Solo el Admin publica sin revisión** (Staff, Refugio verificado y Miembro pasan por revisión). Staff puede aprobar su propia publicación; queda en el historial y anotado en el código.
+  - Una rechazada es final: para volver a intentar se carga de nuevo. El autor va a recibir el motivo por notificación (BK-08).
+  - Las decisiones nuevas quedaron en el contexto de las IAs (`decisiones.md` y `03-reglas-de-negocio.md`) y en los criterios de la #103.
+- **Problemas y cómo los resolví:** si dos personas de Staff revisan la misma mascota a la vez, la segunda podía pisar a la primera; el flujo bloquea la fila mientras revisa (`select_for_update`) y la segunda recibe el error.
+- **Corrección de una entrada anterior:** en la entrada del 2026-11-20 (cierre de la v0.1) escribí "42 tarjetas cerradas", pero eran **27 tarjetas**; las otras 15 eran PR.
+- **Pendiente:** abrir el PR de la #103 y dejar los avisos en la #15 (productos) y la #11 (notificaciones). Después, BK-06b (#104) y BK-06c (#105).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer la división y las opciones de diseño, escribir el código y los tests, y redactar la documentación.
