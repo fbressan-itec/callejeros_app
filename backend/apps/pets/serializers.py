@@ -7,7 +7,15 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.utils import html
 
-from apps.pets.badges import AgeGroup, calculate_age_group, is_pet_urgent
+from apps.pets.badges import (
+    AgeGroup,
+    BadgeIcon,
+    BadgeKey,
+    BadgeTone,
+    calculate_age_group,
+    get_pet_badges,
+    is_pet_urgent,
+)
 from apps.pets.models import Pet, PetHealth, PetPhoto
 from apps.pets.services import (
     CONTACT_PHONE_REQUIRED_ERROR,
@@ -96,6 +104,24 @@ class PetPhotoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PetBadgeSerializer(serializers.Serializer):
+    """Insignia calculada en el servidor a partir de los datos de la mascota."""
+
+    key = serializers.ChoiceField(
+        choices=[choice.value for choice in BadgeKey],
+        read_only=True,
+    )
+    tone = serializers.ChoiceField(
+        choices=[choice.value for choice in BadgeTone],
+        read_only=True,
+    )
+    icon = serializers.ChoiceField(
+        choices=[choice.value for choice in BadgeIcon],
+        read_only=True,
+    )
+    text = serializers.CharField(read_only=True)
+
+
 class PetPublicSerializer(serializers.ModelSerializer):
     """Respuesta pública de catálogo y ficha (expone solo `is_urgent`, nunca `contact_phone`)."""
 
@@ -103,6 +129,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
     health = PetHealthSerializer(read_only=True)
     age_group = serializers.SerializerMethodField()
     is_urgent = serializers.SerializerMethodField()
+    badges = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
 
     class Meta:
@@ -125,6 +152,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
             "status",
             "published_by",
             "health",
+            "badges",
             "photos",
             "created_at",
             "updated_at",
@@ -138,6 +166,10 @@ class PetPublicSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.BooleanField())
     def get_is_urgent(self, obj: Pet) -> bool:
         return is_pet_urgent(obj)
+
+    @extend_schema_field(PetBadgeSerializer(many=True))
+    def get_badges(self, obj: Pet) -> list[dict[str, str]]:
+        return get_pet_badges(obj)
 
     @extend_schema_field(PetPhotoSerializer(many=True))
     def get_photos(self, obj: Pet) -> list[dict]:
@@ -172,6 +204,7 @@ class PetManageSerializer(PetPublicSerializer):
             "status",
             "published_by",
             "health",
+            "badges",
             "photos",
             "created_at",
             "updated_at",

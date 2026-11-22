@@ -90,3 +90,21 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #102 para continuar con #101 (BK-04b: exposición de `badges` en la API, Swagger, README y tests de integración).
 - **PR:** #102
 - **IA usada:** Antigravity — para dividir la épica, implementar el servicio de cálculo de insignias y edad legible, y escribir los tests unitarios con `pytest`.
+
+## 2026-11-22 — Exposición de insignias calculadas en la API de mascotas, Swagger, README y tests de integración (BK-04b)
+
+- **Tarjeta:** #101 (BK-04b, sub-tarjeta de #7 BK-04)
+- **Rama:** feature/bk04-101-api-insignias
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Agregué `PetBadgeSerializer` (`key`, `tone`, `icon`, `text`, todos `read_only=True`) y el campo calculado `badges` en `PetPublicSerializer` (heredado por `PetManageSerializer`), anotado con `@extend_schema_field(PetBadgeSerializer(many=True))` para su tipado completo en Swagger.
+  - Actualicé las descripciones de `@extend_schema` en `backend/apps/pets/views.py` (`GET /api/pets/` y `GET /api/pets/{id}/`) y validé el esquema OpenAPI con `manage.py spectacular --validate --fail-on-warn`.
+  - Escribí 7 tests de integración en `backend/apps/pets/tests/test_badges_api.py` cubriendo `badges` en catálogo (disponibles, urgentes validados/no validados y `?adopted=true`), ficha, mis publicaciones, alta, edición, adopción, validación de urgencia por Staff, ignorado de `badges` enviados por el cliente y el esquema `/api/schema/`.
+  - Documenté el campo calculado `badges` en la sección de endpoints de mascotas de `README.md`.
+- **Decisiones tomadas:**
+  - Expuse `badges` en `PetPublicSerializer` para que todos los serializers de lectura de mascotas (`PetPublicSerializer` y `PetManageSerializer`) incluyan automáticamente las insignias calculadas sin duplicar código, mientras `PetCreateSerializer` y `PetUpdateSerializer` no declaran el campo para garantizar que nunca se elijan a mano desde el cliente.
+- **Problemas y cómo los resolví:**
+  - En el test del esquema OpenAPI `drf-spectacular` nombra el esquema de `PATCH` como `PatchedPetUpdate` (por `partial=True`) en lugar de `PetUpdate`; ajusté el nombre en la aserción del test y quedó en verde.
+- **Pendiente:** abrir el PR de #101 para revisión de Franco y cerrar la épica #7 (`[BK-04] Insignias calculadas`) una vez mergeado.
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para exponer `badges` en serializers y Swagger, escribir los tests de integración con `pytest` y actualizar `README.md`.
