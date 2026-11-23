@@ -27,6 +27,7 @@ class PetCatalogFilter(django_filters.FilterSet):
     is_neutered = django_filters.BooleanFilter()
     urgent = django_filters.BooleanFilter(method="filter_urgent")
     adopted = django_filters.BooleanFilter(method="filter_adopted")
+    favorites = django_filters.BooleanFilter(method="filter_favorites")
     search = django_filters.CharFilter(method="filter_search")
 
     class Meta:
@@ -41,6 +42,7 @@ class PetCatalogFilter(django_filters.FilterSet):
             "is_neutered",
             "urgent",
             "adopted",
+            "favorites",
             "search",
         )
 
@@ -96,6 +98,24 @@ class PetCatalogFilter(django_filters.FilterSet):
     ) -> QuerySet[Pet]:
         target_status = Pet.Status.ADOPTED if value else Pet.Status.PUBLISHED
         return queryset.filter(status=target_status)
+
+    def filter_favorites(
+        self,
+        queryset: QuerySet[Pet],
+        name: str,
+        value: bool,
+    ) -> QuerySet[Pet]:
+        user = getattr(self.request, "user", None)
+        is_authenticated_active = bool(
+            user and getattr(user, "is_authenticated", False) and getattr(user, "is_active", False)
+        )
+        if value:
+            if not is_authenticated_active:
+                return queryset.none()
+            return queryset.filter(favorites__user=user, favorites__is_active=True)
+        if not is_authenticated_active:
+            return queryset
+        return queryset.exclude(favorites__user=user, favorites__is_active=True)
 
     def filter_search(
         self,

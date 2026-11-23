@@ -16,7 +16,7 @@ from apps.pets.badges import (
     get_pet_badges,
     is_pet_urgent,
 )
-from apps.pets.models import Pet, PetHealth, PetPhoto
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto
 from apps.pets.services import (
     CONTACT_PHONE_REQUIRED_ERROR,
     DESCRIPTION_REQUIRED_ERROR,
@@ -130,6 +130,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
     health = PetHealthSerializer(read_only=True)
     age_group = serializers.SerializerMethodField()
     is_urgent = serializers.SerializerMethodField()
+    is_favorite = serializers.SerializerMethodField()
     badges = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
 
@@ -147,6 +148,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
             "good_with_animals",
             "is_neutered",
             "is_urgent",
+            "is_favorite",
             "special_care",
             "description",
             "notes",
@@ -167,6 +169,17 @@ class PetPublicSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.BooleanField())
     def get_is_urgent(self, obj: Pet) -> bool:
         return is_pet_urgent(obj)
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_favorite(self, obj: Pet) -> bool:
+        annotated = getattr(obj, "is_favorite", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False) or not user.is_active:
+            return False
+        return Favorite.objects.active().filter(user=user, pet=obj).exists()
 
     @extend_schema_field(PetBadgeSerializer(many=True))
     def get_badges(self, obj: Pet) -> list[dict[str, str]]:
@@ -196,6 +209,7 @@ class PetManageSerializer(PetPublicSerializer):
             "good_with_animals",
             "is_neutered",
             "is_urgent",
+            "is_favorite",
             "is_urgent_requested",
             "is_urgent_validated",
             "special_care",
@@ -398,3 +412,10 @@ class PetPhotoUploadSerializer(serializers.Serializer):
         write_only=True,
         error_messages={"required": MIN_PHOTOS_ERROR},
     )
+
+
+class FavoriteStatusSerializer(serializers.Serializer):
+    """Estado de favorito de una mascota para el usuario autenticado (BK-05b)."""
+
+    pet_id = serializers.IntegerField(read_only=True)
+    is_favorite = serializers.BooleanField(read_only=True)
