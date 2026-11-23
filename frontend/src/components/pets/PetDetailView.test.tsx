@@ -121,11 +121,15 @@ describe("PetDetailView", () => {
       expect(
         screen.getByRole("heading", { level: 1, name: "Loki" }),
       ).toBeInTheDocument();
+    });
+
+    // El título de la pestaña lo cambia un efecto que corre después de dibujar
+    // el nombre: en una máquina lenta (CI) hay que esperarlo también.
+    await waitFor(() => {
       expect(document.title).toBe(
         "Loki — Adoptá un Callejero — Callejeros Río Cuarto",
       );
     });
-
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Foto 1 de 2 de Loki" }),

@@ -315,3 +315,39 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** FR-05b (#124): mascotas desde la API, contador, estados de carga, error y vacío, funciones reutilizables y corrección del criterio en #23 y `contexto-ia/`.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para revisar el maquetado y el back, proponer la división, escribir el código y los tests, y comparar con el maquetado en el navegador.
+
+## 2026-11-23 — Inicio: últimas mascotas y contador desde la API (FR-05b)
+
+- **Tarjeta:** #124 (FR-05b, sub-tarjeta de la épica #23, FR-05)
+- **Rama:** feature/fr05-124-mascotas-inicio
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Mergeé el PR #125 (FR-05a) y arranqué la segunda sub-tarjeta.
+  - Sección "Adoptá un Callejero" con las 3 mascotas publicadas más nuevas de `GET /api/pets/`: 2 en el celular y en tablet, 3 más "Explorar Catálogo" en escritorio. Con `LoadingScreen` mientras carga, el mensaje del cliente de la API si falla y "Todavía no hay mascotas publicadas. ¡Volvé pronto!" si no hay.
+  - Recuadro "Mascotas en adopción" en "Sobre Nosotros" con el total real de publicadas, tomado del mismo pedido (`count`); muestra una raya mientras carga o si falla.
+  - Piezas reutilizables para el catálogo (FR-06): `fetchPets`, `PaginatedResponse`, las funciones de `lib/pets/format.ts`, `PetSociabilityTag` y `buildPet` para tests. Quedaron anotadas en la tarjeta #24 y en `contexto-ia/producto/02-diseno.md`.
+  - Corregí el criterio "carrusel de mascotas" en #23 y en `05-pantallas-y-recorridos.md`: el carrusel del inicio es el institucional.
+  - Tests con Vitest del pedido, las funciones de formato, la tarjeta, la sección y la página (carga, contenido, error, vacío y contador). Comparé con el maquetado en 375px y escritorio, con datos reales del `seed` y con el back apagado.
+- **Decisiones tomadas:**
+  - Un solo pedido para las mascotas y el contador (sin cambios en el back): la API devuelve 12 y el inicio muestra las 3 primeras.
+  - Tarjeta propia del inicio (`PetPreviewCard`), distinta de la del catálogo, pero con las funciones y la etiqueta compartidas.
+  - Etiqueta "Salvaje" en ámbar con texto oscuro y "Sociable" en `emerald-700`, por contraste (el maquetado usaba rojo y `emerald-600`).
+  - "Sin castrar" cuando no está castrada, igual que la insignia del servidor.
+- **Problemas y cómo los resolví:** para ver el error en el navegador apagué el back un momento; para el vacío y la carga alcanzó con los tests.
+- **Pendiente:** PR de la #124 y, al mergearlo, cerrar la épica #23.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para escribir el código y los tests, comparar con el maquetado y actualizar las tarjetas y la documentación.
+
+## 2026-11-23 — Test frágil del título de la ficha (BF-01)
+
+- **Tarjeta:** #77 (BF-01, bugfix y correcciones chicas)
+- **Rama:** bugfix/bf01-77-test-titulo-ficha
+- **Área:** test
+- **Qué hice:**
+  - En el CI del PR #126 (FR-05b) falló un test de la ficha de mascota (`PetDetailView.test.tsx`, de FR-07a) que no tenía relación con el cambio: esperaba el título de la pestaña "Loki — Adoptá un Callejero — Callejeros Río Cuarto" y encontraba todavía "Ficha de Mascota — Callejeros Río Cuarto".
+  - Volví a correr el control (salió en verde) y corregí el test: ahora también espera con `waitFor` a que cambie el título.
+- **Decisiones tomadas:** arreglarlo en BF-01 y no en el PR del inicio, porque es de otra tarjeta y de otro integrante. Solo cambia el test, no el componente.
+- **Problemas y cómo los resolví:** el título lo cambia un efecto que corre después de dibujar el nombre; en una máquina lenta, el test lo revisaba antes. En local no fallaba nunca.
+- **Pendiente:** que Leandro actualice develop para tener el test corregido.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para encontrar la causa del fallo en el CI, corregir el test y escribir esta entrada.
