@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
+import { Suspense } from "react";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { AlertFab } from "@/components/layout/AlertFab";
@@ -37,9 +38,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-800 antialiased transition-colors duration-200 selection:bg-orange-500 selection:text-white dark:bg-slate-900 dark:text-slate-100">
         <ThemeProvider>
           <AuthProvider>
-            <AppHeader />
+            <Suspense
+              fallback={
+                <div
+                  className="sticky top-0 z-50 h-16 border-b border-slate-200/80 bg-white/95 dark:border-slate-800 dark:bg-slate-900/95"
+                  aria-hidden="true"
+                />
+              }
+            >
+              <AppHeader />
+            </Suspense>
             {children}
-            <AlertFab />
+            <Suspense fallback={null}>
+              <AlertFab />
+            </Suspense>
             <Footer />
           </AuthProvider>
         </ThemeProvider>
