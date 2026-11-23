@@ -1,6 +1,7 @@
 """Tests unitarios de los servicios de solicitudes de adopción (`apps.adoptions.services`)."""
 
 import pytest
+from django.http import Http404
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.adoptions.models import AdoptionRequest
@@ -8,13 +9,16 @@ from apps.adoptions.services import (
     COMMITMENT_REQUIRED_ERROR,
     DUPLICATE_PENDING_REQUEST_ERROR,
     MIN_AGE_ERROR,
+    OWN_PET_ADOPTION_ERROR,
     PET_NOT_AVAILABLE_ERROR,
     create_adoption_request,
     get_my_adoption_requests_queryset,
+    get_visible_adoption_request_or_404,
 )
 from apps.adoptions.tests.factories import AdoptionRequestFactory
 from apps.pets.models import Pet
 from apps.pets.tests.factories import PetFactory
+from apps.users.models import RoleCode
 from apps.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -183,6 +187,38 @@ def test_create_adoption_request_rejects_inactive_applicant() -> None:
             pet_id=pet.pk,
             data=_valid_questionnaire_payload(),
         )
+
+
+def test_create_adoption_request_rejects_own_published_pet() -> None:
+    publisher = UserFactory()
+    pet = PetFactory(published_by=publisher, status=Pet.Status.PUBLISHED)
+
+    with pytest.raises(ValidationError) as exc_info:
+        create_adoption_request(
+            applicant=publisher,
+            pet_id=pet.pk,
+            data=_valid_questionnaire_payload(),
+        )
+
+    assert exc_info.value.detail["pet"][0] == OWN_PET_ADOPTION_ERROR
+
+
+def test_get_visible_adoption_request_or_404_hides_from_third_parties() -> None:
+    applicant = UserFactory(role__code=RoleCode.MEMBER)
+    other_user = UserFactory(role__code=RoleCode.MEMBER)
+    staff = UserFactory(role__code=RoleCode.STAFF)
+    adoption_request = AdoptionRequestFactory(applicant=applicant)
+
+    assert (
+        get_visible_adoption_request_or_404(request_id=adoption_request.pk, actor=applicant)
+        == adoption_request
+    )
+    assert (
+        get_visible_adoption_request_or_404(request_id=adoption_request.pk, actor=staff)
+        == adoption_request
+    )
+    with pytest.raises(Http404):
+        get_visible_adoption_request_or_404(request_id=adoption_request.pk, actor=other_user)
 
 
 def test_get_my_adoption_requests_queryset_filters_by_status_and_validates() -> None:

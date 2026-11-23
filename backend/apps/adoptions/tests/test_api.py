@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.adoptions.models import AdoptionRequest
+from apps.adoptions.services import OWN_PET_ADOPTION_ERROR
 from apps.adoptions.tests.factories import AdoptionRequestFactory
 from apps.pets.models import Pet
 from apps.pets.tests.factories import PetFactory, PetPhotoFactory
@@ -173,6 +174,21 @@ def test_create_adoption_request_rejects_non_published_pet(pet_status: str) -> N
     assert "pet" in response.json()
 
 
+def test_create_adoption_request_rejects_own_pet_for_any_role() -> None:
+    for role_code in (RoleCode.MEMBER, RoleCode.VERIFIED_SHELTER, RoleCode.STAFF, RoleCode.ADMIN):
+        publisher = UserFactory(role__code=role_code)
+        pet = PetFactory(published_by=publisher, status=Pet.Status.PUBLISHED)
+
+        response = _auth_client(publisher).post(
+            reverse("adoptions:adoption-request-create"),
+            data=_valid_request_body(pet.pk),
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json()["pet"] == [OWN_PET_ADOPTION_ERROR]
+
+
 def test_create_adoption_request_blocks_duplicate_pending_via_api() -> None:
     applicant = UserFactory()
     pet = PetFactory(status=Pet.Status.PUBLISHED)
@@ -233,8 +249,8 @@ def test_adoption_request_detail_permissions_and_soft_delete() -> None:
     url = reverse("adoptions:adoption-request-detail", kwargs={"request_id": adoption_request.pk})
 
     assert APIClient().get(url).status_code == status.HTTP_401_UNAUTHORIZED
-    assert _auth_client(other_member).get(url).status_code == status.HTTP_403_FORBIDDEN
-    assert _auth_client(other_shelter).get(url).status_code == status.HTTP_403_FORBIDDEN
+    assert _auth_client(other_member).get(url).status_code == status.HTTP_404_NOT_FOUND
+    assert _auth_client(other_shelter).get(url).status_code == status.HTTP_404_NOT_FOUND
     assert _auth_client(applicant).get(url).status_code == status.HTTP_200_OK
     assert _auth_client(staff).get(url).status_code == status.HTTP_200_OK
     assert _auth_client(admin).get(url).status_code == status.HTTP_200_OK

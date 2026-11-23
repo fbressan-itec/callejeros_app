@@ -8,7 +8,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.adoptions.models import AdoptionRequest
-from apps.adoptions.permissions import IsApplicantOrStaffOrAdmin
 from apps.adoptions.serializers import (
     AdoptionRequestCreateSerializer,
     AdoptionRequestSerializer,
@@ -16,8 +15,8 @@ from apps.adoptions.serializers import (
 )
 from apps.adoptions.services import (
     create_adoption_request,
-    get_active_adoption_request_or_404,
     get_my_adoption_requests_queryset,
+    get_visible_adoption_request_or_404,
 )
 from apps.core.pagination import StandardPageNumberPagination
 
@@ -37,8 +36,9 @@ class AdoptionRequestCreateView(APIView):
             "Recibe el cuestionario de 3 bloques (datos personales con edad mínima 18, hogar "
             "y entorno con `housing_type` en texto libre, y compromiso obligatorio) para una "
             "mascota activa en estado `published`. Guarda los datos declarados por el "
-            "solicitante y crea la solicitud en estado `pending`. Impide enviar una segunda "
-            "solicitud `pending` para la misma mascota. "
+            "solicitante y crea la solicitud en estado `pending`. Rechaza postularse a una "
+            "mascota publicada por el mismo usuario e impide enviar una segunda solicitud "
+            "`pending` para la misma mascota. "
             "Permiso: usuario autenticado (`IsAuthenticated`)."
         ),
         request=AdoptionRequestCreateSerializer,
@@ -46,8 +46,8 @@ class AdoptionRequestCreateView(APIView):
             201: AdoptionRequestSerializer,
             400: OpenApiResponse(
                 description=(
-                    "Cuestionario incompleto o inválido, mascota no disponible o solicitud "
-                    "pendiente duplicada."
+                    "Cuestionario incompleto o inválido, mascota no disponible, auto-postulación "
+                    "o solicitud pendiente duplicada."
                 ),
             ),
             401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
@@ -121,7 +121,7 @@ class MyAdoptionRequestListView(APIView):
 class AdoptionRequestDetailView(APIView):
     """GET /api/adoption-requests/{request_id}/ — Ficha y respuesta de una solicitud."""
 
-    permission_classes = (IsAuthenticated, IsApplicantOrStaffOrAdmin)
+    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         operation_id="adoption_requests_retrieve",
@@ -132,18 +132,22 @@ class AdoptionRequestDetailView(APIView):
             "está `approved`, incluye `foster_contact` (nombre, rol y teléfono de contacto de "
             "la publicación) y `meeting_point`, sin exponer nunca la dirección del hogar de "
             "tránsito. Cuando está `rejected`, incluye `rejection_reason`. "
-            "Permiso: el solicitante, `staff` o `admin` (`IsApplicantOrStaffOrAdmin`)."
+            "Solo es visible para el solicitante, `staff` o `admin` (`404` para terceros, sin "
+            "revelar si existe)."
         ),
         responses={
             200: AdoptionRequestSerializer,
             401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
-            403: OpenApiResponse(description="No es el solicitante ni Staff/Admin."),
-            404: OpenApiResponse(description="Solicitud inexistente o dada de baja."),
+            404: OpenApiResponse(
+                description="Solicitud inexistente, dada de baja o no visible para el usuario."
+            ),
         },
     )
     def get(self, request: Request, request_id: int) -> Response:
-        adoption_request = get_active_adoption_request_or_404(request_id)
-        self.check_object_permissions(request, adoption_request)
+        adoption_request = get_visible_adoption_request_or_404(
+            request_id=request_id,
+            actor=request.user,
+        )
         return Response(
             AdoptionRequestSerializer(adoption_request, context={"request": request}).data,
             status=status.HTTP_200_OK,

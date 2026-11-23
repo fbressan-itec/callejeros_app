@@ -7,10 +7,12 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch, QuerySet
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.adoptions.models import MIN_APPLICANT_AGE, AdoptionRequest
+from apps.adoptions.permissions import can_view_adoption_request
 from apps.pets.models import Pet, PetPhoto
 from apps.users.models import User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
@@ -23,6 +25,7 @@ COMMITMENT_REQUIRED_ERROR = (
     "Tenés que aceptar el compromiso de adopción responsable para enviar la solicitud."
 )
 PET_NOT_AVAILABLE_ERROR = "Solo podés postularte para mascotas publicadas y disponibles."
+OWN_PET_ADOPTION_ERROR = "No podés postularte para adoptar una mascota que publicaste vos mismo."
 DUPLICATE_PENDING_REQUEST_ERROR = "Ya tenés una solicitud pendiente para esta mascota."
 INVALID_STATUS_FILTER_ERROR = "Estado de solicitud inválido."
 
@@ -73,6 +76,14 @@ def get_my_adoption_requests_queryset(
 def get_active_adoption_request_or_404(request_id: int) -> AdoptionRequest:
     """Obtiene una solicitud activa precargando sus relaciones o devuelve 404."""
     return get_object_or_404(_base_active_adoption_requests_queryset(), pk=request_id)
+
+
+def get_visible_adoption_request_or_404(*, request_id: int, actor: Any) -> AdoptionRequest:
+    """Obtiene una solicitud activa si es visible para solicitante/Staff/Admin; si no, 404."""
+    adoption_request = get_active_adoption_request_or_404(request_id)
+    if not can_view_adoption_request(actor, adoption_request):
+        raise Http404
+    return adoption_request
 
 
 def _validate_questionnaire_data(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -139,6 +150,9 @@ def create_adoption_request(
     pet = Pet.objects.active().select_related("published_by__role").filter(pk=pet_id).first()
     if pet is None or pet.status != Pet.Status.PUBLISHED:
         raise ValidationError({"pet": [PET_NOT_AVAILABLE_ERROR]})
+
+    if pet.published_by_id == applicant.id:
+        raise ValidationError({"pet": [OWN_PET_ADOPTION_ERROR]})
 
     has_pending = (
         AdoptionRequest.objects.active()
