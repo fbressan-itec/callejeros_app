@@ -8,30 +8,13 @@ import {
   type PetDetail,
 } from "@/lib/pets/types";
 
-const DEFAULT_HEALTH = {
-  general_status: "Sano y bajo control veterinario",
-  vaccines: "Plan de vacunación iniciado",
-  deworming: "Desparasitado",
-  flea_tick_treatment: "Pipeta al día",
-  other: "Sin complicaciones detectadas",
-};
+const EMPTY_INFO_MESSAGE =
+  "Sin información cargada. Consultá con el rescatista.";
 
-const DEFAULT_NOTES =
-  "Animalito muy dócil que requiere cariño, seguimiento de vacunas y compromiso de tenencia responsable.";
-
-function extractAgeDisplay(pet: PetDetail): string {
+function formatAgeDisplay(pet: PetDetail): string {
   const groupLabel = PET_AGE_GROUP_LABELS[pet.age_group];
-  const ageBadge = pet.badges.find((badge) => badge.key === "age");
-  if (ageBadge) {
-    const colonIndex = ageBadge.text.lastIndexOf(":");
-    if (colonIndex !== -1) {
-      const ageValue = ageBadge.text.slice(colonIndex + 1).trim();
-      if (ageValue) {
-        return `${ageValue} · ${groupLabel}`;
-      }
-    }
-  }
-  return groupLabel;
+  const ageLabel = pet.age_label?.trim();
+  return ageLabel ? `${ageLabel} · ${groupLabel}` : groupLabel;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -134,18 +117,26 @@ export function PetInfoAccordions({
     ? isFemale
       ? "Castrada"
       : "Castrado"
-    : "No castrado";
-  const health = {
-    general_status:
-      pet.health?.general_status?.trim() || DEFAULT_HEALTH.general_status,
-    vaccines: pet.health?.vaccines?.trim() || DEFAULT_HEALTH.vaccines,
-    deworming: pet.health?.deworming?.trim() || DEFAULT_HEALTH.deworming,
-    flea_tick_treatment:
-      pet.health?.flea_tick_treatment?.trim() ||
-      DEFAULT_HEALTH.flea_tick_treatment,
-    other: pet.health?.other?.trim() || DEFAULT_HEALTH.other,
-  };
-  const notesText = pet.notes?.trim() || DEFAULT_NOTES;
+    : isFemale
+      ? "No castrada"
+      : "No castrado";
+
+  const healthRows: Array<{ label: string; value: string }> = [
+    {
+      label: "Estado clínico",
+      value: pet.health?.general_status?.trim() ?? "",
+    },
+    { label: "Vacunas", value: pet.health?.vaccines?.trim() ?? "" },
+    { label: "Parásitos", value: pet.health?.deworming?.trim() ?? "" },
+    {
+      label: "Pulgas / garrapatas",
+      value: pet.health?.flea_tick_treatment?.trim() ?? "",
+    },
+    { label: "Otros", value: pet.health?.other?.trim() ?? "" },
+    { label: "Cuidado especial", value: pet.special_care?.trim() ?? "" },
+  ].filter((row) => Boolean(row.value));
+
+  const notesText = pet.notes?.trim() ?? "";
 
   return (
     <>
@@ -172,7 +163,7 @@ export function PetInfoAccordions({
           detailsRef={descriptionRef}
         >
           <p className="pb-2 leading-relaxed">{pet.description}</p>
-          <InfoRow label="Edad" value={extractAgeDisplay(pet)} />
+          <InfoRow label="Edad" value={formatAgeDisplay(pet)} />
           <InfoRow label="Sexo" value={sexLabel} />
           <InfoRow label="Castración" value={neuteredLabel} />
           <InfoRow
@@ -187,21 +178,25 @@ export function PetInfoAccordions({
         </AccordionItem>
 
         <AccordionItem title="Estado de salud" icon="🩺">
-          <InfoRow label="Estado clínico" value={health.general_status} />
-          <InfoRow label="Vacunas" value={health.vaccines} />
-          <InfoRow label="Parásitos" value={health.deworming} />
-          <InfoRow
-            label="Pulgas / garrapatas"
-            value={health.flea_tick_treatment}
-          />
-          <InfoRow label="Otros" value={health.other} />
-          {pet.special_care?.trim() ? (
-            <InfoRow label="Cuidado especial" value={pet.special_care.trim()} />
-          ) : null}
+          {healthRows.length > 0 ? (
+            healthRows.map((row) => (
+              <InfoRow key={row.label} label={row.label} value={row.value} />
+            ))
+          ) : (
+            <p className="leading-relaxed text-slate-500 dark:text-slate-400">
+              {EMPTY_INFO_MESSAGE}
+            </p>
+          )}
         </AccordionItem>
 
         <AccordionItem title="Notas" icon="📝">
-          <p className="leading-relaxed">{notesText}</p>
+          {notesText ? (
+            <p className="leading-relaxed">{notesText}</p>
+          ) : (
+            <p className="leading-relaxed text-slate-500 dark:text-slate-400">
+              {EMPTY_INFO_MESSAGE}
+            </p>
+          )}
         </AccordionItem>
       </section>
     </>

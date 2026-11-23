@@ -86,6 +86,7 @@ export interface PetDetail {
   sex: PetSex;
   estimated_birth_date: string;
   age_group: PetAgeGroup;
+  age_label: string;
   is_sociable: boolean;
   good_with_children: PetCompatibility;
   good_with_animals: PetCompatibility;
