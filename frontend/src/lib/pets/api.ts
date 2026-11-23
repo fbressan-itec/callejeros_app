@@ -45,10 +45,11 @@ export type PetListParams = Record<
 >;
 
 /**
- * Pide una página del listado público de mascotas (`GET /api/pets/`): solo publicadas,
- * de la más nueva a la más vieja, de a 12, con `count` = total de resultados.
+ * Pide una página del listado público de mascotas (`GET /api/pets/`): solo publicadas
+ * por defecto (o adoptadas con `adopted=true`), de a 12, con `count` = total de resultados.
+ * Reutiliza `requestWithAuth` para adjuntar el token Bearer si hay sesión activa
+ * (recibiendo `is_favorite` y permitiendo `?favorites=true`) con fallback público.
  * Los parámetros vacíos (`undefined` o `""`) no se mandan.
- * Lo usa el inicio (FR-05) y lo puede reusar el catálogo (FR-06) pasando sus filtros.
  */
 export function fetchPets(
   params: PetListParams = {},
@@ -60,9 +61,14 @@ export function fetchPets(
     query.set(key, String(value));
   }
   const search = query.toString();
-  return api.get<PaginatedResponse<PetListItem>>(
-    search ? `pets/?${search}` : "pets/",
-    { signal: options.signal },
+  const path = search ? `pets/?${search}` : "pets/";
+  return requestWithAuth(
+    (headers) =>
+      api.get<PaginatedResponse<PetListItem>>(path, {
+        headers,
+        signal: options.signal,
+      }),
+    { allowPublicFallback: true },
   );
 }
 
@@ -72,7 +78,7 @@ export function fetchPets(
  * (permitiendo ver mascotas en revisión al autor/Staff/Admin) con fallback público
  * si la renovación del token falla.
  */
-export async function fetchPetById(
+export function fetchPetById(
   petId: number,
   options: FetchPetOptions = {},
 ): Promise<PetDetail> {
