@@ -130,3 +130,21 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #112 para continuar con #111 (BK-07b: cola de revisión de Staff, aprobar y rechazar solicitudes).
 - **PR:** #112
 - **IA usada:** Antigravity — para dividir la épica, crear la app `adoptions`, implementar el modelo `AdoptionRequest`, los servicios, serializers, endpoints, Swagger, `seed.py`, los tests con `pytest` y actualizar `README.md`.
+
+## 2026-11-22 — Revisión de solicitudes de adopción en el panel de Staff (cola, aprobar y rechazar) (BK-07b)
+
+- **Tarjeta:** #111 (BK-07b, sub-tarjeta de #10 BK-07)
+- **Rama:** feature/bk07-111-revision-solicitudes-staff
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Eliminé `IsApplicantOrStaffOrAdmin` sin uso en `backend/apps/adoptions/permissions.py` según la observación de Franco al aprobar el PR #112.
+  - Implementé en `backend/apps/adoptions/services.py` la cola `get_adoption_review_queue_queryset` (solicitudes activas en `pending`, de más vieja a más nueva aprovechando el índice `(status, created_at)`) y el flujo `AdoptionRequestReviewWorkflow` (`approve_adoption_request` y `reject_adoption_request`) siguiendo las convenciones de `apps/core/review.py`: control de rol `Staff`/`Admin` en el servicio, transacción atómica con `select_for_update()`, validación de estado `pending` y vigencia, `meeting_point` obligatorio (≤ 255) al aprobar, `rejection_reason` obligatorio (≤ 400) al desaprobar, registro de `reviewed_by` y `reviewed_at`, y ganchos `on_approved` / `on_rejected` preparados para notificaciones en BK-08 (#11).
+  - Agregué `AdoptionRequestApproveSerializer` y `AdoptionRequestRejectSerializer` en `serializers.py` y los endpoints `GET /api/adoption-requests/review-queue/`, `POST /api/adoption-requests/{request_id}/approve/` y `POST /api/adoption-requests/{request_id}/reject/` (`IsAuthenticated`, `IsStaffOrAdmin`) con `@extend_schema` validado sin warnings (`spectacular --validate --fail-on-warn`).
+  - Escribí 22 tests nuevos en `apps/adoptions/tests/test_review_services.py` y `test_review_api.py` cubriendo permisos por rol, orden y paginación de la cola, validaciones, transiciones de estado, ganchos de notificación, privacidad del hogar de tránsito y esquema OpenAPI, y actualicé `README.md`.
+- **Decisiones tomadas:**
+  - Implementé `AdoptionRequestReviewWorkflow` con la misma estructura de `apps/core/review.py` (verificación de rol en servicio, `select_for_update()` y ganchos `on_approved`/`on_rejected`) en lugar de forzar `ReviewWorkflow` de publicaciones porque las solicitudes usan campos propios (`meeting_point`, `rejection_reason`, `reviewed_by`, `reviewed_at`) y estados `pending` → `approved` / `rejected` sin tabla `*StatusLog`.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; la suite completa del backend pasó en verde tras validar `ruff` y `drf-spectacular`.
+- **Pendiente:** abrir el PR de #111 para revisión de Franco y cerrar la épica #10 (`[BK-07] Solicitudes de adopción`) una vez mergeado.
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para limpiar `permissions.py`, implementar los servicios y endpoints de revisión de Staff, documentar Swagger y `README.md`, y escribir los tests con `pytest`.
