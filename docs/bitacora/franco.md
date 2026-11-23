@@ -337,3 +337,17 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de la #124 y, al mergearlo, cerrar la épica #23.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para escribir el código y los tests, comparar con el maquetado y actualizar las tarjetas y la documentación.
+
+## 2026-11-23 — Test frágil del título de la ficha (BF-01)
+
+- **Tarjeta:** #77 (BF-01, bugfix y correcciones chicas)
+- **Rama:** bugfix/bf01-77-test-titulo-ficha
+- **Área:** test
+- **Qué hice:**
+  - En el CI del PR #126 (FR-05b) falló un test de la ficha de mascota (`PetDetailView.test.tsx`, de FR-07a) que no tenía relación con el cambio: esperaba el título de la pestaña "Loki — Adoptá un Callejero — Callejeros Río Cuarto" y encontraba todavía "Ficha de Mascota — Callejeros Río Cuarto".
+  - Volví a correr el control (salió en verde) y corregí el test: ahora también espera con `waitFor` a que cambie el título.
+- **Decisiones tomadas:** arreglarlo en BF-01 y no en el PR del inicio, porque es de otra tarjeta y de otro integrante. Solo cambia el test, no el componente.
+- **Problemas y cómo los resolví:** el título lo cambia un efecto que corre después de dibujar el nombre; en una máquina lenta, el test lo revisaba antes. En local no fallaba nunca.
+- **Pendiente:** que Leandro actualice develop para tener el test corregido.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para encontrar la causa del fallo en el CI, corregir el test y escribir esta entrada.
