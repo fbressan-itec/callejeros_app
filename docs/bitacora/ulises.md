@@ -208,3 +208,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise y apruebe los ajustes del PR #99 para cerrar la épica #6 (`[BK-03] Mascotas y fotos`).
 - **PR:** #99
 - **IA usada:** Antigravity — para instalar `django-filter`, implementar los filtros, endpoints de lectura, Swagger, actualización del README y tests con `pytest`.
+
+## 2026-11-23 — Modelo Favorite, migración, admin y datos semilla (BK-05a)
+
+- **Tarjeta:** #115 (BK-05a, sub-tarjeta de #8 BK-05)
+- **Rama:** feature/bk05-115-modelo-favoritos-seed
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Dividí la épica #8 (BK-05) en dos sub-tarjetas (#115 BK-05a y #116 BK-05b) y las cargué en el tablero colgadas de #8.
+  - Agregué el modelo `Favorite` en `apps/pets/models.py` heredando de `BaseModel` (`user`, `pet` con `on_delete=models.PROTECT`, `is_active`, `created_at`, `updated_at`) y la restricción `UniqueConstraint(fields=["user", "pet"], name="unique_user_pet_favorite")` según el diseño de DB-01 en el README.
+  - Generé la migración nueva `apps/pets/migrations/0003_favorite.py` y registré `FavoriteAdmin` en `apps/pets/admin.py` usando `SoftDeleteAdminMixin` para bloquear borrados físicos y habilitar acciones de baja lógica y reactivación.
+  - Sumé `SEED_FAVORITES` (5 favoritos de prueba para los usuarios semilla) en `apps/pets/seed.py` con `update_or_create` idempotente.
+  - Agregué `FavoriteFactory` en `apps/pets/tests/factories.py` y cubrí con `pytest` el modelo, la restricción única `(user, pet)` tanto activo como inactivo, la baja lógica y reactivación, el panel de admin y la idempotencia del `seed`.
+- **Decisiones tomadas:**
+  - Mantuve `UniqueConstraint(fields=["user", "pet"])` sin condición parcial (siguiendo exactamente DB-01) y `on_delete=models.PROTECT` (consistente con `AdoptionRequest`): al desmarcar se aplica baja lógica (`is_active=False`) y al volver a marcar se reactiva el mismo registro sin duplicar filas.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; la salida del resumen de `apps/pets/seed.py` conservó el prefijo de mascotas y sumó el conteo de favoritos manteniendo compatibilidad con las pruebas existentes.
+- **Pendiente:** abrir el PR hacia `develop` para que Franco revise la migración y el modelo, y continuar con #116 (`BK-05b`: endpoints de favoritos, filtro `?favorites=true`, campo `is_favorite`, Swagger y tests).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para dividir la épica en GitHub, implementar el modelo `Favorite`, la migración, el admin, los datos semilla y los tests con `pytest`.

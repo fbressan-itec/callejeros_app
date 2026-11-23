@@ -3,7 +3,7 @@
 from django.contrib import admin
 
 from apps.core.admin import NoDeleteAdminMixin, ReadOnlyAdminMixin, SoftDeleteAdminMixin
-from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
 
 
 class PetHealthInline(NoDeleteAdminMixin, admin.StackedInline):
@@ -97,3 +97,11 @@ class PetStatusLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
         "note",
         "created_at",
     )
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("id", "user", "pet", "is_active", "created_at", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("user__email", "pet__name")
+    readonly_fields = ("created_at", "updated_at")
