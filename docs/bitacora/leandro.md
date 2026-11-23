@@ -186,5 +186,29 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Al correr `npm run build`, Next 16 (`cacheComponents: true`) rechazó `usePathname()` fuera de `<Suspense>` en `AppHeader` y `AlertFab` al prerenderizar la primera ruta dinámica; lo resolví envolviendo ambos en `<Suspense>` en `layout.tsx` según `use-pathname.md`.
   - En la comparación visual en navegador la scrollbar horizontal del carrusel seguía visible porque `.no-scrollbar` estaba fuera de `@utility` en Tailwind 4; la pasé a `@utility no-scrollbar` en `globals.css` y verifiqué en el navegador que desapareció por completo.
 - **Pendiente:** abrir el PR de #118 hacia `develop` para revisión de Franco y continuar con #119 (FR-07b: insignias calculadas, padrinos, desplegables, acciones y estado adoptada).
-- **PR:** pendiente de apertura
+- **PR:** #121
 - **IA usada:** Antigravity — para dividir la épica, implementar el cliente de mascotas, la ruta `/mascotas/[id]`, el carrusel, los tests con Vitest y la comparación visual en navegador.
+
+## 2026-11-23 — Insignias calculadas, padrinos, desplegables de información, acciones y estado adoptada (FR-07b)
+
+- **Tarjeta:** #119 (FR-07b, sub-tarjeta de #25 FR-07)
+- **Rama:** feature/fr07-119-insignias-desplegables-acciones
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Apliqué las sugerencias de Franco del PR #121: extraje `requestWithAuth` en `src/lib/auth/session.ts` para centralizar el envío del token Bearer, la renovación ante `401` y el fallback público (reutilizado en `fetchCurrentUser` y `fetchPetById`), y eliminé `formatPetAge` de `src/lib/pets/api.ts` junto con sus tests para que la regla de edad viva únicamente en el backend.
+  - Implementé `PetBadges` (`src/components/pets/PetBadges.tsx`) fiel a `mascota.html` y `js/mascota.js`, renderizando las `badges` calculadas por el servidor (`BK-04`) con los SVG de línea 24×24, los tonos en modo claro/oscuro, botones circulares de 48 px y la leyenda accesible (`aria-live="polite"`) ante click, hover y foco con teclado.
+  - Implementé `PetInfoAccordions` (`src/components/pets/PetInfoAccordions.tsx`) con el bloque de padrinos y los 3 desplegables `<details>` cerrados por defecto (`Descripción`, `Estado de salud` y `Notas`), filas de convivencia (`✓ Sí`, `✗ No`, `? Sin evaluar`) y extracción de la edad desde la insignia `age` calculada por el servidor.
+  - Implementé `PetActions` (`src/components/pets/PetActions.tsx`) con banner `"¡Ya encontró hogar! 🧡"` (sin postulación) cuando `status === "adopted"`, botón `"¡Adoptame!"` con `AuthRequiredModal` sin sesión (`?redirect=/mascotas/[id]`) y gancho preparado para `FR-09`, enlace `"Donaciones y Apadrinamiento"` y `"📤 Compartir a <nombre>"` (Web Share API con fallback a WhatsApp).
+  - Integré todos los bloques en `PetDetailView` conectando `"Ver más"` del carrusel para abrir y scrollear a `Descripción`.
+  - Escribí tests nuevos con Vitest y Testing Library (`session.test.ts`, `PetBadges.test.tsx` y `PetDetailView.test.tsx`) y completé la comparación visual en navegador en 375 px y 1280 px, modo claro y oscuro, verificando también la carga HTTP 200 de las fotos semilla de Loki tras el PR #122, el caso urgente de Rocco (`/mascotas/3`) y el estado adoptado de Pancho (`/mascotas/7`).
+  - Apliqué los ajustes de la revisión del PR #128: resolví el merge con `develop` (conservando `fetchPets` de FR-05 y el `waitFor` del título en `PetDetailView.test.tsx`), expuse `age_label` calculado en `PetPublicSerializer` y `PetManageSerializer` (con Swagger, `README.md` y tests en `test_badges_api.py`), migré `PetInfoAccordions` y `formatPetSummaryLine` a `age_label` eliminando por completo `formatPetAge` del front, quité los textos de relleno `DEFAULT_HEALTH` y `DEFAULT_NOTES` para mostrar solo filas reales (o `"Sin información cargada. Consultá con el rescatista."`), corregí `"No castrada"` para hembras y sumé los tests correspondientes.
+- **Decisiones tomadas:**
+  - Centralicé la lógica de renovación de JWT en `requestWithAuth` en `session.ts` con `allowPublicFallback` para que tanto endpoints privados como públicos con vista enriquecida compartan un único flujo sin duplicar código.
+  - Expuse `age_label` desde el back usando `format_pet_age` ya existente en `apps/pets/badges.py` (sin tocar modelos ni migraciones) para que ni la ficha ni el inicio dupliquen reglas de edad ni parseen textos de insignias.
+  - Dejé el enlace `"Donaciones y Apadrinamiento"` apuntando a `/donaciones#apadrinar` (documentado en el PR #128) hasta que se implemente la pantalla `/apadrinar` en `FR-14`.
+- **Problemas y cómo los resolví:**
+  - En `PetDetailView.test.tsx`, la aserción de `document.title` corría un tick antes del efecto tras montar el árbol completo con los nuevos bloques; la moví dentro de `waitFor` y quedó estable y en verde.
+  - Al mergear `develop` (con FR-05), `formatPetSummaryLine` dependía de `formatPetAge`; al agregar `age_label` en el back y pasarlo a `format.ts` y `testing.ts`, quedó eliminada toda lógica de cálculo de edad del front manteniendo el inicio y la ficha en verde.
+- **Pendiente:** que Franco revise los ajustes del PR #128 y cierre la épica #25 (`[FR-07] Ficha de mascota`) una vez mergeado.
+- **PR:** #128
+- **IA usada:** Antigravity — para refactorizar `requestWithAuth`, implementar `PetBadges`, `PetInfoAccordions` y `PetActions`, escribir los tests con Vitest y realizar la comparación visual en navegador.

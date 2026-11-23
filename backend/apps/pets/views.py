@@ -76,10 +76,10 @@ class PetListCreateView(APIView):
         summary="Explorar catálogo público de mascotas",
         description=(
             "Devuelve paginado de a 12 (`count`, `next`, `previous`, `results`) las mascotas "
-            "activas en estado `published` por defecto, con `is_urgent` y `badges` calculados "
-            "en el servidor (nunca elegidos por el cliente) y sin exponer `contact_phone` ni "
-            "campos internos de revisión. Con `adopted=true` devuelve únicamente mascotas en "
-            "estado `adopted` (nunca se mezclan disponibles con adoptadas). "
+            "activas en estado `published` por defecto, con `age_label`, `is_urgent` y `badges` "
+            "calculados en el servidor (nunca elegidos por el cliente) y sin exponer "
+            "`contact_phone` ni campos internos de revisión. Con `adopted=true` devuelve "
+            "únicamente mascotas en estado `adopted` (nunca se mezclan disponibles con adoptadas). "
             "Permiso: público (`AllowAny`)."
         ),
         parameters=[
@@ -272,8 +272,8 @@ class PetDetailView(APIView):
         tags=[PETS_TAG],
         summary="Consultar ficha completa de una mascota",
         description=(
-            "Devuelve la ficha completa con sus `badges` calculadas en el servidor. Para el "
-            "público devuelve `is_urgent` calculado y nunca expone `contact_phone` ni los "
+            "Devuelve la ficha completa con `age_label` y sus `badges` calculados en el servidor. "
+            "Para el público devuelve `is_urgent` calculado y nunca expone `contact_phone` ni los "
             "flags internos `is_urgent_requested` / `is_urgent_validated`. Cuando consulta el "
             "autor, `staff` o `admin`, incluye además `contact_phone` y esos flags internos "
             "para gestión/edición. Es pública para `published` y `adopted`; para `in_review` "

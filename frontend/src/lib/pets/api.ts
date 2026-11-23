@@ -1,6 +1,6 @@
-import { ApiError, api, getApiUrl } from "@/lib/api/client";
-import { getAuthHeaders, refreshAccessToken } from "@/lib/auth/session";
+import { api, getApiUrl } from "@/lib/api/client";
 import type { PaginatedResponse } from "@/lib/api/pagination";
+import { requestWithAuth } from "@/lib/auth/session";
 import type { PetDetail, PetListItem } from "@/lib/pets/types";
 
 export interface FetchPetOptions {
@@ -38,114 +38,17 @@ export function resolvePetImageUrl(rawUrl: string): string {
   }
 }
 
-function parseIsoDateLocal(isoDate: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const parsed = new Date(year, month - 1, day);
-  if (
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return null;
-  }
-  return parsed;
-}
-
-function subtractCalendarYears(referenceDate: Date, years: number): Date {
-  const targetYear = referenceDate.getFullYear() - years;
-  const targetMonth = referenceDate.getMonth();
-  const targetDay = referenceDate.getDate();
-  const candidate = new Date(targetYear, targetMonth, targetDay);
-  // Manejo del 29 de febrero en años no bisiestos (igual a backend/apps/pets/badges.py)
-  if (candidate.getMonth() !== targetMonth) {
-    return new Date(targetYear, targetMonth, 28);
-  }
-  return candidate;
-}
-
-/**
- * Formatea la edad legible en español a partir de `estimated_birth_date` (`YYYY-MM-DD`),
- * respetando exactamente las mismas reglas y mayúsculas que `backend/apps/pets/badges.py`.
- */
-export function formatPetAge(
-  estimatedBirthDate: string,
-  referenceDate: Date = new Date(),
-): string {
-  const birth = parseIsoDateLocal(estimatedBirthDate);
-  if (!birth) return "";
-
-  const today = new Date(
-    referenceDate.getFullYear(),
-    referenceDate.getMonth(),
-    referenceDate.getDate(),
-  );
-
-  if (birth >= today) {
-    return "Menos de 1 Mes";
-  }
-
-  const oneYearAgo = subtractCalendarYears(today, 1);
-  if (birth <= oneYearAgo) {
-    let years = today.getFullYear() - birth.getFullYear();
-    if (birth > subtractCalendarYears(today, years)) {
-      years -= 1;
-    }
-    return years === 1 ? "1 Año" : `${years} Años`;
-  }
-
-  let months =
-    (today.getFullYear() - birth.getFullYear()) * 12 +
-    (today.getMonth() - birth.getMonth());
-  if (today.getDate() < birth.getDate()) {
-    months -= 1;
-  }
-
-  if (months <= 0) return "Menos de 1 Mes";
-  if (months === 1) return "1 Mes";
-  return `${Math.min(months, 11)} Meses`;
-}
-
 /** Filtros del listado público `GET /api/pets/` (ver Swagger: `pets_list`). */
 export type PetListParams = Record<
   string,
   string | number | boolean | undefined
 >;
 
-async function getWithOptionalAuth<T>(
-  path: string,
-  options: FetchPetOptions = {},
-): Promise<T> {
-  const authHeaders = getAuthHeaders();
-  const hasAuth = Object.keys(authHeaders).length > 0;
-
-  try {
-    return await api.get<T>(path, {
-      headers: authHeaders,
-      signal: options.signal,
-    });
-  } catch (error) {
-    if (hasAuth && error instanceof ApiError && error.status === 401) {
-      const refreshedAccess = await refreshAccessToken();
-      if (refreshedAccess) {
-        return api.get<T>(path, {
-          headers: { Authorization: `Bearer ${refreshedAccess}` },
-          signal: options.signal,
-        });
-      }
-      return api.get<T>(path, { signal: options.signal });
-    }
-    throw error;
-  }
-}
-
 /**
  * Pide una página del listado público de mascotas (`GET /api/pets/`): solo publicadas
  * por defecto (o adoptadas con `adopted=true`), de a 12, con `count` = total de resultados.
- * Si hay sesión activa adjunta el token Bearer para recibir `is_favorite` y filtrar favoritos.
+ * Reutiliza `requestWithAuth` para adjuntar el token Bearer si hay sesión activa
+ * (recibiendo `is_favorite` y permitiendo `?favorites=true`) con fallback público.
  * Los parámetros vacíos (`undefined` o `""`) no se mandan.
  */
 export function fetchPets(
@@ -159,18 +62,29 @@ export function fetchPets(
   }
   const search = query.toString();
   const path = search ? `pets/?${search}` : "pets/";
-  return getWithOptionalAuth<PaginatedResponse<PetListItem>>(path, options);
+  return requestWithAuth(
+    (headers) =>
+      api.get<PaginatedResponse<PetListItem>>(path, {
+        headers,
+        signal: options.signal,
+      }),
+    { allowPublicFallback: true },
+  );
 }
 
 /**
  * Obtiene la ficha completa de una mascota desde `GET /api/pets/{id}/`.
- * Si hay sesión activa adjunta el token Bearer para que el autor o Staff/Admin puedan
- * ver mascotas en revisión o rechazadas. Si el token venció (401), intenta renovarlo y,
- * si no puede, reintenta sin autorización para permitir la lectura de fichas públicas.
+ * Reutiliza `requestWithAuth` para adjuntar el token Bearer si hay sesión activa
+ * (permitiendo ver mascotas en revisión al autor/Staff/Admin) con fallback público
+ * si la renovación del token falla.
  */
 export function fetchPetById(
   petId: number,
   options: FetchPetOptions = {},
 ): Promise<PetDetail> {
-  return getWithOptionalAuth<PetDetail>(`pets/${petId}/`, options);
+  const path = `pets/${petId}/`;
+  return requestWithAuth(
+    (headers) => api.get<PetDetail>(path, { headers, signal: options.signal }),
+    { allowPublicFallback: true },
+  );
 }

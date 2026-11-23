@@ -304,6 +304,44 @@ export async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+export interface RequestWithAuthOptions {
+  /**
+   * Si es `true` y la renovación falla tras un `401`, reintenta sin cabecera
+   * `Authorization` (para endpoints públicos que devuelven datos extra con sesión).
+   */
+  allowPublicFallback?: boolean;
+}
+
+/**
+ * Ejecuta un pedido a la API adjuntando el token Bearer actual si hay sesión.
+ * Ante un `401`, intenta renovar el `access` token una única vez con `refreshAccessToken()`
+ * y reintenta el pedido; si la renovación falla y `allowPublicFallback` es `true`,
+ * reintenta sin autorización.
+ */
+export async function requestWithAuth<T>(
+  execute: (headers: Record<string, string>) => Promise<T>,
+  options: RequestWithAuthOptions = {},
+): Promise<T> {
+  const { allowPublicFallback = false } = options;
+  const authHeaders = getAuthHeaders();
+  const hasAuth = Object.keys(authHeaders).length > 0;
+
+  try {
+    return await execute(authHeaders);
+  } catch (error) {
+    if (hasAuth && error instanceof ApiError && error.status === 401) {
+      const refreshedAccess = await refreshAccessToken();
+      if (refreshedAccess) {
+        return execute({ Authorization: `Bearer ${refreshedAccess}` });
+      }
+      if (allowPublicFallback) {
+        return execute({});
+      }
+    }
+    throw error;
+  }
+}
+
 /**
  * Consulta `/api/auth/me/` con el token Bearer actual (renovándolo una vez si expiró).
  */
@@ -312,25 +350,15 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   if (!current?.access) return null;
 
   try {
-    const user = await api.get<AuthUser>("auth/me/", {
-      headers: { Authorization: `Bearer ${current.access}` },
-    });
+    const user = await requestWithAuth((headers) =>
+      api.get<AuthUser>("auth/me/", { headers }),
+    );
     updateStoredUser(user);
     return user;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      const newAccess = await refreshAccessToken();
-      if (!newAccess) return null;
-      try {
-        const user = await api.get<AuthUser>("auth/me/", {
-          headers: { Authorization: `Bearer ${newAccess}` },
-        });
-        updateStoredUser(user);
-        return user;
-      } catch {
-        clearAuthSession();
-        return null;
-      }
+      clearAuthSession();
+      return null;
     }
     return current.user;
   }

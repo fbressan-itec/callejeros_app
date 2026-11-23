@@ -44,33 +44,30 @@ describe("formatPetNeutered", () => {
 });
 
 describe("formatPetSummaryLine", () => {
-  const today = new Date(2026, 10, 23);
-
-  it('arma "edad • castración" como el maquetado', () => {
+  it('arma "edad • castración" usando age_label del back', () => {
     expect(
-      formatPetSummaryLine(
-        { estimated_birth_date: "2024-05-10", is_neutered: true, sex: "male" },
-        today,
-      ),
+      formatPetSummaryLine({
+        age_label: "2 Años",
+        is_neutered: true,
+        sex: "male",
+      }),
     ).toBe("2 Años • Castrado");
     expect(
-      formatPetSummaryLine(
-        {
-          estimated_birth_date: "2026-03-10",
-          is_neutered: true,
-          sex: "female",
-        },
-        today,
-      ),
+      formatPetSummaryLine({
+        age_label: "8 Meses",
+        is_neutered: true,
+        sex: "female",
+      }),
     ).toBe("8 Meses • Castrada");
   });
 
-  it("si la fecha no es válida muestra solo la castración", () => {
+  it("si age_label está vacío muestra solo la castración", () => {
     expect(
-      formatPetSummaryLine(
-        { estimated_birth_date: "sin-fecha", is_neutered: false, sex: "male" },
-        today,
-      ),
+      formatPetSummaryLine({
+        age_label: "",
+        is_neutered: false,
+        sex: "male",
+      }),
     ).toBe("Sin castrar");
   });
 });
