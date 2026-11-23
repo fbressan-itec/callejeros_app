@@ -8,7 +8,7 @@ from django.core.management.base import CommandError
 from django.utils import timezone
 from PIL import Image
 
-from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.users.models import User
 
 
@@ -309,6 +309,14 @@ SEED_PETS = [
     },
 ]
 
+SEED_FAVORITES = [
+    ("miembro@callejeros.ar", "Loki"),
+    ("miembro@callejeros.ar", "Bora"),
+    ("miembro@callejeros.ar", "Pancho"),
+    ("refugio@callejeros.ar", "Luna"),
+    ("staff@callejeros.ar", "Rocco"),
+]
+
 
 def run() -> str:
     """Crea o actualiza las mascotas de prueba sin duplicarlas y devuelve un resumen."""
@@ -390,4 +398,26 @@ def run() -> str:
         else:
             updated_count += 1
 
-    return f"{created_count} mascotas creadas, {updated_count} actualizadas"
+    favorites_created = 0
+    favorites_updated = 0
+    pets_by_name = {
+        pet.name: pet for pet in Pet.objects.filter(name__in=[p["name"] for p in SEED_PETS])
+    }
+
+    for user_email, pet_name in SEED_FAVORITES:
+        user = User.objects.get(email=user_email)
+        pet = pets_by_name[pet_name]
+        _, fav_created = Favorite.objects.update_or_create(
+            user=user,
+            pet=pet,
+            defaults={"is_active": True},
+        )
+        if fav_created:
+            favorites_created += 1
+        else:
+            favorites_updated += 1
+
+    return (
+        f"{created_count} mascotas creadas, {updated_count} actualizadas; "
+        f"{favorites_created} favoritos creados, {favorites_updated} actualizados"
+    )
