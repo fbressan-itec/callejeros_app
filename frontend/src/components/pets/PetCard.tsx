@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { PetSociabilityTag } from "@/components/pets/PetSociabilityTag";
-import { formatPetAge } from "@/lib/pets/api";
 import { formatPetSummaryLine, getPetCoverPhotoUrl } from "@/lib/pets/format";
 import type { PetListItem, PetSex } from "@/lib/pets/types";
 
@@ -28,7 +27,7 @@ export function PetCard({
   isFavoriteBusy = false,
 }: PetCardProps) {
   const coverUrl = getPetCoverPhotoUrl(pet);
-  const ageText = formatPetAge(pet.estimated_birth_date);
+  const ageText = pet.age_label?.trim() ?? "";
   const imageAlt = ageText
     ? `Foto de ${pet.name}, ${ageText}`
     : `Foto de ${pet.name}`;
