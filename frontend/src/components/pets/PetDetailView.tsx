@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BackButton } from "@/components/layout/BackButton";
+import { PetActions } from "@/components/pets/PetActions";
+import { PetBadges } from "@/components/pets/PetBadges";
+import { PetInfoAccordions } from "@/components/pets/PetInfoAccordions";
 import { PetPhotoCarousel } from "@/components/pets/PetPhotoCarousel";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { ApiError } from "@/lib/api/client";
@@ -26,6 +29,7 @@ export interface PetDetailViewProps {
 
 export function PetDetailView({ rawId }: PetDetailViewProps) {
   const petId = parsePetId(rawId);
+  const descriptionDetailsRef = useRef<HTMLDetailsElement | null>(null);
 
   const [reloadCount, setReloadCount] = useState(0);
   const [fetched, setFetched] = useState<{
@@ -37,6 +41,15 @@ export function PetDetailView({ rawId }: PetDetailViewProps) {
 
   const handleRetry = useCallback(() => {
     setReloadCount((prev) => prev + 1);
+  }, []);
+
+  const handleSeeMore = useCallback(() => {
+    const details = descriptionDetailsRef.current;
+    if (!details) return;
+    details.open = true;
+    if (typeof details.scrollIntoView === "function") {
+      details.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, []);
 
   useEffect(() => {
@@ -162,11 +175,20 @@ export function PetDetailView({ rawId }: PetDetailViewProps) {
         ) : null}
 
         {state.status === "success" ? (
-          <PetPhotoCarousel
-            petName={state.pet.name}
-            description={state.pet.description}
-            photos={state.pet.photos}
-          />
+          <>
+            <PetPhotoCarousel
+              petName={state.pet.name}
+              description={state.pet.description}
+              photos={state.pet.photos}
+              onSeeMore={handleSeeMore}
+            />
+            <PetBadges petName={state.pet.name} badges={state.pet.badges} />
+            <PetInfoAccordions
+              pet={state.pet}
+              descriptionRef={descriptionDetailsRef}
+            />
+            <PetActions pet={state.pet} />
+          </>
         ) : null}
       </div>
     </main>

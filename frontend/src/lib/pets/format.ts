@@ -2,7 +2,7 @@
  * Textos cortos de una mascota para las tarjetas de listado (inicio y catálogo).
  * Reutilizables: el catálogo (FR-06, #24) usa las mismas funciones en su tarjeta.
  */
-import { formatPetAge, resolvePetImageUrl } from "@/lib/pets/api";
+import { resolvePetImageUrl } from "@/lib/pets/api";
 import type { PetListItem } from "@/lib/pets/types";
 
 export type PetSociabilityTone = "sociable" | "wild";
@@ -30,14 +30,13 @@ export function formatPetNeutered(
 }
 
 /**
- * Línea de resumen de la tarjeta: "2 Años • Castrado".
- * Si la fecha de nacimiento no es válida, muestra solo la castración.
+ * Línea de resumen de la tarjeta: "2 Años • Castrado" usando `age_label` calculado por el back.
+ * Si `age_label` llega vacío, muestra solo la castración.
  */
 export function formatPetSummaryLine(
-  pet: Pick<PetListItem, "estimated_birth_date" | "is_neutered" | "sex">,
-  referenceDate: Date = new Date(),
+  pet: Pick<PetListItem, "age_label" | "is_neutered" | "sex">,
 ): string {
-  const age = formatPetAge(pet.estimated_birth_date, referenceDate);
+  const age = pet.age_label.trim();
   const neutered = formatPetNeutered(pet);
   return age ? `${age} • ${neutered}` : neutered;
 }

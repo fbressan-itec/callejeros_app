@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  AuthContext,
+  type AuthContextValue,
+} from "@/components/auth/AuthProvider";
 import { PREVIOUS_PATH_STORAGE_KEY } from "@/components/layout/BackButton";
 import { PetDetailView } from "@/components/pets/PetDetailView";
 import { ERROR_MESSAGES } from "@/lib/api/errors";
@@ -23,6 +27,7 @@ const SAMPLE_PET: PetDetail = {
   sex: "male",
   estimated_birth_date: "2024-05-10",
   age_group: "adulto",
+  age_label: "2 Años",
   is_sociable: true,
   good_with_children: "yes",
   good_with_animals: "yes",
@@ -48,6 +53,12 @@ const SAMPLE_PET: PetDetail = {
   badges: [
     { key: "species", tone: "neutral", icon: "dog", text: "Perro" },
     { key: "sex", tone: "sky", icon: "male", text: "Macho" },
+    {
+      key: "age",
+      tone: "orange",
+      icon: "age_adulto",
+      text: "Adulto (de 1 a 7 años): 2 Años",
+    },
   ],
   photos: [
     {
@@ -195,5 +206,211 @@ describe("PetDetailView", () => {
         screen.getByRole("heading", { level: 1, name: "Loki" }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("muestra insignias, padrinos, desplegables cerrados y conecta Ver más con Descripción", async () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(90);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(40);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ...SAMPLE_PET, sponsors_count: 2 }),
+    );
+
+    render(<PetDetailView rawId="1" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Loki" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("Tocá una insignia para ver qué significa"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Loki tiene 2 padrinos que cubren su alimento y cuidados.",
+      ),
+    ).toBeInTheDocument();
+
+    const descriptionSummary = screen.getByText("Descripción");
+    const descriptionDetails = descriptionSummary.closest("details");
+    expect(descriptionDetails).not.toBeNull();
+    expect(descriptionDetails).not.toHaveAttribute("open");
+    expect(screen.getByText("2 Años · Adulto")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver más" }));
+    expect(descriptionDetails).toHaveAttribute("open");
+  });
+
+  it("abre AuthRequiredModal al tocar ¡Adoptame! sin sesión y comparte por WhatsApp si no hay navigator.share", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, SAMPLE_PET));
+
+    render(<PetDetailView rawId="1" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "¡Adoptame!" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "¡Adoptame!" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Iniciar Sesión" }),
+    ).toHaveAttribute("href", "/login?redirect=%2Fmascotas%2F1");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Seguir mirando mascotas" }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Compartir a Loki/i }));
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringContaining("https://wa.me/?text="),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
+  it("con sesión iniciada muestra el aviso temporal al tocar ¡Adoptame!", async () => {
+    const authValue: AuthContextValue = {
+      user: {
+        id: 1,
+        email: "miembro@callejeros.ar",
+        first_name: "Tomás",
+        last_name: "Gómez",
+        phone: "",
+        is_phone_verified: true,
+        photo: null,
+        role: { code: "member", name: "Miembro" },
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+      setSession: vi.fn(),
+    };
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, SAMPLE_PET));
+
+    render(
+      <AuthContext.Provider value={authValue}>
+        <PetDetailView rawId="1" />
+      </AuthContext.Provider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "¡Adoptame!" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "¡Adoptame!" }));
+    expect(
+      screen.getByText(
+        "El cuestionario de adopción para Loki se habilitará en la próxima entrega.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('muestra "¡Ya encontró hogar! 🧡" y oculta ¡Adoptame! cuando la mascota está adoptada', async () => {
+    const adoptedPet: PetDetail = {
+      ...SAMPLE_PET,
+      name: "Pancho",
+      status: "adopted",
+      badges: [
+        {
+          key: "adopted",
+          tone: "orange",
+          icon: "adopted",
+          text: "¡Ya encontró hogar! 🧡",
+        },
+        { key: "species", tone: "neutral", icon: "dog", text: "Perro" },
+      ],
+    };
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, adoptedPet));
+
+    render(<PetDetailView rawId="7" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Pancho" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("¡Ya encontró hogar! 🧡")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "¡Adoptame!" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "¡Ya encontró hogar! 🧡" }),
+    ).toBeInTheDocument();
+  });
+
+  it("no inventa datos de salud ni notas vacías y usa No castrada para hembras sin castrar", async () => {
+    const emptyHealthPet: PetDetail = {
+      ...SAMPLE_PET,
+      name: "Nala",
+      sex: "female",
+      age_group: "cachorro",
+      age_label: "6 Meses",
+      is_neutered: false,
+      special_care: "",
+      notes: "",
+      health: {
+        general_status: "",
+        vaccines: "",
+        deworming: "",
+        flea_tick_treatment: "",
+        other: "",
+      },
+      badges: [],
+    };
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, emptyHealthPet));
+
+    render(<PetDetailView rawId="8" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Nala" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("6 Meses · Cachorro")).toBeInTheDocument();
+    expect(screen.getByText("No castrada")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "Sin información cargada. Consultá con el rescatista.",
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByText("Sin complicaciones detectadas"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Sano y bajo control veterinario"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Estado clínico")).not.toBeInTheDocument();
+  });
+
+  it("omite las filas vacías de salud (como Otros vacío) sin rellenarlas", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, SAMPLE_PET));
+
+    render(<PetDetailView rawId="1" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Loki" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Estado clínico")).toBeInTheDocument();
+    expect(screen.getByText("Sano y vital")).toBeInTheDocument();
+    expect(screen.queryByText("Otros")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Sin complicaciones detectadas"),
+    ).not.toBeInTheDocument();
   });
 });

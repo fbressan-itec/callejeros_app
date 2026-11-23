@@ -13,6 +13,7 @@ from apps.pets.badges import (
     BadgeKey,
     BadgeTone,
     calculate_age_group,
+    format_pet_age,
     get_pet_badges,
     is_pet_urgent,
 )
@@ -130,6 +131,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
     published_by = PetPublisherSerializer(read_only=True)
     health = PetHealthSerializer(read_only=True)
     age_group = serializers.SerializerMethodField()
+    age_label = serializers.SerializerMethodField()
     is_urgent = serializers.SerializerMethodField()
     is_favorite = serializers.SerializerMethodField()
     badges = serializers.SerializerMethodField()
@@ -144,6 +146,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
             "sex",
             "estimated_birth_date",
             "age_group",
+            "age_label",
             "is_sociable",
             "good_with_children",
             "good_with_animals",
@@ -166,6 +169,10 @@ class PetPublicSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.ChoiceField(choices=[group.value for group in AgeGroup]))
     def get_age_group(self, obj: Pet) -> str:
         return calculate_age_group(obj.estimated_birth_date)
+
+    @extend_schema_field(serializers.CharField())
+    def get_age_label(self, obj: Pet) -> str:
+        return format_pet_age(obj.estimated_birth_date)
 
     @extend_schema_field(serializers.BooleanField())
     def get_is_urgent(self, obj: Pet) -> bool:
@@ -205,6 +212,7 @@ class PetManageSerializer(PetPublicSerializer):
             "sex",
             "estimated_birth_date",
             "age_group",
+            "age_label",
             "is_sociable",
             "good_with_children",
             "good_with_animals",
