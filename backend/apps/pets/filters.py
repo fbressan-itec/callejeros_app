@@ -105,17 +105,7 @@ class PetCatalogFilter(django_filters.FilterSet):
         name: str,
         value: bool,
     ) -> QuerySet[Pet]:
-        user = getattr(self.request, "user", None)
-        is_authenticated_active = bool(
-            user and getattr(user, "is_authenticated", False) and getattr(user, "is_active", False)
-        )
-        if value:
-            if not is_authenticated_active:
-                return queryset.none()
-            return queryset.filter(favorites__user=user, favorites__is_active=True)
-        if not is_authenticated_active:
-            return queryset
-        return queryset.exclude(favorites__user=user, favorites__is_active=True)
+        return queryset.filter(is_favorite=value)
 
     def filter_search(
         self,

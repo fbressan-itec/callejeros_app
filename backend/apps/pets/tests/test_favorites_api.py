@@ -225,6 +225,26 @@ def test_catalog_favorites_filter_and_is_favorite_field() -> None:
     assert anon_client.get(f"/api/pets/{dog_fav.id}/").json()["is_favorite"] is False
 
 
+def test_favorites_false_does_not_hide_pet_favorited_by_another_user() -> None:
+    user = UserFactory()
+    other_user = UserFactory()
+    loki = PetFactory(name="Loki", status=Pet.Status.PUBLISHED)
+
+    # `user` marcó y luego desmarcó a Loki (baja lógica), mientras `other_user` lo tiene activo
+    user_favorite = FavoriteFactory(user=user, pet=loki)
+    user_favorite.deactivate()
+    FavoriteFactory(user=other_user, pet=loki)
+
+    client = _auth_client(user)
+
+    non_favs = client.get("/api/pets/?favorites=false").json()
+    assert [item["id"] for item in non_favs["results"]] == [loki.id]
+    assert non_favs["results"][0]["is_favorite"] is False
+
+    only_favs = client.get("/api/pets/?favorites=true").json()
+    assert only_favs["results"] == []
+
+
 def test_favorites_endpoints_and_filter_appear_in_openapi_schema() -> None:
     client = APIClient()
     response = client.get("/api/schema/?format=json")

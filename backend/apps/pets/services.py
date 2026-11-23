@@ -15,7 +15,13 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from apps.core.review import ReviewWorkflow
 from apps.core.validators import validate_image_file
 from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
-from apps.pets.permissions import can_manage_pet, can_view_pet, is_staff_or_admin
+from apps.pets.permissions import (
+    PUBLIC_PET_STATUSES,
+    can_manage_pet,
+    can_view_pet,
+    is_authenticated_active_user,
+    is_staff_or_admin,
+)
 from apps.users.models import User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
 
@@ -72,19 +78,11 @@ HEALTH_FIELDS = (
 )
 
 TEXT_PET_FIELDS = frozenset({"name", "special_care", "description", "notes", "contact_phone"})
-PUBLIC_PET_STATUSES = (Pet.Status.PUBLISHED, Pet.Status.ADOPTED)
-
-
-def _is_authenticated_active_user(actor: Any) -> bool:
-    """Devuelve True si `actor` es un usuario autenticado y activo."""
-    return bool(
-        actor and getattr(actor, "is_authenticated", False) and getattr(actor, "is_active", False)
-    )
 
 
 def _annotate_is_favorite(queryset: QuerySet[Pet], actor: Any) -> QuerySet[Pet]:
     """Anota `is_favorite` sin consultas N+1 usando `Exists` cuando hay sesión activa."""
-    if _is_authenticated_active_user(actor):
+    if is_authenticated_active_user(actor):
         return queryset.annotate(
             is_favorite=Exists(Favorite.objects.active().filter(user=actor, pet_id=OuterRef("pk")))
         )
@@ -132,7 +130,7 @@ def get_visible_pet_or_404(*, pet_id: int, actor: Any) -> Pet:
 
 def get_favorite_pets_queryset(*, actor: User) -> QuerySet[Pet]:
     """Devuelve las mascotas activas y visibles marcadas como favoritas por `actor` (BK-05b)."""
-    if not _is_authenticated_active_user(actor):
+    if not is_authenticated_active_user(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
     return (
@@ -150,7 +148,7 @@ def get_favorite_pets_queryset(*, actor: User) -> QuerySet[Pet]:
 @transaction.atomic
 def add_favorite(*, pet_id: int, actor: User) -> tuple[Favorite, bool]:
     """Marca una mascota visible como favorita o reactiva el registro si tenía baja lógica."""
-    if not _is_authenticated_active_user(actor):
+    if not is_authenticated_active_user(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
     pet = get_object_or_404(
@@ -171,7 +169,7 @@ def add_favorite(*, pet_id: int, actor: User) -> tuple[Favorite, bool]:
 @transaction.atomic
 def remove_favorite(*, pet_id: int, actor: User) -> None:
     """Desmarca una mascota de favoritos aplicando baja lógica (idempotente)."""
-    if not _is_authenticated_active_user(actor):
+    if not is_authenticated_active_user(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
     favorite = Favorite.objects.active().filter(user=actor, pet_id=pet_id).first()
@@ -576,8 +574,7 @@ def get_review_queue_queryset(*, actor: User) -> QuerySet[Pet]:
     if not pet_review_workflow.can_review(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-    return (
-        _base_active_pets_queryset()
-        .filter(status=Pet.Status.IN_REVIEW)
-        .order_by("-is_urgent_requested", "created_at", "id")
+    queryset = _base_active_pets_queryset().filter(status=Pet.Status.IN_REVIEW)
+    return _annotate_is_favorite(queryset, actor).order_by(
+        "-is_urgent_requested", "created_at", "id"
     )

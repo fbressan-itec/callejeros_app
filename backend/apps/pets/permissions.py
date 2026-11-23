@@ -12,9 +12,16 @@ STAFF_OR_ADMIN_ROLES = frozenset({RoleCode.STAFF, RoleCode.ADMIN})
 PUBLIC_PET_STATUSES = frozenset({Pet.Status.PUBLISHED, Pet.Status.ADOPTED})
 
 
+def is_authenticated_active_user(user) -> bool:
+    """Devuelve True si el usuario está autenticado y activo."""
+    return bool(
+        user and getattr(user, "is_authenticated", False) and getattr(user, "is_active", False)
+    )
+
+
 def is_staff_or_admin(user) -> bool:
     """Devuelve True si el usuario está activo y tiene rol Staff o Admin."""
-    if not user or not user.is_authenticated or not getattr(user, "is_active", False):
+    if not is_authenticated_active_user(user):
         return False
     if getattr(user, "role_id", None) is None:
         return False
@@ -23,7 +30,7 @@ def is_staff_or_admin(user) -> bool:
 
 def can_manage_pet(user, pet: Pet) -> bool:
     """Devuelve True si el usuario es el autor de la mascota o tiene rol Staff/Admin."""
-    if not user or not user.is_authenticated or not getattr(user, "is_active", False):
+    if not is_authenticated_active_user(user):
         return False
     if pet.published_by_id == user.id:
         return True
@@ -45,8 +52,7 @@ class IsPetOwnerOrStaffOrAdmin(BasePermission):
     message = FORBIDDEN_ERROR_MESSAGE
 
     def has_permission(self, request: Request, view: APIView) -> bool:
-        user = request.user
-        return bool(user and user.is_authenticated and getattr(user, "is_active", False))
+        return is_authenticated_active_user(request.user)
 
     def has_object_permission(self, request: Request, view: APIView, obj: object) -> bool:
         if isinstance(obj, Pet):

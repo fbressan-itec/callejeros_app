@@ -240,11 +240,12 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Expuse los endpoints `GET /api/pets/favorites/`, `POST /api/pets/{id}/favorite/` y `DELETE /api/pets/{id}/favorite/` en `apps/pets/views.py` y `apps/pets/urls.py`, todos protegidos con `IsAuthenticated` y documentados con `@extend_schema` en Swagger (`spectacular --validate --fail-on-warn` sin warnings).
   - Escribí 10 tests en `apps/pets/tests/test_favorites_api.py` cubriendo permisos, idempotencia, baja lógica y reactivación, rechazo de mascotas no visibles, paginación, filtro `?favorites=true`, campo `is_favorite` y esquema OpenAPI.
   - Actualicé la tabla de endpoints `/api/pets/` en `README.md`.
+  - Apliqué los ajustes de la revisión del PR #120: simplifiqué `filter_favorites` en `apps/pets/filters.py` a `queryset.filter(is_favorite=value)` para evitar que `?favorites=false` oculte mascotas por favoritos activos de otros usuarios (sumando el test correspondiente), centralicé `is_authenticated_active_user` y reutilicé `PUBLIC_PET_STATUSES` desde `apps/pets/permissions.py`, anoté `is_favorite` en `get_review_queue_queryset` para evitar N+1 en la cola de Staff y agregué etiquetas e hito al PR #120.
 - **Decisiones tomadas:**
   - Usé `POST /api/pets/{id}/favorite/` (idempotente: `201` al crear, `200` al reactivar o si ya estaba activo) y `DELETE /api/pets/{id}/favorite/` (baja lógica idempotente, `204`) en lugar de un toggle único para mantener semántica REST predecible ante reintentos o doble clic.
   - Anoté `is_favorite` mediante `Exists(...)` en el queryset de lectura con fallback seguro en el serializer, garantizando cero consultas N+1 en el catálogo paginado y en la ficha.
 - **Problemas y cómo los resolví:**
   - Sin inconvenientes; los tests de favoritos, el esquema OpenAPI y `ruff` pasaron en verde.
-- **Pendiente:** abrir el PR hacia `develop` para que Franco lo revise y apruebe, cerrando así la épica #8 (`[BK-05] Favoritos`) y destrabando `FR-06` (#24 Catálogo).
-- **PR:** pendiente de apertura
+- **Pendiente:** que Franco apruebe y mergee los ajustes del PR #120 para cerrar la épica #8 (`[BK-05] Favoritos`) y destrabar `FR-06` (#24 Catálogo).
+- **PR:** #120
 - **IA usada:** Antigravity — para implementar servicios, filtro de catálogo, endpoints, Swagger, documentación en README y tests en `pytest`.

@@ -17,6 +17,7 @@ from apps.pets.badges import (
     is_pet_urgent,
 )
 from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto
+from apps.pets.permissions import is_authenticated_active_user
 from apps.pets.services import (
     CONTACT_PHONE_REQUIRED_ERROR,
     DESCRIPTION_REQUIRED_ERROR,
@@ -177,7 +178,7 @@ class PetPublicSerializer(serializers.ModelSerializer):
             return bool(annotated)
         request = self.context.get("request")
         user = getattr(request, "user", None)
-        if not user or not getattr(user, "is_authenticated", False) or not user.is_active:
+        if not is_authenticated_active_user(user):
             return False
         return Favorite.objects.active().filter(user=user, pet=obj).exists()
 
