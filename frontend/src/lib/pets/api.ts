@@ -1,6 +1,7 @@
 import { ApiError, api, getApiUrl } from "@/lib/api/client";
 import { getAuthHeaders, refreshAccessToken } from "@/lib/auth/session";
-import type { PetDetail } from "@/lib/pets/types";
+import type { PaginatedResponse } from "@/lib/api/pagination";
+import type { PetDetail, PetListItem } from "@/lib/pets/types";
 
 export interface FetchPetOptions {
   signal?: AbortSignal;
@@ -106,6 +107,34 @@ export function formatPetAge(
   if (months <= 0) return "Menos de 1 Mes";
   if (months === 1) return "1 Mes";
   return `${Math.min(months, 11)} Meses`;
+}
+
+/** Filtros del listado público `GET /api/pets/` (ver Swagger: `pets_list`). */
+export type PetListParams = Record<
+  string,
+  string | number | boolean | undefined
+>;
+
+/**
+ * Pide una página del listado público de mascotas (`GET /api/pets/`): solo publicadas,
+ * de la más nueva a la más vieja, de a 12, con `count` = total de resultados.
+ * Los parámetros vacíos (`undefined` o `""`) no se mandan.
+ * Lo usa el inicio (FR-05) y lo puede reusar el catálogo (FR-06) pasando sus filtros.
+ */
+export function fetchPets(
+  params: PetListParams = {},
+  options: FetchPetOptions = {},
+): Promise<PaginatedResponse<PetListItem>> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === "") continue;
+    query.set(key, String(value));
+  }
+  const search = query.toString();
+  return api.get<PaginatedResponse<PetListItem>>(
+    search ? `pets/?${search}` : "pets/",
+    { signal: options.signal },
+  );
 }
 
 /**

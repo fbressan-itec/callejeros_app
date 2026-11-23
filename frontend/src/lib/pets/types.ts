@@ -91,6 +91,8 @@ export interface PetDetail {
   good_with_animals: PetCompatibility;
   is_neutered: boolean;
   is_urgent: boolean;
+  /** `true` si la persona con sesión la marcó como favorita (siempre `false` sin sesión). */
+  is_favorite?: boolean;
   is_urgent_requested?: boolean;
   is_urgent_validated?: boolean;
   special_care: string;
@@ -107,6 +109,12 @@ export interface PetDetail {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Mascota tal como la devuelve el listado `GET /api/pets/` (mismo serializer que la ficha).
+ * La usan el inicio (FR-05) y el catálogo (FR-06).
+ */
+export type PetListItem = PetDetail;
 
 export const PET_AGE_GROUP_LABELS: Record<PetAgeGroup, string> = {
   cachorro: "Cachorro",
