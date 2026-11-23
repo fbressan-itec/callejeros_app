@@ -351,3 +351,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Leandro actualice develop para tener el test corregido.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para encontrar la causa del fallo en el CI, corregir el test y escribir esta entrada.
+
+## 2026-11-23 — Discussions: guías del equipo, idea del seed y anuncio de v0.1 (GE-01)
+
+- **Tarjeta:** #67 (GE-01, gestión y documentación del proyecto)
+- **Rama:** feature/ge01-67-discussions-readme
+- **Área:** docs
+- **Qué hice:**
+  - Empecé a usar Discussions del repo para lo que vale la pena dejar escrito: preguntas frecuentes, ideas y anuncios.
+  - Publiqué 4 guías en Q&A, con la respuesta marcada: [cómo empezar una tarjeta](https://github.com/fbressan-itec/callejeros_app/discussions/132) (tarjeta libre, asignarla, sub-tarjetas, rama y commits atómicos), [cómo levantar el proyecto](https://github.com/fbressan-itec/callejeros_app/discussions/133), [cómo se hacen los merge y cómo resolver conflictos](https://github.com/fbressan-itec/callejeros_app/discussions/134) y [qué tener en cuenta con la base de datos](https://github.com/fbressan-itec/callejeros_app/discussions/135).
+  - Abrí en Ideas la pregunta de si usar [fotos reales en el `seed` de mascotas](https://github.com/fbressan-itec/callejeros_app/discussions/136), para que opinen Ulises y Leandro.
+  - Publiqué en Announcements el [anuncio de la v0.1](https://github.com/fbressan-itec/callejeros_app/discussions/138) (release del 20/11, PR #97 a `main`).
+  - Enlacé las 4 guías en la sección "Flujo de trabajo" del README.
+- **Decisiones tomadas:**
+  - Discussions es para conversar y dejar respuestas a mano; las tareas siguen en Issues y la documentación del proyecto en el README y la Wiki.
+  - Cada guía es una discusión aparte en Q&A, para poder enlazarlas y buscarlas por separado. Están escritas en primera persona porque las publico yo.
+  - En la idea del `seed`, la opinión de Ulises y de Leandro pesa igual: los mencioné a los dos.
+- **Problemas y cómo los resolví:** ninguno.
+- **Pendiente:** leer las respuestas sobre las fotos del `seed` y, si se elige cambiarlas, armar la tarjeta.
+- **PR:** #137
+- **IA usada:** Claude Code — para redactar las guías y el anuncio a partir del README y las reglas del proyecto, publicarlos y actualizar el README.
