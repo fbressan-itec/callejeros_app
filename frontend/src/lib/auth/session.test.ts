@@ -13,6 +13,7 @@ import {
   loginWithCredentials,
   logoutSession,
   registerAccount,
+  requestWithAuth,
   saveAuthSession,
   splitFullName,
   toMenuUser,
@@ -145,6 +146,31 @@ describe("session y almacenamiento según Recordarme", () => {
 
     expect(user?.email).toBe("miembro@callejeros.ar");
     expect(getAccessToken()).toBe("nuevo-access-999");
+  });
+
+  it("requestWithAuth renueva el token ante 401 y permite fallback público cuando se habilita", async () => {
+    saveAuthSession(MOCK_AUTH_RESPONSE, true);
+
+    const { ApiError } = await import("@/lib/api/client");
+    const execute = vi
+      .fn<(headers: Record<string, string>) => Promise<string>>()
+      .mockRejectedValueOnce(new ApiError(401, "Token vencido"))
+      .mockResolvedValueOnce("ok-publico");
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(401, { detail: "Refresh vencido" }),
+    );
+
+    const result = await requestWithAuth(execute, {
+      allowPublicFallback: true,
+    });
+
+    expect(result).toBe("ok-publico");
+    expect(execute).toHaveBeenNthCalledWith(1, {
+      Authorization: "Bearer access-token-123",
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, {});
+    expect(loadAuthSession()).toBeNull();
   });
 
   it("logoutSession limpia el storage e invalida el refresh token en /api/auth/logout/", async () => {

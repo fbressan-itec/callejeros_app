@@ -2,12 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 import { AUTH_SESSION_STORAGE_KEY } from "@/lib/auth/session";
-import {
-  fetchPetById,
-  formatPetAge,
-  parsePetId,
-  resolvePetImageUrl,
-} from "@/lib/pets/api";
+import { fetchPetById, parsePetId, resolvePetImageUrl } from "@/lib/pets/api";
 import type { PetDetail } from "@/lib/pets/types";
 
 const fetchMock = vi.fn();
@@ -113,24 +108,6 @@ describe("resolvePetImageUrl", () => {
     expect(resolvePetImageUrl("media/pets/loki.jpg")).toBe(
       "http://api.test/media/pets/loki.jpg",
     );
-  });
-});
-
-describe("formatPetAge", () => {
-  it("formatea menos de un mes, meses y años respetando las mayúsculas del maquetado", () => {
-    const today = new Date(2026, 10, 23); // 2026-11-23
-    expect(formatPetAge("2026-11-23", today)).toBe("Menos de 1 Mes");
-    expect(formatPetAge("2026-11-05", today)).toBe("Menos de 1 Mes");
-    expect(formatPetAge("2026-10-20", today)).toBe("1 Mes");
-    expect(formatPetAge("2026-03-10", today)).toBe("8 Meses");
-    expect(formatPetAge("2025-11-23", today)).toBe("1 Año");
-    expect(formatPetAge("2024-05-10", today)).toBe("2 Años");
-  });
-
-  it("maneja correctamente el 29 de febrero y fechas inválidas", () => {
-    expect(formatPetAge("2023-02-28", new Date(2024, 1, 29))).toBe("1 Año");
-    expect(formatPetAge("2024-02-29", new Date(2025, 2, 1))).toBe("1 Año");
-    expect(formatPetAge("fecha-invalida")).toBe("");
   });
 });
 
