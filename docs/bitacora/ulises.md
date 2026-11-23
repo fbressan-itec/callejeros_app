@@ -249,3 +249,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco apruebe y mergee los ajustes del PR #120 para cerrar la épica #8 (`[BK-05] Favoritos`) y destrabar `FR-06` (#24 Catálogo).
 - **PR:** #120
 - **IA usada:** Antigravity — para implementar servicios, filtro de catálogo, endpoints, Swagger, documentación en README y tests en `pytest`.
+
+## 2026-11-23 — Página /adopciones, grilla de tarjetas, pestañas por especie y paginación (FR-06a)
+
+- **Tarjeta:** #129 (FR-06a, sub-tarjeta de #24 FR-06)
+- **Rama:** feature/fr06-129-catalogo-grilla-especies
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #24 (FR-06) en tres sub-tarjetas (#129 FR-06a, #130 FR-06b y #131 FR-06c) y las cargué en el tablero colgadas de #24.
+  - Extraje `getWithOptionalAuth<T>` en `frontend/src/lib/pets/api.ts` para que `fetchPets` (igual que `fetchPetById`) adjunte el token Bearer si hay sesión activa, renueve ante `401` y haga fallback anónimo, sumando los tests correspondientes en `api.test.ts`.
+  - Creé `PetCard` (`frontend/src/components/pets/PetCard.tsx`) reutilizando `PetSociabilityTag`, `formatPetSummaryLine`, `getPetCoverPhotoUrl` y `formatPetAge`, con insignias `🚨 Caso Urgente` y `¡Ya encontró hogar! 🧡`, botón de favorito 44×44px preparado para `FR-06c`, contraste WCAG AA (`bg-orange-700`/`hover:bg-orange-800`) y los 5 estados interactivos.
+  - Creé `AdoptionCatalog` (`frontend/src/components/pets/AdoptionCatalog.tsx`) y la ruta `/adopciones` (`frontend/src/app/adopciones/page.tsx`) con `BackButton`, pestañas rápidas (`Todos`, `🐶 Perros`, `🐱 Gatos`), botones `Filtros` y `+ Publicar`, grilla responsive de 1 a 4 columnas, paginación de a 12, `LoadingScreen`, estado de error con reintento y estado vacío.
+  - Escribí 8 tests en `PetCard.test.tsx` y `AdoptionCatalog.test.tsx` (110/110 tests en verde), validé `format`, `lint`, `typecheck` y `next build`, y comparé `/adopciones` contra `contexto-ia/maquetado/adopciones.html` en el navegador en 375px y escritorio, modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Enlacé foto, título y botón `"Adoptar"` con `<Link>` semánticos hacia `/mascotas/[id]` (en lugar de un `onClick` sobre `<article>`) para garantizar navegación accesible con teclado sin anidar controles interactivos.
+  - Usé `flex-wrap` en la barra de pestañas y botones para que en 375px las 3 pestañas entren en una línea y `Filtros` + `+` bajen limpios a una segunda fila sin recortar el botón `+` contra el borde derecho como sucedía en el maquetado.
+- **Problemas y cómo los resolví:**
+  - `tsc --noEmit` no encontraba `react-hook-form` ni `@hookform/resolvers/zod` porque `frontend/node_modules` no estaba sincronizado con los últimos merges de `develop`; lo resolví con `npm ci` sin modificar `package-lock.json`.
+  - En `AdoptionCatalog.test.tsx`, `BackButton` requería `usePathname` además de `useRouter`; lo agregué al mock de `next/navigation`.
+- **Pendiente:** que Franco revise y apruebe el PR de `FR-06a` para continuar con #130 (`FR-06b`: modal de filtros avanzados, buscador y filtro `Adoptados`).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para dividir la épica, actualizar `fetchPets`, implementar `PetCard`, `AdoptionCatalog`, `/adopciones`, los tests en Vitest y la comparación visual en el navegador.
