@@ -35,11 +35,11 @@
 }
 
 /* Oculta la barra de desplazamiento en carruseles con scroll-snap (igual a mascota.html). */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.no-scrollbar {
+@utility no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
