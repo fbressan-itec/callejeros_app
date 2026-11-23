@@ -11,6 +11,8 @@ export interface BackButtonProps {
   fallbackHref?: string;
   label?: string;
   ariaLabel?: string;
+  iconOnly?: boolean;
+  className?: string;
 }
 
 function isAuthPath(pathname: string): boolean {
@@ -41,6 +43,8 @@ export function BackButton({
   fallbackHref = "/",
   label = "Volver",
   ariaLabel = "Volver a la pantalla anterior",
+  iconOnly = false,
+  className,
 }: BackButtonProps) {
   const router = useRouter();
   const currentPathname = usePathname() || "/";
@@ -64,13 +68,17 @@ export function BackButton({
     }
   }
 
+  const baseClassName = iconOnly
+    ? "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition-all hover:bg-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+    : "inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-slate-700 transition-all hover:bg-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 dark:focus-visible:ring-offset-slate-800";
+
   return (
     <Link
       href={fallbackHref}
       data-back
       onClick={handleClick}
       aria-label={ariaLabel}
-      className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-slate-700 transition-all hover:bg-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 dark:focus-visible:ring-offset-slate-800"
+      className={className ? `${baseClassName} ${className}` : baseClassName}
     >
       <svg
         className="h-5 w-5"
@@ -86,7 +94,9 @@ export function BackButton({
           d="M15 19l-7-7 7-7"
         />
       </svg>
-      <span className="hidden text-sm font-semibold sm:inline">{label}</span>
+      {iconOnly ? null : (
+        <span className="hidden text-sm font-semibold sm:inline">{label}</span>
+      )}
     </Link>
   );
 }
