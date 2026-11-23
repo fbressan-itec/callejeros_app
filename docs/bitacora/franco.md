@@ -276,3 +276,21 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de la #105 y, al mergearlo, cerrar la épica BK-06 (#9).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para proponer las opciones de diseño, escribir el código y los tests, y redactar la documentación.
+
+## 2026-11-23 — Fotos de las mascotas visibles en desarrollo (BF-01)
+
+- **Tarjeta:** #77 (BF-01, bugfix y correcciones chicas)
+- **Rama:** bugfix/bf01-77-servir-media-en-desarrollo
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Revisé los PR #113 y #114 (BK-07b y su corrección), #117 y #120 (BK-05a y BK-05b) y #121 (FR-07a).
+  - Al revisar el #121 apareció que, levantando el proyecto, ninguna foto se veía: `/media/...` respondía 404 porque `config/urls.py` no tenía la ruta para servir las fotos subidas.
+  - Agregué esa ruta en `backend/config/urls.py`, activa solo con `DEBUG`, y dos tests: en desarrollo la foto responde 200 y, con `DEBUG` apagado, Django no la sirve.
+  - Probé con el back levantado: las fotos de Loki y las del catálogo responden 200 y se ven en el navegador.
+- **Decisiones tomadas:**
+  - Servir las fotos desde Django solo en desarrollo, como recomienda Django: en producción las tiene que servir el servidor web.
+  - Mantener las reglas de BK-07: se pueden aprobar varias solicitudes para la misma mascota (aprobar habilita a conocerla, no la entrega) y Staff puede aprobar su propia solicitud (queda registrado quién la aprobó).
+- **Problemas y cómo los resolví:** `config/urls.py` lee `DEBUG` una sola vez, al importarse; en los tests recargo el módulo después de cambiar `DEBUG`.
+- **Pendiente:** PR de este arreglo con `Refs #77`; aprobar el #120 cuando Ulises suba la corrección del filtro `?favorites=false`.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para revisar y probar los PR de Ulises y Leandro, y escribir el arreglo, sus tests y esta entrada.
