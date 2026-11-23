@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { BackButton } from "@/components/layout/BackButton";
@@ -152,41 +151,45 @@ export function AdoptionCatalog() {
               })}
             </div>
 
-            {/* Botón Filtros (se conecta al modal en FR-06b, #130) */}
-            <button
-              type="button"
-              id="btn-open-filters"
-              aria-label="Abrir filtros avanzados"
-              className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-all hover:bg-slate-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-750 dark:focus-visible:ring-offset-slate-900"
-            >
-              <svg
-                className="h-4 w-4 text-orange-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+            {/* Grupo Filtros + Publicar: en 375px bajan juntos a la segunda fila */}
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Botón Filtros (se conecta al modal en FR-06b, #130) */}
+              <button
+                type="button"
+                id="btn-open-filters"
+                aria-label="Abrir filtros avanzados"
+                className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-all hover:bg-slate-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-750 dark:focus-visible:ring-offset-slate-900"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                />
-              </svg>
-              <span>Filtros</span>
-            </button>
+                <svg
+                  className="h-4 w-4 text-orange-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                <span>Filtros</span>
+              </button>
 
-            {/* Botón Publicar Mascota (FR-08) */}
-            <Link
-              href="/adopciones/publicar"
-              aria-label="Publicar mascota para adopción"
-              className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
-            >
-              <span className="text-sm font-extrabold" aria-hidden="true">
-                +
-              </span>
-              <span className="hidden sm:inline">Publicar</span>
-            </Link>
+              {/* Botón Publicar Mascota (sin destino hasta FR-08, #26) */}
+              <button
+                type="button"
+                id="btn-open-publish-pet"
+                aria-label="Publicar mascota para adopción"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
+              >
+                <span className="text-sm font-extrabold" aria-hidden="true">
+                  +
+                </span>
+                <span className="hidden sm:inline">Publicar</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
