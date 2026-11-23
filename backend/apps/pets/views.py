@@ -16,6 +16,7 @@ from apps.pets.filters import PetCatalogFilter
 from apps.pets.models import Pet, PetPhoto
 from apps.pets.permissions import IsPetOwnerOrStaffOrAdmin, can_manage_pet
 from apps.pets.serializers import (
+    FavoriteStatusSerializer,
     PaginatedPetManageSerializer,
     PaginatedPetPublicSerializer,
     PetAdoptSerializer,
@@ -29,16 +30,19 @@ from apps.pets.serializers import (
     PetUrgencySerializer,
 )
 from apps.pets.services import (
+    add_favorite,
     add_pet_photo,
     adopt_pet,
     approve_pet,
     create_pet,
     deactivate_pet,
     get_catalog_pets_queryset,
+    get_favorite_pets_queryset,
     get_my_pets_queryset,
     get_review_queue_queryset,
     get_visible_pet_or_404,
     reject_pet,
+    remove_favorite,
     remove_pet_photo,
     set_pet_urgency,
     update_pet,
@@ -137,6 +141,14 @@ class PetListCreateView(APIView):
                 description="Con `true`, devuelve solo mascotas adoptadas en lugar de disponibles.",
             ),
             OpenApiParameter(
+                name="favorites",
+                type=OpenApiTypes.BOOL,
+                description=(
+                    "Con `true`, devuelve solo las mascotas marcadas como favoritas por el "
+                    "usuario autenticado (vacío para usuarios anónimos)."
+                ),
+            ),
+            OpenApiParameter(
                 name="search",
                 type=OpenApiTypes.STR,
                 description="Busca mascotas por nombre (insensible a mayúsculas).",
@@ -150,7 +162,8 @@ class PetListCreateView(APIView):
     def get(self, request: Request) -> Response:
         filterset = PetCatalogFilter(
             request.query_params,
-            queryset=get_catalog_pets_queryset(),
+            queryset=get_catalog_pets_queryset(actor=request.user),
+            request=request,
         )
         if not filterset.is_valid():
             raise ValidationError(filterset.errors)
@@ -630,3 +643,92 @@ class PetReviewQueueView(APIView):
         page = paginator.paginate_queryset(pets, request, view=self)
         serializer = PetManageSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
+
+
+class FavoritePetListView(APIView):
+    """GET /api/pets/favorites/ — Lista paginada de mascotas favoritas del usuario (BK-05b)."""
+
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        operation_id="pets_favorites_list",
+        tags=[PETS_TAG],
+        summary="Listar mis mascotas favoritas",
+        description=(
+            "Devuelve paginadas de a 12 (`count`, `next`, `previous`, `results`) las mascotas "
+            "activas y visibles (`published` o `adopted`) marcadas como favoritas por el usuario "
+            "autenticado, ordenadas desde la marcada más recientemente. "
+            "Permiso: usuario autenticado (`IsAuthenticated`)."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                description="Número de página (12 resultados por página).",
+            ),
+        ],
+        responses={
+            200: PaginatedPetPublicSerializer,
+            401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+            404: OpenApiResponse(description="Número de página inexistente."),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        pets = get_favorite_pets_queryset(actor=request.user)
+        paginator = StandardPageNumberPagination()
+        page = paginator.paginate_queryset(pets, request, view=self)
+        serializer = PetPublicSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class PetFavoriteView(APIView):
+    """POST/DELETE /api/pets/{id}/favorite/ — Marcar o desmarcar una mascota como favorita."""
+
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        operation_id="pets_favorite_add",
+        tags=[PETS_TAG],
+        summary="Marcar una mascota como favorita",
+        description=(
+            "Agrega una mascota activa y visible (`published` o `adopted`) a los favoritos del "
+            "usuario autenticado (o reactiva el registro si había sido desmarcada). "
+            "Es idempotente: devuelve `201` al crear el registro y `200` si ya existía. "
+            "Permiso: usuario autenticado (`IsAuthenticated`)."
+        ),
+        request=None,
+        responses={
+            200: FavoriteStatusSerializer,
+            201: FavoriteStatusSerializer,
+            401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+            404: OpenApiResponse(description="Mascota inexistente, inactiva o no visible."),
+        },
+    )
+    def post(self, request: Request, pet_id: int) -> Response:
+        favorite, created = add_favorite(pet_id=pet_id, actor=request.user)
+        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(
+            FavoriteStatusSerializer(
+                {"pet_id": favorite.pet_id, "is_favorite": favorite.is_active}
+            ).data,
+            status=response_status,
+        )
+
+    @extend_schema(
+        operation_id="pets_favorite_remove",
+        tags=[PETS_TAG],
+        summary="Quitar una mascota de favoritos",
+        description=(
+            "Desmarca una mascota de los favoritos del usuario autenticado aplicando baja lógica "
+            "(`is_active=False`). Es idempotente si ya estaba desmarcada. "
+            "Permiso: usuario autenticado (`IsAuthenticated`)."
+        ),
+        responses={
+            204: OpenApiResponse(description="Favorito desmarcado (baja lógica)."),
+            401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+            404: OpenApiResponse(description="Mascota inexistente o inactiva sin favorito activo."),
+        },
+    )
+    def delete(self, request: Request, pet_id: int) -> Response:
+        remove_favorite(pet_id=pet_id, actor=request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
