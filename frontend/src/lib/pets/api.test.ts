@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api/client";
 import { AUTH_SESSION_STORAGE_KEY } from "@/lib/auth/session";
 import {
   fetchPetById,
+  fetchPets,
   formatPetAge,
   parsePetId,
   resolvePetImageUrl,
@@ -248,5 +249,48 @@ describe("fetchPetById", () => {
       expect(error).toBeInstanceOf(ApiError);
       expect((error as ApiError).status).toBe(404);
     }
+  });
+});
+
+describe("fetchPets", () => {
+  it("pide GET /api/pets/ sin parámetros y devuelve la página", async () => {
+    const page = {
+      count: 1,
+      next: null,
+      previous: null,
+      results: [SAMPLE_PET],
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, page));
+
+    await expect(fetchPets()).resolves.toEqual(page);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.test/api/pets/",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("manda solo los filtros con valor", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { count: 0, next: null, previous: null, results: [] }),
+    );
+
+    await fetchPets({
+      species: "cat",
+      urgent: true,
+      page: 2,
+      search: "",
+      sex: undefined,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.test/api/pets/?species=cat&urgent=true&page=2",
+      expect.anything(),
+    );
+  });
+
+  it("lanza ApiError si la API falla", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, null));
+
+    await expect(fetchPets()).rejects.toBeInstanceOf(ApiError);
   });
 });
