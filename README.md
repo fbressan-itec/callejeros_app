@@ -652,3 +652,8 @@ Cada versión es un hito del tablero: al cerrarlo, `develop` pasa a `main` por P
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/) (`feat(auth): agrega endpoint de login`). Se revisan automáticamente en cada PR, igual que el nombre de la rama.
 - **Pull Requests:** todo entra a `develop` por PR, con revisión de código y *merge commit* (cada commit queda visible en el historial). `main` y `develop` están protegidas: no se puede subir directo.
 - **Bitácora:** cada integrante registra su avance en [`docs/bitacora/`](docs/bitacora/LEEME.md).
+- **Discussions:** [preguntas frecuentes, ideas y anuncios del equipo](https://github.com/fbressan-itec/callejeros_app/discussions). Las guías para trabajar en el proyecto:
+  - [¿Cómo empiezo a trabajar en una tarjeta?](https://github.com/fbressan-itec/callejeros_app/discussions/132)
+  - [¿Cómo levanto el proyecto en mi compu?](https://github.com/fbressan-itec/callejeros_app/discussions/133)
+  - [¿Cómo se hacen los merge y qué hago si mi PR tiene conflictos?](https://github.com/fbressan-itec/callejeros_app/discussions/134)
+  - [¿Qué tengo en cuenta si mi tarjeta toca la base de datos?](https://github.com/fbressan-itec/callejeros_app/discussions/135)
