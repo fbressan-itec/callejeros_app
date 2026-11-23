@@ -33,6 +33,7 @@ from apps.users.serializers import RoleSummarySerializer
 IS_SOCIABLE_REQUIRED_ERROR = "Indicá si la mascota es sociable."
 IS_NEUTERED_REQUIRED_ERROR = "Indicá si la mascota está castrada."
 PET_COMPATIBILITY_CHOICES = Pet.Compatibility.choices
+PET_STATUS_CHOICES = Pet.Status.choices
 
 
 class PetPublisherSerializer(serializers.ModelSerializer):

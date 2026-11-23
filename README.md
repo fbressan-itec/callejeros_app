@@ -196,6 +196,14 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 
 **Flujo de revisión reutilizable (BK-06):** aprobar y rechazar está escrito una sola vez en `backend/apps/core/review.py` (`ReviewWorkflow`): controla el rol de quien revisa, que la publicación esté activa y en `in_review`, el motivo (hasta 255 caracteres) y el registro en el historial, todo en una transacción. Cada app solo lo configura: las mascotas usan `PetReviewWorkflow` (historial en `PetStatusLog`; solo el Admin publica sin revisión) y los productos de la tienda (BK-12) van a usar `ProductReviewWorkflow` con `ProductStatusLog`.
 
+#### Endpoints de solicitudes de adopción (`/api/adoption-requests/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `POST /api/adoption-requests/` | Sesión activa (`IsAuthenticated`) | Envía el cuestionario de adopción de 3 bloques (datos personales con edad ≥ 18, hogar y entorno con `housing_type` en texto libre, y compromiso obligatorio) para una mascota activa y `published` que no haya publicado el mismo usuario. Guarda los datos declarados por el solicitante y nace en `pending`, impidiendo duplicar una solicitud `pending` para la misma mascota. |
+| `GET /api/adoption-requests/mine/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las solicitudes activas enviadas por el usuario autenticado, ordenadas de la más reciente a la más antigua (filtro opcional `?status=pending\|approved\|rejected`). |
+| `GET /api/adoption-requests/{id}/` | Solicitante, Staff o Admin (`404` para terceros) | Devuelve el detalle y la respuesta de la solicitud (responde `404` a terceros autenticados para no revelar su existencia). Cuando está `approved`, incluye `foster_contact` (nombre, rol y `contact_phone` de la publicación) y `meeting_point`, sin exponer nunca la dirección del hogar de tránsito. Cuando está `rejected`, incluye `rejection_reason` y oculta `foster_contact`. |
+
 #### Variables de entorno (`.env` / `.env.example`)
 
 | Variable | Ejemplo / por defecto | Para qué sirve |

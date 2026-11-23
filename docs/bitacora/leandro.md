@@ -108,3 +108,25 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** abrir el PR de #101 para revisión de Franco y cerrar la épica #7 (`[BK-04] Insignias calculadas`) una vez mergeado.
 - **PR:** pendiente de apertura
 - **IA usada:** Antigravity — para exponer `badges` en serializers y Swagger, escribir los tests de integración con `pytest` y actualizar `README.md`.
+
+## 2026-11-22 — Modelo de solicitudes de adopción, endpoints del solicitante, Swagger y datos semilla (BK-07a)
+
+- **Tarjeta:** #110 (BK-07a, sub-tarjeta de #10 BK-07)
+- **Rama:** feature/bk07-110-solicitudes-adopcion-solicitante
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Dividí la épica #10 (BK-07) en dos sub-tarjetas por funcionalidad (#110 BK-07a y #111 BK-07b), las colgué como sub-issues de #10 en GitHub, me asigné la épica y sus sub-tarjetas, y moví #10 y #110 a "En curso" en el tablero.
+  - Creé la app `backend/apps/adoptions/` con el modelo `AdoptionRequest(BaseModel)` fiel al diseño de DB-01 en `README.md` (`CheckConstraint` de `age >= 18` y `accepts_commitment = True`, `UniqueConstraint` condicional de una sola solicitud `pending` activa por solicitante y mascota, índice compuesto `(status, created_at)`), su migración `0001_initial.py` y su registro en Django Admin con `SoftDeleteAdminMixin` (campos de revisión en solo lectura).
+  - Implementé los permisos (`IsApplicantOrStaffOrAdmin`), los servicios de negocio (`create_adoption_request`, `get_my_adoption_requests_queryset`, `get_active_adoption_request_or_404`), los serializers y los endpoints `POST /api/adoption-requests/`, `GET /api/adoption-requests/mine/` y `GET /api/adoption-requests/{request_id}/` con documentación `@extend_schema` validada sin warnings (`spectacular --validate --fail-on-warn`).
+  - Agregué `backend/apps/adoptions/seed.py` idempotente con 3 solicitudes de ejemplo (una en cada estado: `pending`, `approved` con `meeting_point` y `rejected` con `rejection_reason`), autodescubierto por `python manage.py seed`.
+  - Escribí 45 tests nuevos con `pytest` en `apps/adoptions/tests/` (`test_models.py`, `test_admin.py`, `test_services.py`, `test_api.py` y `test_seed.py`) y documenté los endpoints en `README.md`.
+  - Apliqué los ajustes de la revisión del PR #112: bloqueé en `create_adoption_request` que alguien se postule a una mascota que publicó él mismo (devolviendo error en `pet`), e igualé `GET /api/adoption-requests/{request_id}/` al criterio de las fichas de mascotas devolviendo `404` cuando un tercero autenticado consulta una solicitud ajena (mediante `get_visible_adoption_request_or_404`), sumando los tests correspondientes (48 tests en `apps/adoptions/tests/`).
+- **Decisiones tomadas:**
+  - Creé la app separada `apps.adoptions` (registrada en `LOCAL_APPS` después de `apps.pets`) para mantener el dominio de solicitudes desacoplado de `apps.pets` y aprovechar el autodescubrimiento de `seed.py` en orden de dependencias.
+  - Expuse `foster_contact` (nombre, rol y `contact_phone` de la publicación) únicamente cuando `status == "approved"`, ocultándolo (`null`) en `pending` y `rejected` y garantizando que nunca se incluya la dirección del hogar de tránsito.
+  - Sumé `PetStatusEnum` y `AdoptionRequestStatusEnum` en `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]` para evitar colisiones de nombres de enum `status` en OpenAPI.
+- **Problemas y cómo los resolví:**
+  - Al validar OpenAPI con `manage.py spectacular --validate --fail-on-warn`, `drf-spectacular` detectó una colisión entre los enums `status` de `Pet` y `AdoptionRequest`; la resolví registrando ambos en `ENUM_NAME_OVERRIDES` de `settings.py` y el esquema quedó con 0 warnings.
+- **Pendiente:** que Franco revise los ajustes del PR #112 para continuar con #111 (BK-07b: cola de revisión de Staff, aprobar y rechazar solicitudes).
+- **PR:** #112
+- **IA usada:** Antigravity — para dividir la épica, crear la app `adoptions`, implementar el modelo `AdoptionRequest`, los servicios, serializers, endpoints, Swagger, `seed.py`, los tests con `pytest` y actualizar `README.md`.
