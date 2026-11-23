@@ -6,7 +6,7 @@ from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Max, Prefetch, QuerySet
+from django.db.models import Exists, Max, OuterRef, Prefetch, QuerySet, Value
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -14,7 +14,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.core.review import ReviewWorkflow
 from apps.core.validators import validate_image_file
-from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.pets.permissions import can_manage_pet, can_view_pet, is_staff_or_admin
 from apps.users.models import User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
@@ -72,6 +72,23 @@ HEALTH_FIELDS = (
 )
 
 TEXT_PET_FIELDS = frozenset({"name", "special_care", "description", "notes", "contact_phone"})
+PUBLIC_PET_STATUSES = (Pet.Status.PUBLISHED, Pet.Status.ADOPTED)
+
+
+def _is_authenticated_active_user(actor: Any) -> bool:
+    """Devuelve True si `actor` es un usuario autenticado y activo."""
+    return bool(
+        actor and getattr(actor, "is_authenticated", False) and getattr(actor, "is_active", False)
+    )
+
+
+def _annotate_is_favorite(queryset: QuerySet[Pet], actor: Any) -> QuerySet[Pet]:
+    """Anota `is_favorite` sin consultas N+1 usando `Exists` cuando hay sesión activa."""
+    if _is_authenticated_active_user(actor):
+        return queryset.annotate(
+            is_favorite=Exists(Favorite.objects.active().filter(user=actor, pet_id=OuterRef("pk")))
+        )
+    return queryset.annotate(is_favorite=Value(False))
 
 
 def _base_active_pets_queryset() -> QuerySet[Pet]:
@@ -88,13 +105,10 @@ def _base_active_pets_queryset() -> QuerySet[Pet]:
     )
 
 
-def get_catalog_pets_queryset() -> QuerySet[Pet]:
+def get_catalog_pets_queryset(*, actor: Any = None) -> QuerySet[Pet]:
     """Devuelve mascotas activas elegibles para catálogo público (`published` o `adopted`)."""
-    return (
-        _base_active_pets_queryset()
-        .filter(status__in=(Pet.Status.PUBLISHED, Pet.Status.ADOPTED))
-        .order_by("-created_at", "-id")
-    )
+    queryset = _base_active_pets_queryset().filter(status__in=PUBLIC_PET_STATUSES)
+    return _annotate_is_favorite(queryset, actor).order_by("-created_at", "-id")
 
 
 def get_my_pets_queryset(*, actor: User, status_filter: str | None = None) -> QuerySet[Pet]:
@@ -105,15 +119,67 @@ def get_my_pets_queryset(*, actor: User, status_filter: str | None = None) -> Qu
         if status_filter not in valid_statuses:
             raise ValidationError({"status": ["Estado de mascota inválido."]})
         queryset = queryset.filter(status=status_filter)
-    return queryset.order_by("-created_at", "-id")
+    return _annotate_is_favorite(queryset, actor).order_by("-created_at", "-id")
 
 
 def get_visible_pet_or_404(*, pet_id: int, actor: Any) -> Pet:
     """Obtiene una ficha si es pública (`published`/`adopted`) o visible para autor/Staff/Admin."""
-    pet = get_object_or_404(_base_active_pets_queryset(), pk=pet_id)
+    pet = get_object_or_404(_annotate_is_favorite(_base_active_pets_queryset(), actor), pk=pet_id)
     if not can_view_pet(actor, pet):
         raise Http404
     return pet
+
+
+def get_favorite_pets_queryset(*, actor: User) -> QuerySet[Pet]:
+    """Devuelve las mascotas activas y visibles marcadas como favoritas por `actor` (BK-05b)."""
+    if not _is_authenticated_active_user(actor):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+    return (
+        _base_active_pets_queryset()
+        .filter(
+            status__in=PUBLIC_PET_STATUSES,
+            favorites__user=actor,
+            favorites__is_active=True,
+        )
+        .annotate(is_favorite=Value(True))
+        .order_by("-favorites__updated_at", "-id")
+    )
+
+
+@transaction.atomic
+def add_favorite(*, pet_id: int, actor: User) -> tuple[Favorite, bool]:
+    """Marca una mascota visible como favorita o reactiva el registro si tenía baja lógica."""
+    if not _is_authenticated_active_user(actor):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+    pet = get_object_or_404(
+        Pet.objects.active().filter(status__in=PUBLIC_PET_STATUSES),
+        pk=pet_id,
+    )
+    favorite, created = Favorite.objects.get_or_create(
+        user=actor,
+        pet=pet,
+        defaults={"is_active": True},
+    )
+    if not created and not favorite.is_active:
+        favorite.is_active = True
+        favorite.save(update_fields=["is_active", "updated_at"])
+    return favorite, created
+
+
+@transaction.atomic
+def remove_favorite(*, pet_id: int, actor: User) -> None:
+    """Desmarca una mascota de favoritos aplicando baja lógica (idempotente)."""
+    if not _is_authenticated_active_user(actor):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+    favorite = Favorite.objects.active().filter(user=actor, pet_id=pet_id).first()
+    if favorite is not None:
+        favorite.deactivate()
+        return
+
+    get_object_or_404(Pet.objects.active(), pk=pet_id)
 
 
 def _ensure_can_manage_pet(pet: Pet, actor: User) -> None:
