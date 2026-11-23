@@ -8,6 +8,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory
 
 from apps.pets.admin import (
+    FavoriteAdmin,
     PetAdmin,
     PetHealthAdmin,
     PetPhotoAdmin,
@@ -15,8 +16,13 @@ from apps.pets.admin import (
     PetStatusLogAdmin,
     PetStatusLogInline,
 )
-from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
-from apps.pets.tests.factories import PetFactory, PetPhotoFactory, PetStatusLogFactory
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.pets.tests.factories import (
+    FavoriteFactory,
+    PetFactory,
+    PetPhotoFactory,
+    PetStatusLogFactory,
+)
 from apps.users.models import RoleCode
 from apps.users.tests.factories import UserFactory
 
@@ -108,3 +114,21 @@ def test_pet_status_log_admin_is_strictly_read_only() -> None:
     assert log_inline.has_add_permission(request, log.pet) is False
     assert log_inline.has_change_permission(request, log.pet) is False
     assert log_inline.has_delete_permission(request, log.pet) is False
+
+
+def test_favorite_admin_blocks_physical_delete_and_supports_soft_delete() -> None:
+    request = _build_admin_request()
+    favorite = FavoriteFactory()
+    favorite_admin = FavoriteAdmin(Favorite, AdminSite())
+
+    assert favorite_admin.has_delete_permission(request, favorite) is False
+    assert "delete_selected" not in favorite_admin.get_actions(request)
+
+    queryset = Favorite.objects.filter(pk=favorite.pk)
+    favorite_admin.deactivate_selected(request, queryset)
+    favorite.refresh_from_db()
+    assert favorite.is_active is False
+
+    favorite_admin.reactivate_selected(request, queryset)
+    favorite.refresh_from_db()
+    assert favorite.is_active is True

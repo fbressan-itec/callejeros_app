@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from PIL import Image
 
-from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.users.tests.factories import UserFactory
 
 
@@ -89,3 +89,13 @@ class PetStatusLogFactory(factory.django.DjangoModelFactory):
     new_status = Pet.Status.IN_REVIEW
     performed_by = factory.LazyAttribute(lambda obj: obj.pet.published_by)
     note = "Alta inicial."
+
+
+class FavoriteFactory(factory.django.DjangoModelFactory):
+    """Genera un favorito activo entre un usuario y una mascota."""
+
+    class Meta:
+        model = Favorite
+
+    user = factory.SubFactory(UserFactory)
+    pet = factory.SubFactory(PetFactory, status=Pet.Status.PUBLISHED)
