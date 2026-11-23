@@ -164,8 +164,9 @@ class AdoptionRequestDetailView(APIView):
 _ADOPTION_REVIEW_ERROR_RESPONSES = {
     400: OpenApiResponse(
         description=(
-            "La solicitud no está en estado `pending` o faltan/superan el límite los datos "
-            "de respuesta (`meeting_point` o `rejection_reason`)."
+            "La solicitud no está en estado `pending`, la mascota ya no está disponible "
+            "(al aprobar) o faltan/superan el límite los datos de respuesta (`meeting_point` "
+            "o `rejection_reason`)."
         ),
     ),
     401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
@@ -220,11 +221,12 @@ class AdoptionRequestApproveView(APIView):
         tags=[ADOPTIONS_TAG],
         summary="Aprobar una solicitud de adopción",
         description=(
-            "Cambia el estado de `pending` a `approved`, guarda el `meeting_point` (punto de "
-            "encuentro público obligatorio), `reviewed_by` y `reviewed_at`, y devuelve la "
-            "solicitud aprobada con `foster_contact` (nombre, rol y teléfono de contacto de "
-            "la publicación) y `meeting_point`, sin exponer nunca la dirección del hogar de "
-            "tránsito. Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+            "Cambia el estado de `pending` a `approved` siempre que la mascota siga activa y "
+            "`published`, guarda el `meeting_point` (punto de encuentro público obligatorio), "
+            "`reviewed_by` y `reviewed_at`, y devuelve la solicitud aprobada con "
+            "`foster_contact` (nombre, rol y teléfono de contacto de la publicación) y "
+            "`meeting_point`, sin exponer nunca la dirección del hogar de tránsito. "
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
         ),
         request=AdoptionRequestApproveSerializer,
         responses={200: AdoptionRequestSerializer, **_ADOPTION_REVIEW_ERROR_RESPONSES},
@@ -255,9 +257,11 @@ class AdoptionRequestRejectView(APIView):
         tags=[ADOPTIONS_TAG],
         summary="Desaprobar una solicitud de adopción",
         description=(
-            "Cambia el estado de `pending` a `rejected`, guarda el `rejection_reason` (motivo "
-            "obligatorio para el solicitante), `reviewed_by` y `reviewed_at`, y mantiene "
-            "`foster_contact` en `null`. Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+            "Cambia el estado de `pending` a `rejected` (permitido incluso si la mascota ya "
+            "fue adoptada o dada de baja, para no dejar solicitudes colgadas en la cola), "
+            "guarda el `rejection_reason` (motivo obligatorio para el solicitante), "
+            "`reviewed_by` y `reviewed_at`, y mantiene `foster_contact` en `null`. "
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
         ),
         request=AdoptionRequestRejectSerializer,
         responses={200: AdoptionRequestSerializer, **_ADOPTION_REVIEW_ERROR_RESPONSES},

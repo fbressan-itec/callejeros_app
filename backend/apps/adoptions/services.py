@@ -34,6 +34,7 @@ INVALID_STATUS_FILTER_ERROR = "Estado de solicitud inválido."
 
 ONLY_PENDING_REQUEST_ERROR = "Solo se puede revisar una solicitud que esté pendiente."
 INACTIVE_REQUEST_ERROR = "La solicitud de adopción no está activa."
+PET_UNAVAILABLE_ON_APPROVE_ERROR = "Esta mascota ya no está disponible para adopción."
 MEETING_POINT_REQUIRED_ERROR = "Indicá un punto de encuentro público para aprobar la solicitud."
 MEETING_POINT_TOO_LONG_ERROR = (
     f"El punto de encuentro no puede superar los {MAX_MEETING_POINT_LENGTH} caracteres."
@@ -235,6 +236,7 @@ class AdoptionRequestReviewWorkflow:
             new_status=AdoptionRequest.Status.APPROVED,
             meeting_point=cleaned_point,
             rejection_reason="",
+            require_available_pet=True,
         )
         self.on_approved(adoption_request=reviewed, actor=actor)
         return reviewed
@@ -259,6 +261,7 @@ class AdoptionRequestReviewWorkflow:
             new_status=AdoptionRequest.Status.REJECTED,
             meeting_point="",
             rejection_reason=cleaned_reason,
+            require_available_pet=False,
         )
         self.on_rejected(adoption_request=reviewed, actor=actor)
         return reviewed
@@ -278,15 +281,24 @@ class AdoptionRequestReviewWorkflow:
         new_status: str,
         meeting_point: str,
         rejection_reason: str,
+        require_available_pet: bool,
     ) -> AdoptionRequest:
         if not self.can_review(actor):
             raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-        locked = AdoptionRequest.objects.select_for_update().get(pk=adoption_request.pk)
+        locked = (
+            AdoptionRequest.objects.select_for_update()
+            .select_related("pet")
+            .get(pk=adoption_request.pk)
+        )
         if not locked.is_active:
             raise ValidationError({"detail": [INACTIVE_REQUEST_ERROR]})
         if locked.status != AdoptionRequest.Status.PENDING:
             raise ValidationError({"status": [ONLY_PENDING_REQUEST_ERROR]})
+        if require_available_pet and (
+            not locked.pet.is_active or locked.pet.status != Pet.Status.PUBLISHED
+        ):
+            raise ValidationError({"pet": [PET_UNAVAILABLE_ON_APPROVE_ERROR]})
 
         locked.status = new_status
         locked.meeting_point = meeting_point

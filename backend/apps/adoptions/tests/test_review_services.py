@@ -14,6 +14,7 @@ from apps.adoptions.services import (
     MEETING_POINT_REQUIRED_ERROR,
     MEETING_POINT_TOO_LONG_ERROR,
     ONLY_PENDING_REQUEST_ERROR,
+    PET_UNAVAILABLE_ON_APPROVE_ERROR,
     REJECTION_REASON_REQUIRED_ERROR,
     REJECTION_REASON_TOO_LONG_ERROR,
     AdoptionRequestReviewWorkflow,
@@ -22,6 +23,8 @@ from apps.adoptions.services import (
     reject_adoption_request,
 )
 from apps.adoptions.tests.factories import AdoptionRequestFactory
+from apps.pets.models import Pet
+from apps.pets.tests.factories import PetFactory
 from apps.users.models import RoleCode
 from apps.users.tests.factories import UserFactory
 
@@ -176,6 +179,53 @@ def test_cannot_review_inactive_request() -> None:
             meeting_point="Plaza Roca",
         )
     assert exc_info.value.detail["detail"] == [INACTIVE_REQUEST_ERROR]
+
+
+@pytest.mark.parametrize(
+    "pet_status",
+    [Pet.Status.ADOPTED, Pet.Status.IN_REVIEW, Pet.Status.REJECTED],
+)
+def test_cannot_approve_when_pet_is_no_longer_published_but_can_reject(pet_status: str) -> None:
+    staff = UserFactory(role__code=RoleCode.STAFF)
+    pet = PetFactory(status=pet_status)
+    adoption_request = AdoptionRequestFactory(pet=pet)
+
+    with pytest.raises(ValidationError) as exc_info:
+        approve_adoption_request(
+            adoption_request=adoption_request,
+            actor=staff,
+            meeting_point="Plaza Roca",
+        )
+    assert exc_info.value.detail["pet"] == [PET_UNAVAILABLE_ON_APPROVE_ERROR]
+
+    rejected = reject_adoption_request(
+        adoption_request=adoption_request,
+        actor=staff,
+        rejection_reason="La mascota ya no está disponible para adopción.",
+    )
+    assert rejected.status == AdoptionRequest.Status.REJECTED
+
+
+def test_cannot_approve_when_pet_is_inactive_but_can_reject() -> None:
+    staff = UserFactory(role__code=RoleCode.STAFF)
+    pet = PetFactory(status=Pet.Status.PUBLISHED)
+    adoption_request = AdoptionRequestFactory(pet=pet)
+    pet.deactivate()
+
+    with pytest.raises(ValidationError) as exc_info:
+        approve_adoption_request(
+            adoption_request=adoption_request,
+            actor=staff,
+            meeting_point="Plaza Roca",
+        )
+    assert exc_info.value.detail["pet"] == [PET_UNAVAILABLE_ON_APPROVE_ERROR]
+
+    rejected = reject_adoption_request(
+        adoption_request=adoption_request,
+        actor=staff,
+        rejection_reason="La publicación fue dada de baja.",
+    )
+    assert rejected.status == AdoptionRequest.Status.REJECTED
 
 
 def test_workflow_invokes_notification_hooks() -> None:
