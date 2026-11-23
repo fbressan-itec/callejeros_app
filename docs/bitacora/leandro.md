@@ -106,7 +106,7 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Problemas y cómo los resolví:**
   - En el test del esquema OpenAPI `drf-spectacular` nombra el esquema de `PATCH` como `PatchedPetUpdate` (por `partial=True`) en lugar de `PetUpdate`; ajusté el nombre en la aserción del test y quedó en verde.
 - **Pendiente:** abrir el PR de #101 para revisión de Franco y cerrar la épica #7 (`[BK-04] Insignias calculadas`) una vez mergeado.
-- **PR:** pendiente de apertura
+- **PR:** #109
 - **IA usada:** Antigravity — para exponer `badges` en serializers y Swagger, escribir los tests de integración con `pytest` y actualizar `README.md`.
 
 ## 2026-11-22 — Modelo de solicitudes de adopción, endpoints del solicitante, Swagger y datos semilla (BK-07a)
@@ -163,5 +163,28 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Problemas y cómo los resolví:**
   - Sin bloqueos; todas las validaciones (`ruff`, `spectacular --validate --fail-on-warn` y `pytest`) pasaron en verde.
 - **Pendiente:** abrir el PR hacia `develop` con `Closes #10` para revisión de Franco y cerrar la épica `[BK-07] Solicitudes de adopción`.
-- **PR:** pendiente de apertura
+- **PR:** #114
 - **IA usada:** Antigravity — para agregar la validación de disponibilidad de la mascota al aprobar, los tests con `pytest` y actualizar Swagger, `README.md` y la bitácora.
+
+## 2026-11-23 — Ruta /mascotas/[id], barra superior, carrusel de fotos y estados de carga/error (FR-07a)
+
+- **Tarjeta:** #118 (FR-07a, sub-tarjeta de #25 FR-07)
+- **Rama:** feature/fr07-118-ruta-carrusel-ficha
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #25 (FR-07) en dos sub-tarjetas funcionales (#118 FR-07a y #119 FR-07b), las colgué como sub-issues de #25 en GitHub, me asigné #25, #118 y #119 y moví #25 y #118 a "En curso" en el tablero.
+  - Creé los tipos (`src/lib/pets/types.ts`) y el cliente de lectura (`src/lib/pets/api.ts`) consumiendo `GET /api/pets/{id}/` a través de `src/lib/api/client.ts`, con validación de ID (`parsePetId`), normalización de URLs de fotos (`resolvePetImageUrl`), edad legible alineada a `backend/apps/pets/badges.py` (`formatPetAge`) y manejo de sesión Bearer con renovación/fallback público ante `401`.
+  - Implementé la ruta dinámica `/mascotas/[id]` (`src/app/mascotas/[id]/page.tsx`) y `PetDetailView` con barra superior fija (`BackButton` en modo `iconOnly` hacia `/adopciones` + nombre truncado), título dinámico del documento, `LoadingScreen` mientras espera, vista `"No encontramos esta mascota"` en `404`/ID inválido y aviso de error con reintento usando `ApiError`.
+  - Envolví `AppHeader` y `AlertFab` en `<Suspense>` dentro de `src/app/layout.tsx` para cumplir con `cacheComponents: true` de Next 16 al incorporar la primera ruta dinámica del proyecto.
+  - Implementé `PetPhotoCarousel` fiel a `contexto-ia/maquetado/mascota.html` adaptado a Tailwind 4 (`scroll-snap`, `@utility no-scrollbar`, contador `1 / N`, flechas desde `sm:`, puntitos táctiles de 44×44 px, degradado inferior fijo `bg-linear-to-t` con `line-clamp-2` y botón `"Ver más"` solo cuando el texto se corta).
+  - Escribí 18 tests nuevos con Vitest y Testing Library (`api.test.ts`, `PetPhotoCarousel.test.tsx` y `PetDetailView.test.tsx`, 73 tests en total pasando) y realicé la comparación visual en navegador contra `mascota.html` en 375 px y 1280 px, modo claro y oscuro.
+- **Decisiones tomadas:**
+  - En `PetDetailView` derivé el estado de carga a partir de una clave `petId:reloadCount` para evitar `setState` sincrónico dentro de `useEffect` (regla `react-hooks/set-state-in-effect` de React 19).
+  - Usé `next/image` con `fill` y `unoptimized` en el carrusel para cumplir `@next/next/no-img-element` sin bloquear imágenes servidas desde `localhost:8000` o almacenamiento externo.
+  - Dejé sin renderizar el botón de favorito (`♡`) hasta que se integre `BK-05 (#8)`, evitando heredar `LocalStorage` del maquetado.
+- **Problemas y cómo los resolví:**
+  - Al correr `npm run build`, Next 16 (`cacheComponents: true`) rechazó `usePathname()` fuera de `<Suspense>` en `AppHeader` y `AlertFab` al prerenderizar la primera ruta dinámica; lo resolví envolviendo ambos en `<Suspense>` en `layout.tsx` según `use-pathname.md`.
+  - En la comparación visual en navegador la scrollbar horizontal del carrusel seguía visible porque `.no-scrollbar` estaba fuera de `@utility` en Tailwind 4; la pasé a `@utility no-scrollbar` en `globals.css` y verifiqué en el navegador que desapareció por completo.
+- **Pendiente:** abrir el PR de #118 hacia `develop` para revisión de Franco y continuar con #119 (FR-07b: insignias calculadas, padrinos, desplegables, acciones y estado adoptada).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para dividir la épica, implementar el cliente de mascotas, la ruta `/mascotas/[id]`, el carrusel, los tests con Vitest y la comparación visual en navegador.
