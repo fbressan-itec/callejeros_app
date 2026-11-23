@@ -9,16 +9,23 @@ from rest_framework.views import APIView
 
 from apps.adoptions.models import AdoptionRequest
 from apps.adoptions.serializers import (
+    AdoptionRequestApproveSerializer,
     AdoptionRequestCreateSerializer,
+    AdoptionRequestRejectSerializer,
     AdoptionRequestSerializer,
     PaginatedAdoptionRequestSerializer,
 )
 from apps.adoptions.services import (
+    approve_adoption_request,
     create_adoption_request,
+    get_active_adoption_request_or_404,
+    get_adoption_review_queue_queryset,
     get_my_adoption_requests_queryset,
     get_visible_adoption_request_or_404,
+    reject_adoption_request,
 )
 from apps.core.pagination import StandardPageNumberPagination
+from apps.users.permissions import IsStaffOrAdmin
 
 ADOPTIONS_TAG = "Solicitudes de adopción"
 
@@ -150,5 +157,122 @@ class AdoptionRequestDetailView(APIView):
         )
         return Response(
             AdoptionRequestSerializer(adoption_request, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+_ADOPTION_REVIEW_ERROR_RESPONSES = {
+    400: OpenApiResponse(
+        description=(
+            "La solicitud no está en estado `pending` o faltan/superan el límite los datos "
+            "de respuesta (`meeting_point` o `rejection_reason`)."
+        ),
+    ),
+    401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+    403: OpenApiResponse(description="El usuario no tiene rol `staff` ni `admin`."),
+    404: OpenApiResponse(description="Solicitud inexistente o dada de baja."),
+}
+
+
+class AdoptionRequestReviewQueueView(APIView):
+    """GET /api/adoption-requests/review-queue/ — Cola de solicitudes del panel de Staff."""
+
+    permission_classes = (IsAuthenticated, IsStaffOrAdmin)
+
+    @extend_schema(
+        operation_id="adoption_requests_review_queue",
+        tags=[ADOPTIONS_TAG],
+        summary="Listar cola de revisión de solicitudes de adopción (panel de Staff)",
+        description=(
+            "Devuelve paginadas de a 12 (`count`, `next`, `previous`, `results`) las "
+            "solicitudes activas en estado `pending`, ordenadas de la más vieja a la más nueva "
+            "(`created_at` ascendente). "
+            "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                description="Número de página (12 resultados por página).",
+            ),
+        ],
+        responses={
+            200: PaginatedAdoptionRequestSerializer,
+            401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
+            403: OpenApiResponse(description="El usuario no tiene rol `staff` ni `admin`."),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        queryset = get_adoption_review_queue_queryset()
+        paginator = StandardPageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = AdoptionRequestSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AdoptionRequestApproveView(APIView):
+    """POST /api/adoption-requests/{request_id}/approve/ — Staff o Admin aprueba una solicitud."""
+
+    permission_classes = (IsAuthenticated, IsStaffOrAdmin)
+
+    @extend_schema(
+        operation_id="adoption_requests_approve",
+        tags=[ADOPTIONS_TAG],
+        summary="Aprobar una solicitud de adopción",
+        description=(
+            "Cambia el estado de `pending` a `approved`, guarda el `meeting_point` (punto de "
+            "encuentro público obligatorio), `reviewed_by` y `reviewed_at`, y devuelve la "
+            "solicitud aprobada con `foster_contact` (nombre, rol y teléfono de contacto de "
+            "la publicación) y `meeting_point`, sin exponer nunca la dirección del hogar de "
+            "tránsito. Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        request=AdoptionRequestApproveSerializer,
+        responses={200: AdoptionRequestSerializer, **_ADOPTION_REVIEW_ERROR_RESPONSES},
+    )
+    def post(self, request: Request, request_id: int) -> Response:
+        adoption_request = get_active_adoption_request_or_404(request_id)
+        serializer = AdoptionRequestApproveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reviewed = approve_adoption_request(
+            adoption_request=adoption_request,
+            actor=request.user,
+            meeting_point=serializer.validated_data["meeting_point"],
+        )
+        return Response(
+            AdoptionRequestSerializer(reviewed, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdoptionRequestRejectView(APIView):
+    """POST /api/adoption-requests/{request_id}/reject/ — Staff o Admin desaprueba una solicitud."""
+
+    permission_classes = (IsAuthenticated, IsStaffOrAdmin)
+
+    @extend_schema(
+        operation_id="adoption_requests_reject",
+        tags=[ADOPTIONS_TAG],
+        summary="Desaprobar una solicitud de adopción",
+        description=(
+            "Cambia el estado de `pending` a `rejected`, guarda el `rejection_reason` (motivo "
+            "obligatorio para el solicitante), `reviewed_by` y `reviewed_at`, y mantiene "
+            "`foster_contact` en `null`. Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
+        ),
+        request=AdoptionRequestRejectSerializer,
+        responses={200: AdoptionRequestSerializer, **_ADOPTION_REVIEW_ERROR_RESPONSES},
+    )
+    def post(self, request: Request, request_id: int) -> Response:
+        adoption_request = get_active_adoption_request_or_404(request_id)
+        serializer = AdoptionRequestRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reviewed = reject_adoption_request(
+            adoption_request=adoption_request,
+            actor=request.user,
+            rejection_reason=serializer.validated_data["rejection_reason"],
+        )
+        return Response(
+            AdoptionRequestSerializer(reviewed, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )

@@ -8,7 +8,13 @@ from apps.adoptions.services import (
     COMMITMENT_REQUIRED_ERROR,
     MAX_AGE_ERROR,
     MAX_APPLICANT_AGE,
+    MAX_MEETING_POINT_LENGTH,
+    MAX_REJECTION_REASON_LENGTH,
+    MEETING_POINT_REQUIRED_ERROR,
+    MEETING_POINT_TOO_LONG_ERROR,
     MIN_AGE_ERROR,
+    REJECTION_REASON_REQUIRED_ERROR,
+    REJECTION_REASON_TOO_LONG_ERROR,
 )
 from apps.pets.models import Pet
 from apps.users.models import User
@@ -191,3 +197,29 @@ class PaginatedAdoptionRequestSerializer(serializers.Serializer):
     next = serializers.URLField(allow_null=True, read_only=True)
     previous = serializers.URLField(allow_null=True, read_only=True)
     results = AdoptionRequestSerializer(many=True, read_only=True)
+
+
+class AdoptionRequestApproveSerializer(serializers.Serializer):
+    """Entrada para aprobar una solicitud pendiente indicando el punto de encuentro público."""
+
+    meeting_point = serializers.CharField(
+        max_length=MAX_MEETING_POINT_LENGTH,
+        error_messages={
+            "required": MEETING_POINT_REQUIRED_ERROR,
+            "blank": MEETING_POINT_REQUIRED_ERROR,
+            "max_length": MEETING_POINT_TOO_LONG_ERROR,
+        },
+    )
+
+
+class AdoptionRequestRejectSerializer(serializers.Serializer):
+    """Entrada para desaprobar una solicitud pendiente indicando el motivo."""
+
+    rejection_reason = serializers.CharField(
+        max_length=MAX_REJECTION_REASON_LENGTH,
+        error_messages={
+            "required": REJECTION_REASON_REQUIRED_ERROR,
+            "blank": REJECTION_REASON_REQUIRED_ERROR,
+            "max_length": REJECTION_REASON_TOO_LONG_ERROR,
+        },
+    )

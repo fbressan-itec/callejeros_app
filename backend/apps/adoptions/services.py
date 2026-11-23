@@ -9,15 +9,18 @@ from django.db import IntegrityError, transaction
 from django.db.models import Prefetch, QuerySet
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.adoptions.models import MIN_APPLICANT_AGE, AdoptionRequest
-from apps.adoptions.permissions import can_view_adoption_request
+from apps.adoptions.permissions import STAFF_OR_ADMIN_ROLES, can_view_adoption_request
 from apps.pets.models import Pet, PetPhoto
 from apps.users.models import User
-from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE
+from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE, user_has_role
 
 MAX_APPLICANT_AGE = 120
+MAX_MEETING_POINT_LENGTH = 255
+MAX_REJECTION_REASON_LENGTH = 400
 
 MIN_AGE_ERROR = f"Para adoptar tenés que ser mayor de {MIN_APPLICANT_AGE} años."
 MAX_AGE_ERROR = f"La edad no puede superar los {MAX_APPLICANT_AGE} años."
@@ -28,6 +31,17 @@ PET_NOT_AVAILABLE_ERROR = "Solo podés postularte para mascotas publicadas y dis
 OWN_PET_ADOPTION_ERROR = "No podés postularte para adoptar una mascota que publicaste vos mismo."
 DUPLICATE_PENDING_REQUEST_ERROR = "Ya tenés una solicitud pendiente para esta mascota."
 INVALID_STATUS_FILTER_ERROR = "Estado de solicitud inválido."
+
+ONLY_PENDING_REQUEST_ERROR = "Solo se puede revisar una solicitud que esté pendiente."
+INACTIVE_REQUEST_ERROR = "La solicitud de adopción no está activa."
+MEETING_POINT_REQUIRED_ERROR = "Indicá un punto de encuentro público para aprobar la solicitud."
+MEETING_POINT_TOO_LONG_ERROR = (
+    f"El punto de encuentro no puede superar los {MAX_MEETING_POINT_LENGTH} caracteres."
+)
+REJECTION_REASON_REQUIRED_ERROR = "Indicá el motivo de desaprobación para responder al solicitante."
+REJECTION_REASON_TOO_LONG_ERROR = (
+    f"El motivo de desaprobación no puede superar los {MAX_REJECTION_REASON_LENGTH} caracteres."
+)
 
 REQUIRED_TEXT_FIELDS: tuple[tuple[str, str, int], ...] = (
     ("full_name", "El nombre completo es obligatorio.", 200),
@@ -177,3 +191,147 @@ def create_adoption_request(
         raise ValidationError({"pet": [DUPLICATE_PENDING_REQUEST_ERROR]}) from exc
 
     return get_active_adoption_request_or_404(adoption_request.pk)
+
+
+def get_adoption_review_queue_queryset() -> QuerySet[AdoptionRequest]:
+    """Cola de revisión de Staff: solicitudes `pending` activas, de más vieja a más nueva."""
+    return (
+        _base_active_adoption_requests_queryset()
+        .filter(status=AdoptionRequest.Status.PENDING)
+        .order_by("created_at", "id")
+    )
+
+
+class AdoptionRequestReviewWorkflow:
+    """Flujo de revisión de solicitudes de adopción por Staff/Admin (BK-07b).
+
+    Sigue las convenciones de `apps.core.review.ReviewWorkflow`: controla rol también en el
+    servicio, bloquea la fila con `select_for_update()` dentro de una transacción atómica,
+    valida estado `pending` y vigencia, y deja ganchos `on_approved` / `on_rejected` para
+    notificaciones en BK-08 (#11).
+    """
+
+    def can_review(self, actor: Any) -> bool:
+        """Solo Staff y Admin pueden revisar solicitudes de adopción."""
+        return user_has_role(actor, STAFF_OR_ADMIN_ROLES)
+
+    def approve(
+        self,
+        *,
+        adoption_request: AdoptionRequest,
+        actor: Any,
+        meeting_point: str,
+    ) -> AdoptionRequest:
+        """Aprueba una solicitud pendiente registrando punto de encuentro, revisor y fecha."""
+        cleaned_point = meeting_point.strip() if isinstance(meeting_point, str) else ""
+        if not cleaned_point:
+            raise ValidationError({"meeting_point": [MEETING_POINT_REQUIRED_ERROR]})
+        if len(cleaned_point) > MAX_MEETING_POINT_LENGTH:
+            raise ValidationError({"meeting_point": [MEETING_POINT_TOO_LONG_ERROR]})
+
+        reviewed = self._apply_review(
+            adoption_request=adoption_request,
+            actor=actor,
+            new_status=AdoptionRequest.Status.APPROVED,
+            meeting_point=cleaned_point,
+            rejection_reason="",
+        )
+        self.on_approved(adoption_request=reviewed, actor=actor)
+        return reviewed
+
+    def reject(
+        self,
+        *,
+        adoption_request: AdoptionRequest,
+        actor: Any,
+        rejection_reason: str,
+    ) -> AdoptionRequest:
+        """Desaprueba una solicitud pendiente registrando motivo, revisor y fecha."""
+        cleaned_reason = rejection_reason.strip() if isinstance(rejection_reason, str) else ""
+        if not cleaned_reason:
+            raise ValidationError({"rejection_reason": [REJECTION_REASON_REQUIRED_ERROR]})
+        if len(cleaned_reason) > MAX_REJECTION_REASON_LENGTH:
+            raise ValidationError({"rejection_reason": [REJECTION_REASON_TOO_LONG_ERROR]})
+
+        reviewed = self._apply_review(
+            adoption_request=adoption_request,
+            actor=actor,
+            new_status=AdoptionRequest.Status.REJECTED,
+            meeting_point="",
+            rejection_reason=cleaned_reason,
+        )
+        self.on_rejected(adoption_request=reviewed, actor=actor)
+        return reviewed
+
+    def on_approved(self, *, adoption_request: AdoptionRequest, actor: Any) -> None:
+        """Gancho post-aprobación. BK-08 (#11) lo usa para notificar al solicitante."""
+
+    def on_rejected(self, *, adoption_request: AdoptionRequest, actor: Any) -> None:
+        """Gancho post-rechazo. BK-08 (#11) lo usa para notificar al solicitante el motivo."""
+
+    @transaction.atomic
+    def _apply_review(
+        self,
+        *,
+        adoption_request: AdoptionRequest,
+        actor: Any,
+        new_status: str,
+        meeting_point: str,
+        rejection_reason: str,
+    ) -> AdoptionRequest:
+        if not self.can_review(actor):
+            raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+        locked = AdoptionRequest.objects.select_for_update().get(pk=adoption_request.pk)
+        if not locked.is_active:
+            raise ValidationError({"detail": [INACTIVE_REQUEST_ERROR]})
+        if locked.status != AdoptionRequest.Status.PENDING:
+            raise ValidationError({"status": [ONLY_PENDING_REQUEST_ERROR]})
+
+        locked.status = new_status
+        locked.meeting_point = meeting_point
+        locked.rejection_reason = rejection_reason
+        locked.reviewed_by = actor
+        locked.reviewed_at = timezone.now()
+        locked.save(
+            update_fields=[
+                "status",
+                "meeting_point",
+                "rejection_reason",
+                "reviewed_by",
+                "reviewed_at",
+                "updated_at",
+            ]
+        )
+        return get_active_adoption_request_or_404(locked.pk)
+
+
+adoption_request_review_workflow = AdoptionRequestReviewWorkflow()
+
+
+def approve_adoption_request(
+    *,
+    adoption_request: AdoptionRequest,
+    actor: User,
+    meeting_point: str,
+) -> AdoptionRequest:
+    """Aprueba una solicitud pendiente con el punto de encuentro público indicado por Staff."""
+    return adoption_request_review_workflow.approve(
+        adoption_request=adoption_request,
+        actor=actor,
+        meeting_point=meeting_point,
+    )
+
+
+def reject_adoption_request(
+    *,
+    adoption_request: AdoptionRequest,
+    actor: User,
+    rejection_reason: str,
+) -> AdoptionRequest:
+    """Desaprueba una solicitud pendiente indicando el motivo para el solicitante."""
+    return adoption_request_review_workflow.reject(
+        adoption_request=adoption_request,
+        actor=actor,
+        rejection_reason=rejection_reason,
+    )
