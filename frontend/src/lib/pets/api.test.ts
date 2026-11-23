@@ -19,6 +19,7 @@ const SAMPLE_PET: PetDetail = {
   sex: "male",
   estimated_birth_date: "2024-05-10",
   age_group: "adulto",
+  age_label: "2 Años",
   is_sociable: true,
   good_with_children: "yes",
   good_with_animals: "yes",

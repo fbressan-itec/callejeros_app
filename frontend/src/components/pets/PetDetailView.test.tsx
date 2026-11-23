@@ -27,6 +27,7 @@ const SAMPLE_PET: PetDetail = {
   sex: "male",
   estimated_birth_date: "2024-05-10",
   age_group: "adulto",
+  age_label: "2 Años",
   is_sociable: true,
   good_with_children: "yes",
   good_with_animals: "yes",
@@ -346,5 +347,70 @@ describe("PetDetailView", () => {
     expect(
       screen.getByRole("button", { name: "¡Ya encontró hogar! 🧡" }),
     ).toBeInTheDocument();
+  });
+
+  it("no inventa datos de salud ni notas vacías y usa No castrada para hembras sin castrar", async () => {
+    const emptyHealthPet: PetDetail = {
+      ...SAMPLE_PET,
+      name: "Nala",
+      sex: "female",
+      age_group: "cachorro",
+      age_label: "6 Meses",
+      is_neutered: false,
+      special_care: "",
+      notes: "",
+      health: {
+        general_status: "",
+        vaccines: "",
+        deworming: "",
+        flea_tick_treatment: "",
+        other: "",
+      },
+      badges: [],
+    };
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, emptyHealthPet));
+
+    render(<PetDetailView rawId="8" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Nala" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("6 Meses · Cachorro")).toBeInTheDocument();
+    expect(screen.getByText("No castrada")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "Sin información cargada. Consultá con el rescatista.",
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByText("Sin complicaciones detectadas"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Sano y bajo control veterinario"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Estado clínico")).not.toBeInTheDocument();
+  });
+
+  it("omite las filas vacías de salud (como Otros vacío) sin rellenarlas", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, SAMPLE_PET));
+
+    render(<PetDetailView rawId="1" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Loki" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Estado clínico")).toBeInTheDocument();
+    expect(screen.getByText("Sano y vital")).toBeInTheDocument();
+    expect(screen.queryByText("Otros")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Sin complicaciones detectadas"),
+    ).not.toBeInTheDocument();
   });
 });
