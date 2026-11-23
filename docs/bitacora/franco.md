@@ -294,3 +294,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de este arreglo con `Refs #77`; aprobar el #120 cuando Ulises suba la corrección del filtro `?favorites=false`.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para revisar y probar los PR de Ulises y Leandro, y escribir el arreglo, sus tests y esta entrada.
+
+## 2026-11-23 — Inicio: portada con carrusel institucional y secciones fijas (FR-05a)
+
+- **Tarjeta:** #123 (FR-05a, sub-tarjeta de la épica #23, FR-05)
+- **Rama:** feature/fr05-123-portada-inicio
+- **Área:** front, test
+- **Qué hice:**
+  - Tomé la épica FR-05 (Inicio), revisé el maquetado, lo que ya había en develop y el endpoint `GET /api/pets/`, y la dividí en dos sub-tarjetas: FR-05a (#123, portada fija) y FR-05b (#124, mascotas y contador desde la API).
+  - Reemplacé el inicio provisorio por la portada de `index.html`: carrusel institucional de 3 slides (se desliza con el dedo, puntitos de 44px, flechas desde tablet, autoavance cada 6 s que se pausa con el mouse o el foco y no corre con movimiento reducido), "Sobre Nosotros" y "¿Cómo podés colaborar hoy?".
+  - Bajé las 4 fotos de Unsplash del maquetado a `frontend/public/images/inicio/`, con un comentario en el código que dice que son de prueba y qué muestra cada una.
+  - Tests con Vitest del carrusel (flechas, puntitos, deslizar, autoavance, pausa y movimiento reducido) y de la portada (textos y enlaces).
+  - Comparé con el maquetado en 375px y escritorio, claro y oscuro, midiendo altos y colores en las dos páginas.
+- **Decisiones tomadas:**
+  - El "carrusel de mascotas" de la tarjeta era un error: el carrusel del inicio es el institucional del maquetado, y las mascotas van en "Adoptá un Callejero" (FR-05b). Se corrige en #23 y en `contexto-ia/` en FR-05b.
+  - "+150 Mascotas adoptadas" queda como dato institucional fijo, a modo de publicidad; en FR-05b se suma un recuadro "Mascotas en adopción" con el número real.
+  - En escritorio, FR-05b va a mostrar 3 mascotas más la tarjeta "Explorar Catálogo" (4 columnas); en el celular y en tablet, 2.
+  - Botones naranjas y verdes un tono más oscuros que el maquetado (`orange-700`, `emerald-700`) por contraste, como pide `02-diseno.md`.
+- **Problemas y cómo los resolví:** Tailwind 4 aplica `leading-relaxed` / `leading-tight` aunque haya `sm:text-*` después (en Tailwind 3 ganaba el tamaño del breakpoint): el título del carrusel quedaba 24px más alto en escritorio. Lo igualé con clases de alto de línea explícitas por breakpoint.
+- **Pendiente:** FR-05b (#124): mascotas desde la API, contador, estados de carga, error y vacío, funciones reutilizables y corrección del criterio en #23 y `contexto-ia/`.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para revisar el maquetado y el back, proponer la división, escribir el código y los tests, y comparar con el maquetado en el navegador.
