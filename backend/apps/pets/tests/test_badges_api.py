@@ -8,7 +8,14 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.pets.badges import BadgeIcon, BadgeKey, BadgeTone, get_pet_badges, subtract_years
+from apps.pets.badges import (
+    BadgeIcon,
+    BadgeKey,
+    BadgeTone,
+    format_pet_age,
+    get_pet_badges,
+    subtract_years,
+)
 from apps.pets.models import Pet
 from apps.pets.tests.factories import PetFactory, make_test_image_file
 from apps.users.models import RoleCode
@@ -67,6 +74,8 @@ def test_catalog_exposes_calculated_badges_for_published_and_adopted_pets() -> N
     assert res_published.status_code == status.HTTP_200_OK
     by_id = {item["id"]: item for item in res_published.json()["results"]}
 
+    assert by_id[urgent_pet.id]["age_label"] == format_pet_age(urgent_pet.estimated_birth_date)
+    assert by_id[urgent_pet.id]["age_label"] == "2 Años"
     assert by_id[urgent_pet.id]["badges"] == get_pet_badges(urgent_pet)
     assert [badge["key"] for badge in by_id[urgent_pet.id]["badges"]] == [
         BadgeKey.URGENT.value,
@@ -115,6 +124,7 @@ def test_pet_detail_and_mine_expose_calculated_badges() -> None:
 
     anon_response = APIClient().get(_pet_detail_url(published_pet.id))
     assert anon_response.status_code == status.HTTP_200_OK
+    assert anon_response.json()["age_label"] == format_pet_age(published_pet.estimated_birth_date)
     assert anon_response.json()["badges"] == get_pet_badges(published_pet)
 
     auth_client = APIClient()
@@ -261,10 +271,15 @@ def test_openapi_schema_documents_read_only_pet_badges() -> None:
     assert all(prop.get("readOnly") is True for prop in pet_badge_schema["properties"].values())
 
     for schema_name in ("PetPublic", "PetManage"):
+        age_label_prop = schemas[schema_name]["properties"]["age_label"]
+        assert age_label_prop["type"] == "string"
+        assert age_label_prop["readOnly"] is True
+
         badges_prop = schemas[schema_name]["properties"]["badges"]
         assert badges_prop["type"] == "array"
         assert badges_prop["readOnly"] is True
         assert badges_prop["items"]["$ref"] == "#/components/schemas/PetBadge"
 
     for input_schema_name in ("PetCreate", "PatchedPetUpdate"):
+        assert "age_label" not in schemas[input_schema_name]["properties"]
         assert "badges" not in schemas[input_schema_name]["properties"]
