@@ -5,13 +5,39 @@ import Link from "next/link";
  * Sección "Sobre Nosotros" del inicio (textos iguales a contexto-ia/maquetado/index.html).
  *
  * "+150 Mascotas adoptadas" es un dato institucional fijo, a modo de publicidad:
- * no sale de la base (decisión de Franco en FR-05, #23).
+ * no sale de la base (decisión de Franco en FR-05, #23). "Mascotas en adopción", en
+ * cambio, es el total real de publicadas que devuelve `GET /api/pets/` (`count`).
  *
  * FOTO DE PRUEBA: /public/images/inicio/sobre-nosotros-perros-corriendo.jpg
  * (dos perros corriendo por un camino de tierra) se bajó de Unsplash solo para
  * desarrollo. Reemplazarla por una foto propia de Callejeros con el mismo nombre.
  */
-export function AboutSection() {
+export interface AboutSectionProps {
+  /** Total de mascotas publicadas; `null` mientras carga o si falló el pedido. */
+  publishedPetsCount: number | null;
+}
+
+export function AboutSection({ publishedPetsCount }: AboutSectionProps) {
+  const stats = [
+    {
+      value: "+150",
+      label: "Mascotas adoptadas",
+      valueClass: "text-orange-600 dark:text-orange-500",
+    },
+    {
+      // Mientras carga o si falla, se muestra una raya en lugar del número.
+      value: publishedPetsCount === null ? "—" : String(publishedPetsCount),
+      valueLabel: publishedPetsCount === null ? "Sin datos" : undefined,
+      label: "Mascotas en adopción",
+      valueClass: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      value: "100%",
+      label: "Voluntariado local",
+      valueClass: "text-emerald-600 dark:text-emerald-500",
+    },
+  ];
+
   return (
     <section className="mx-auto max-w-7xl border-b border-slate-200/80 px-4 py-12 sm:px-8 sm:py-16 lg:px-12 xl:px-16 2xl:max-w-(--breakpoint-2xl) 2xl:px-20 dark:border-slate-800">
       <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
@@ -28,23 +54,29 @@ export function AboutSection() {
             solidarias y vecinos comprometidos con el rescate, rehabilitación y
             tenencia responsable en la ciudad de Río Cuarto.
           </p>
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800">
-              <span className="block font-display text-xl font-extrabold text-orange-600 dark:text-orange-500">
-                +150
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Mascotas adoptadas
-              </span>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800">
-              <span className="block font-display text-xl font-extrabold text-emerald-600 dark:text-emerald-500">
-                100%
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Voluntariado local
-              </span>
-            </div>
+          <div className="grid grid-cols-3 gap-3 pt-2 sm:gap-4">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800"
+              >
+                <span
+                  className={`block font-display text-xl font-extrabold ${stat.valueClass}`}
+                >
+                  {stat.valueLabel ? (
+                    <>
+                      <span aria-hidden="true">{stat.value}</span>
+                      <span className="sr-only">{stat.valueLabel}</span>
+                    </>
+                  ) : (
+                    stat.value
+                  )}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
           </div>
           <div className="pt-2">
             <Link

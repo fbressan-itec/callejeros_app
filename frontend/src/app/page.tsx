@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-import { AboutSection } from "@/components/home/AboutSection";
 import { CollaborateSection } from "@/components/home/CollaborateSection";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
+import { HomePetsSections } from "@/components/home/HomePetsSections";
 
 // Título y descripción iguales a contexto-ia/maquetado/index.html.
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <main className="grow">
       <HeroCarousel />
-      <AboutSection />
+      <HomePetsSections />
       <CollaborateSection />
     </main>
   );
