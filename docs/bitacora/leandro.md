@@ -146,5 +146,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Problemas y cómo los resolví:**
   - Sin bloqueos; la suite completa del backend pasó en verde tras validar `ruff` y `drf-spectacular`.
 - **Pendiente:** abrir el PR de #111 para revisión de Franco y cerrar la épica #10 (`[BK-07] Solicitudes de adopción`) una vez mergeado.
-- **PR:** pendiente de apertura
+- **PR:** #113
 - **IA usada:** Antigravity — para limpiar `permissions.py`, implementar los servicios y endpoints de revisión de Staff, documentar Swagger y `README.md`, y escribir los tests con `pytest`.
+
+## 2026-11-23 — Validación de disponibilidad de la mascota al aprobar una solicitud de adopción (cierre BK-07)
+
+- **Tarjeta:** #10 (BK-07, ajuste pedido por Franco al aprobar el PR #113)
+- **Rama:** bugfix/bk07-10-validar-mascota-al-aprobar
+- **Área:** back, test, docs
+- **Qué hice:**
+  - En `AdoptionRequestReviewWorkflow` (`backend/apps/adoptions/services.py`), agregué dentro de la transacción atómica (`select_for_update().select_related("pet")`) la validación de que la mascota siga activa y en estado `published` al aprobar una solicitud (`ValidationError` en `pet` con `"Esta mascota ya no está disponible para adopción."`).
+  - Mantuve habilitado el rechazo (`reject`) incluso si la mascota ya fue adoptada o dada de baja para que las solicitudes pendientes no queden colgadas en la cola de Staff.
+  - Sumé tests en `test_review_services.py` y `test_review_api.py` cubriendo aprobar (`400`) y rechazar (`200`) sobre mascotas adoptadas, no publicadas o inactivas, y actualicé Swagger (`views.py`) y `README.md`.
+- **Decisiones tomadas:**
+  - Controlé la disponibilidad de la mascota con un flag `require_available_pet` dentro de `_apply_review` (`True` en `approve`, `False` en `reject`) sobre la fila bloqueada junto con `select_related("pet")`, evitando duplicar la transacción.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; todas las validaciones (`ruff`, `spectacular --validate --fail-on-warn` y `pytest`) pasaron en verde.
+- **Pendiente:** abrir el PR hacia `develop` con `Closes #10` para revisión de Franco y cerrar la épica `[BK-07] Solicitudes de adopción`.
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para agregar la validación de disponibilidad de la mascota al aprobar, los tests con `pytest` y actualizar Swagger, `README.md` y la bitácora.

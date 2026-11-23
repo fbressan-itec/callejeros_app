@@ -13,6 +13,7 @@ from apps.adoptions.services import (
     MAX_MEETING_POINT_LENGTH,
     MAX_REJECTION_REASON_LENGTH,
     ONLY_PENDING_REQUEST_ERROR,
+    PET_UNAVAILABLE_ON_APPROVE_ERROR,
 )
 from apps.adoptions.tests.factories import AdoptionRequestFactory
 from apps.pets.models import Pet
@@ -255,6 +256,50 @@ def test_reject_endpoint_permissions_validation_and_privacy() -> None:
     )
     assert approve_after_reject.status_code == status.HTTP_400_BAD_REQUEST
     assert approve_after_reject.json()["status"] == [ONLY_PENDING_REQUEST_ERROR]
+
+
+def test_approve_fails_and_reject_succeeds_when_pet_is_adopted_or_inactive() -> None:
+    staff = UserFactory(role__code=RoleCode.STAFF)
+    client = _auth_client(staff)
+
+    adopted_pet = PetFactory(status=Pet.Status.ADOPTED)
+    adopted_req = AdoptionRequestFactory(pet=adopted_pet)
+
+    approve_adopted = client.post(
+        reverse("adoptions:adoption-request-approve", kwargs={"request_id": adopted_req.pk}),
+        data={"meeting_point": "Plaza Roca"},
+        format="json",
+    )
+    assert approve_adopted.status_code == status.HTTP_400_BAD_REQUEST
+    assert approve_adopted.json()["pet"] == [PET_UNAVAILABLE_ON_APPROVE_ERROR]
+
+    reject_adopted = client.post(
+        reverse("adoptions:adoption-request-reject", kwargs={"request_id": adopted_req.pk}),
+        data={"rejection_reason": "La mascota ya fue adoptada por otra familia."},
+        format="json",
+    )
+    assert reject_adopted.status_code == status.HTTP_200_OK
+    assert reject_adopted.json()["status"] == AdoptionRequest.Status.REJECTED
+
+    inactive_pet = PetFactory(status=Pet.Status.PUBLISHED)
+    inactive_pet_req = AdoptionRequestFactory(pet=inactive_pet)
+    inactive_pet.deactivate()
+
+    approve_inactive = client.post(
+        reverse("adoptions:adoption-request-approve", kwargs={"request_id": inactive_pet_req.pk}),
+        data={"meeting_point": "Plaza Roca"},
+        format="json",
+    )
+    assert approve_inactive.status_code == status.HTTP_400_BAD_REQUEST
+    assert approve_inactive.json()["pet"] == [PET_UNAVAILABLE_ON_APPROVE_ERROR]
+
+    reject_inactive = client.post(
+        reverse("adoptions:adoption-request-reject", kwargs={"request_id": inactive_pet_req.pk}),
+        data={"rejection_reason": "La publicación de la mascota fue dada de baja."},
+        format="json",
+    )
+    assert reject_inactive.status_code == status.HTTP_200_OK
+    assert reject_inactive.json()["status"] == AdoptionRequest.Status.REJECTED
 
 
 def test_openapi_schema_documents_staff_review_endpoints() -> None:
