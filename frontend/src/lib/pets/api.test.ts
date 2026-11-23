@@ -293,4 +293,78 @@ describe("fetchPets", () => {
 
     await expect(fetchPets()).rejects.toBeInstanceOf(ApiError);
   });
+
+  it("envía el token Bearer en el catálogo cuando hay sesión activa", async () => {
+    window.localStorage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        access: "token-catalogo",
+        refresh: "refresh-catalogo",
+        user: {
+          id: 1,
+          email: "miembro@callejeros.ar",
+          first_name: "Tomás",
+          last_name: "Gómez",
+          phone: "",
+          is_phone_verified: true,
+          photo: null,
+          role: { code: "member", name: "Miembro" },
+        },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [SAMPLE_PET],
+      }),
+    );
+
+    await fetchPets({ favorites: true });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/?favorites=true");
+    expect(init.headers.Authorization).toBe("Bearer token-catalogo");
+  });
+
+  it("renueva el token si el catálogo responde 401 y reintenta con el nuevo acceso", async () => {
+    window.localStorage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        access: "token-vencido",
+        refresh: "refresh-valido",
+        user: {
+          id: 1,
+          email: "miembro@callejeros.ar",
+          first_name: "Tomás",
+          last_name: "Gómez",
+          phone: "",
+          is_phone_verified: true,
+          photo: null,
+          role: { code: "member", name: "Miembro" },
+        },
+      }),
+    );
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { detail: "Token vencido" }))
+      .mockResolvedValueOnce(jsonResponse(200, { access: "token-renovado" }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [SAMPLE_PET],
+        }),
+      );
+
+    const page = await fetchPets();
+
+    expect(page.results).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe(
+      "Bearer token-renovado",
+    );
+  });
 });

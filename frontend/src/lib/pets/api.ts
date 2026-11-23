@@ -115,11 +115,38 @@ export type PetListParams = Record<
   string | number | boolean | undefined
 >;
 
+async function getWithOptionalAuth<T>(
+  path: string,
+  options: FetchPetOptions = {},
+): Promise<T> {
+  const authHeaders = getAuthHeaders();
+  const hasAuth = Object.keys(authHeaders).length > 0;
+
+  try {
+    return await api.get<T>(path, {
+      headers: authHeaders,
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (hasAuth && error instanceof ApiError && error.status === 401) {
+      const refreshedAccess = await refreshAccessToken();
+      if (refreshedAccess) {
+        return api.get<T>(path, {
+          headers: { Authorization: `Bearer ${refreshedAccess}` },
+          signal: options.signal,
+        });
+      }
+      return api.get<T>(path, { signal: options.signal });
+    }
+    throw error;
+  }
+}
+
 /**
- * Pide una página del listado público de mascotas (`GET /api/pets/`): solo publicadas,
- * de la más nueva a la más vieja, de a 12, con `count` = total de resultados.
+ * Pide una página del listado público de mascotas (`GET /api/pets/`): solo publicadas
+ * por defecto (o adoptadas con `adopted=true`), de a 12, con `count` = total de resultados.
+ * Si hay sesión activa adjunta el token Bearer para recibir `is_favorite` y filtrar favoritos.
  * Los parámetros vacíos (`undefined` o `""`) no se mandan.
- * Lo usa el inicio (FR-05) y lo puede reusar el catálogo (FR-06) pasando sus filtros.
  */
 export function fetchPets(
   params: PetListParams = {},
@@ -131,10 +158,8 @@ export function fetchPets(
     query.set(key, String(value));
   }
   const search = query.toString();
-  return api.get<PaginatedResponse<PetListItem>>(
-    search ? `pets/?${search}` : "pets/",
-    { signal: options.signal },
-  );
+  const path = search ? `pets/?${search}` : "pets/";
+  return getWithOptionalAuth<PaginatedResponse<PetListItem>>(path, options);
 }
 
 /**
@@ -143,30 +168,9 @@ export function fetchPets(
  * ver mascotas en revisión o rechazadas. Si el token venció (401), intenta renovarlo y,
  * si no puede, reintenta sin autorización para permitir la lectura de fichas públicas.
  */
-export async function fetchPetById(
+export function fetchPetById(
   petId: number,
   options: FetchPetOptions = {},
 ): Promise<PetDetail> {
-  const path = `pets/${petId}/`;
-  const authHeaders = getAuthHeaders();
-  const hasAuth = Object.keys(authHeaders).length > 0;
-
-  try {
-    return await api.get<PetDetail>(path, {
-      headers: authHeaders,
-      signal: options.signal,
-    });
-  } catch (error) {
-    if (hasAuth && error instanceof ApiError && error.status === 401) {
-      const refreshedAccess = await refreshAccessToken();
-      if (refreshedAccess) {
-        return api.get<PetDetail>(path, {
-          headers: { Authorization: `Bearer ${refreshedAccess}` },
-          signal: options.signal,
-        });
-      }
-      return api.get<PetDetail>(path, { signal: options.signal });
-    }
-    throw error;
-  }
+  return getWithOptionalAuth<PetDetail>(`pets/${petId}/`, options);
 }
