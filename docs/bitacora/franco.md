@@ -398,3 +398,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** FR-09c (#143), el cuestionario en la ficha.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para publicar la discusión, escribir la página, el hook y los tests, y comparar la pantalla con el maquetado en el navegador.
+
+## 2026-11-24 — Cuestionario de adopción en la ficha (FR-09c)
+
+- **Tarjeta:** #143 (FR-09c, sub-tarjeta de la épica #27, FR-09)
+- **Rama:** feature/fr09-143-cuestionario-ficha
+- **Área:** front, test
+- **Qué hice:**
+  - "¡Adoptame!" abre el cuestionario de 4 pasos ("Paso X de 4", Anterior / Siguiente), con zod y react-hook-form. Cada paso se valida antes de avanzar y, si algo falla, el foco va al primer campo con error.
+  - Nombre y correo vienen de la cuenta y se pueden editar. La pregunta del alquiler aparece solo si la vivienda es alquilada, y la casilla de castración, solo si la mascota no está castrada.
+  - Si la mascota es propia, se avisa sin abrir el cuestionario.
+  - Al enviar, el botón se deshabilita con "Enviando solicitud…". Los errores del back (solicitud duplicada, mascota no disponible o propia) se muestran arriba del formulario. Si el back marca un campo, el modal vuelve a ese paso. Lo cargado no se pierde.
+  - Modal "¡Datos enviados correctamente!" igual al maquetado, con "🔔 Ver mis notificaciones" sin destino hasta FR-11.
+  - Tests en Vitest del esquema y del recorrido completo.
+- **Decisiones tomadas:**
+  - Los mensajes de error del front son los mismos que los del back, para que la persona lea lo mismo en las dos capas.
+  - Las preguntas de opción (vivienda, acuerdo, horas solo, alquiler) son botones de opción de 44px, porque el maquetado no las tenía.
+  - "🔔 Ver mis notificaciones" es un botón marcado como deshabilitado (`aria-disabled`) hasta que exista la página de notificaciones.
+- **Problemas y cómo los resolví:** la regla del alquiler depende de otro campo y zod no la revisaba si había otros errores en el paso. Usé la opción `when` de zod para que el aviso salga junto con los demás.
+- **Pendiente:** cerrar la épica #27 cuando se mergee este PR.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para escribir el esquema, el modal y los tests, y probar el recorrido completo en el navegador contra el back local.
