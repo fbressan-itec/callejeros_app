@@ -1,4 +1,5 @@
 import { api, getApiUrl } from "@/lib/api/client";
+import { parsePositiveId } from "@/lib/api/ids";
 import type { PaginatedResponse } from "@/lib/api/pagination";
 import { requestWithAuth } from "@/lib/auth/session";
 import type { PetDetail, PetListItem } from "@/lib/pets/types";
@@ -12,10 +13,7 @@ export interface FetchPetOptions {
  * Devuelve `null` para cadenas vacías, decimales, cero o textos no numéricos.
  */
 export function parsePetId(rawId: string): number | null {
-  const trimmed = rawId.trim();
-  if (!/^[1-9]\d*$/.test(trimmed)) return null;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isSafeInteger(parsed) ? parsed : null;
+  return parsePositiveId(rawId);
 }
 
 /**
