@@ -51,6 +51,35 @@ const APPROVED_REQUEST: AdoptionRequestDetail = {
   },
 };
 
+/**
+ * Sigue los intervalos de la consulta periódica para esperar a que arranquen o se corten.
+ * El encabezado aparece antes de que React corra los efectos: si se adelanta el reloj
+ * antes, todavía no hay intervalo que disparar (pasaba en el CI, que es más lento).
+ */
+function spyOnPollingTimers() {
+  const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+  const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+  const pollTimerIds = () =>
+    setIntervalSpy.mock.calls
+      .map((call, index) => ({ call, index }))
+      .filter(({ call }) => call[1] === ADOPTION_REQUEST_POLL_INTERVAL_MS)
+      .map(({ index }) => setIntervalSpy.mock.results[index]?.value);
+
+  return {
+    // waitFor también usa setInterval: se cuentan solo los de 60 s
+    waitForStart: () =>
+      waitFor(() => expect(pollTimerIds().length).toBeGreaterThan(0)),
+    waitForStop: () =>
+      waitFor(() =>
+        expect(
+          pollTimerIds().every((id) =>
+            clearIntervalSpy.mock.calls.some((call) => call[0] === id),
+          ),
+        ).toBe(true),
+      ),
+  };
+}
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -264,6 +293,7 @@ describe("AdoptionRequestView", () => {
   it("vuelve a consultar en revisión y deja de hacerlo cuando llega la respuesta", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const timers = spyOnPollingTimers();
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, BASE_REQUEST))
       .mockResolvedValueOnce(jsonResponse(200, BASE_REQUEST))
@@ -274,6 +304,7 @@ describe("AdoptionRequestView", () => {
       name: "Tu solicitud está en revisión",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    await timers.waitForStart();
 
     act(() => {
       vi.advanceTimersByTime(ADOPTION_REQUEST_POLL_INTERVAL_MS);
@@ -291,7 +322,8 @@ describe("AdoptionRequestView", () => {
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
-    // Estado final: no vuelve a consultar
+    // Estado final: se corta el intervalo y no vuelve a consultar
+    await timers.waitForStop();
     act(() => {
       vi.advanceTimersByTime(ADOPTION_REQUEST_POLL_INTERVAL_MS * 3);
     });
@@ -302,6 +334,7 @@ describe("AdoptionRequestView", () => {
   it("si una consulta en segundo plano falla, conserva lo que ya mostraba", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const timers = spyOnPollingTimers();
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, BASE_REQUEST))
       .mockRejectedValueOnce(new TypeError("Failed to fetch"));
@@ -310,6 +343,7 @@ describe("AdoptionRequestView", () => {
     await screen.findByRole("heading", {
       name: "Tu solicitud está en revisión",
     });
+    await timers.waitForStart();
 
     act(() => {
       vi.advanceTimersByTime(ADOPTION_REQUEST_POLL_INTERVAL_MS);
