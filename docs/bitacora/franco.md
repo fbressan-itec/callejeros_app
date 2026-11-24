@@ -377,3 +377,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de la #141; después, FR-09b (#142) y FR-09c (#143).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para comparar el maquetado con el back, investigar cuestionarios de adopción, proponer las decisiones y la división, escribir el código, las migraciones y los tests, y actualizar la documentación.
+
+## 2026-11-24 — Página de respuesta a la solicitud de adopción (FR-09b)
+
+- **Tarjeta:** #142 (FR-09b, sub-tarjeta de la épica #27, FR-09)
+- **Rama:** feature/fr09-142-respuesta-solicitud
+- **Área:** front, test
+- **Qué hice:**
+  - Publiqué en Discussions (categoría "Decisiones/Cambios", #146) el cuestionario nuevo y lo que cambia al aprobar, y lo enlacé desde el PR #144.
+  - Ruta `/solicitudes/[id]` con sesión obligatoria (`RequireAuth`), `LoadingScreen` mientras carga y el mensaje de `errors.ts` con "Intentar de nuevo" si falla.
+  - Tres estados, iguales al maquetado: en revisión; aprobada (contacto de quien publicó con su insignia, "📞 Llamar para coordinar", la dirección pública si es un refugio verificado con "🗺️ Ver en el mapa", aviso de seguridad y próximos pasos) y desaprobada (motivo del moderador y enlaces). Página de "No encontramos esa solicitud".
+  - Hook `usePollWhileVisible`: en revisión vuelve a consultar cada 60 s solo con la pestaña visible y al volver a ella, y corta cuando llega la respuesta.
+  - Saqué la validación de IDs de ruta a `lib/api/ids.ts` para usarla en la ficha y en la solicitud.
+  - Tests en Vitest de la página, del hook y de las funciones de la API.
+- **Decisiones tomadas:**
+  - Si una consulta en segundo plano falla, la página se queda con lo último que mostró y vuelve a probar en la próxima, sin mostrar un error.
+  - El botón verde de llamar usa `emerald-700` (el maquetado usa `emerald-600`) para que el texto blanco tenga el contraste de WCAG AA, como ya pasa con el naranja.
+  - El botón Volver va al inicio si no hay página anterior: la de notificaciones llega con FR-11.
+- **Problemas y cómo los resolví:** para probar la página con la cuenta del seed abrí una sesión de prueba local en el navegador, sin escribir la contraseña. En una corrida de toda la suite de Vitest falló un test una vez y no se repitió en tres corridas más.
+- **Pendiente:** FR-09c (#143), el cuestionario en la ficha.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para publicar la discusión, escribir la página, el hook y los tests, y comparar la pantalla con el maquetado en el navegador.
