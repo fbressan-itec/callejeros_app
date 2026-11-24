@@ -112,6 +112,18 @@ export interface PetDetail {
 }
 
 /**
+ * Mascota con la ficha de gestión (`PetManageSerializer`), como la recibe el panel de Staff
+ * en `GET /api/pets/review-queue/` y en las respuestas de aprobar, rechazar y urgencia.
+ */
+export interface PetReviewItem extends PetDetail {
+  contact_phone: string;
+  /** Quien publicó marcó "caso urgente". */
+  is_urgent_requested: boolean;
+  /** Un voluntario validó el caso urgente (recién ahí se muestra en el catálogo). */
+  is_urgent_validated: boolean;
+}
+
+/**
  * Mascota tal como la devuelve el listado `GET /api/pets/` (mismo serializer que la ficha).
  * La usan el inicio (FR-05) y el catálogo (FR-06).
  */

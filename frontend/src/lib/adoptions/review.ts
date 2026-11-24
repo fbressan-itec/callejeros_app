@@ -10,8 +10,7 @@ import {
   RENTAL_PETS_POLICY_OPTIONS,
 } from "@/lib/adoptions/questionnaire";
 import type { AdoptionRequestReview } from "@/lib/adoptions/types";
-import { ApiError } from "@/lib/api/client";
-import { ERROR_MESSAGES } from "@/lib/api/errors";
+import { getActionErrorMessage } from "@/lib/api/errors";
 
 /**
  * Revisión de solicitudes de adopción en el panel de Staff (`producto/03-reglas-de-negocio.md`,
@@ -206,10 +205,6 @@ export function buildQuestionnaireAnswerSections(
  * (la solicitud ya no está pendiente, la mascota ya no está disponible) o el general.
  */
 export function getReviewErrorMessage(error: unknown): string {
-  if (!(error instanceof ApiError)) return ERROR_MESSAGES.unknown;
   // El error del motivo se muestra junto al campo, no como aviso general
-  const [first] = Object.entries(error.fieldErrors)
-    .filter(([field]) => field !== "rejection_reason")
-    .flatMap(([, messages]) => messages);
-  return first ?? error.message;
+  return getActionErrorMessage(error, ["rejection_reason"]);
 }
