@@ -1,8 +1,10 @@
 import type { AdoptionRequestPayload } from "@/lib/adoptions/questionnaire";
 import { api } from "@/lib/api/client";
+import type { PaginatedResponse } from "@/lib/api/pagination";
 import { requestWithAuth } from "@/lib/auth/session";
 import type {
   AdoptionRequestDetail,
+  AdoptionRequestReview,
   AdoptionRequestStatus,
 } from "@/lib/adoptions/types";
 import { FINAL_ADOPTION_REQUEST_STATUSES } from "@/lib/adoptions/types";
@@ -44,6 +46,55 @@ export function createAdoptionRequest(
     api.post<AdoptionRequestDetail>("adoption-requests/", payload, {
       headers,
     }),
+  );
+}
+
+export interface FetchAdoptionReviewQueueOptions {
+  page?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * Pide la cola del panel de Staff a `GET /api/adoption-requests/review-queue/`: solicitudes
+ * pendientes de a 12, de la más vieja a la más nueva. Solo Staff y Admin (`403` si no).
+ */
+export function fetchAdoptionReviewQueue(
+  options: FetchAdoptionReviewQueueOptions = {},
+): Promise<PaginatedResponse<AdoptionRequestReview>> {
+  const { page = 1, signal } = options;
+  const query = page > 1 ? `?page=${page}` : "";
+  return requestWithAuth((headers) =>
+    api.get<PaginatedResponse<AdoptionRequestReview>>(
+      `adoption-requests/review-queue/${query}`,
+      { headers, signal },
+    ),
+  );
+}
+
+/** Aprueba una solicitud pendiente (`POST .../{id}/approve/`, sin cuerpo). */
+export function approveAdoptionRequest(
+  requestId: number,
+): Promise<AdoptionRequestReview> {
+  return requestWithAuth((headers) =>
+    api.post<AdoptionRequestReview>(
+      `adoption-requests/${requestId}/approve/`,
+      undefined,
+      { headers },
+    ),
+  );
+}
+
+/** Desaprueba una solicitud pendiente con el motivo que ve el solicitante. */
+export function rejectAdoptionRequest(
+  requestId: number,
+  rejectionReason: string,
+): Promise<AdoptionRequestReview> {
+  return requestWithAuth((headers) =>
+    api.post<AdoptionRequestReview>(
+      `adoption-requests/${requestId}/reject/`,
+      { rejection_reason: rejectionReason },
+      { headers },
+    ),
   );
 }
 
