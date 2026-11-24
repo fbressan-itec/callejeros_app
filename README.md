@@ -203,11 +203,11 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 
 | Método y ruta | Permiso | Qué hace |
 | :--- | :--- | :--- |
-| `POST /api/adoption-requests/` | Sesión activa (`IsAuthenticated`) | Envía el cuestionario de adopción de 3 bloques (datos personales con edad ≥ 18, hogar y entorno con `housing_type` en texto libre, y compromiso obligatorio) para una mascota activa y `published` que no haya publicado el mismo usuario. Guarda los datos declarados por el solicitante y nace en `pending`, impidiendo duplicar una solicitud `pending` para la misma mascota. |
+| `POST /api/adoption-requests/` | Sesión activa (`IsAuthenticated`) | Envía el cuestionario de adopción de 4 bloques para una mascota activa y `published` que no haya publicado el mismo usuario: datos personales (edad ≥ 18); hogar y entorno (`housing_type` en texto libre, `home_ownership` y `rental_allows_pets`, obligatorio solo si la vivienda es `rented`); experiencia y rutina (`adoption_reason` opcional), y compromiso (`accepts_commitment`, `accepts_follow_up`, `accepts_return_notice` y `declares_truthful` en `true`, y `accepts_neutering` en `true` solo si la mascota no está castrada). Guarda los datos declarados por el solicitante y nace en `pending`, impidiendo duplicar una solicitud `pending` para la misma mascota. |
 | `GET /api/adoption-requests/mine/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las solicitudes activas enviadas por el usuario autenticado, ordenadas de la más reciente a la más antigua (filtro opcional `?status=pending\|approved\|rejected`). |
 | `GET /api/adoption-requests/review-queue/` | Staff o Admin (`IsStaffOrAdmin`) | Cola de revisión del panel de Staff: lista paginada de a 12 (`?page=2`) de las solicitudes activas en estado `pending`, ordenadas de la más vieja a la más nueva (`created_at` ascendente). |
-| `GET /api/adoption-requests/{id}/` | Solicitante, Staff o Admin (`404` para terceros) | Devuelve el detalle y la respuesta de la solicitud (responde `404` a terceros autenticados para no revelar su existencia). Cuando está `approved`, incluye `foster_contact` (nombre, rol y `contact_phone` de la publicación) y `meeting_point`, sin exponer nunca la dirección del hogar de tránsito. Cuando está `rejected`, incluye `rejection_reason` y oculta `foster_contact`. |
-| `POST /api/adoption-requests/{id}/approve/` | Staff o Admin (`IsStaffOrAdmin`) | Aprueba una solicitud en `pending` siempre que la mascota siga activa y `published`: requiere `meeting_point` (punto de encuentro público, hasta 255 caracteres), pasa a `approved`, registra `reviewed_by` y `reviewed_at` y devuelve la respuesta con `foster_contact` y `meeting_point` (sin dirección). Si no está `pending` o la mascota ya no está disponible, devuelve `400`. |
+| `GET /api/adoption-requests/{id}/` | Solicitante, Staff o Admin (`404` para terceros) | Devuelve el detalle y la respuesta de la solicitud (responde `404` a terceros autenticados para no revelar su existencia). Cuando está `approved`, incluye `foster_contact` (nombre, rol, `contact_phone` de la publicación y `shelter_public_address` si quien publicó es un refugio verificado que la cargó; si no, `null`) para que coordinen el encuentro entre ellos, sin exponer nunca la dirección de la cuenta. Cuando está `rejected`, incluye `rejection_reason` y oculta `foster_contact`. |
+| `POST /api/adoption-requests/{id}/approve/` | Staff o Admin (`IsStaffOrAdmin`) | Aprueba una solicitud en `pending` siempre que la mascota siga activa y `published`: no lleva cuerpo (no hay punto de encuentro que fije Staff), pasa a `approved`, registra `reviewed_by` y `reviewed_at` y devuelve la respuesta con `foster_contact` (sin la dirección de la cuenta). Si no está `pending` o la mascota ya no está disponible, devuelve `400`. |
 | `POST /api/adoption-requests/{id}/reject/` | Staff o Admin (`IsStaffOrAdmin`) | Desaprueba una solicitud en `pending` (permitido incluso si la mascota ya fue adoptada o dada de baja, para no dejar solicitudes colgadas): requiere `rejection_reason` (motivo para el solicitante, hasta 400 caracteres), pasa a `rejected`, registra `reviewed_by` y `reviewed_at` y mantiene `foster_contact` en `null`. Si no está `pending`, devuelve `400`. |
 
 #### Variables de entorno (`.env` / `.env.example`)
@@ -304,6 +304,7 @@ erDiagram
         string city
         string neighborhood
         string address "privado: nunca se expone"
+        string shelter_public_address "solo Refugio verificado: la ve el adoptante aprobado"
         int role_id FK
         bool is_active "estado actual"
         datetime created_at
@@ -448,11 +449,25 @@ erDiagram
         string address
         string city
         string housing_type "texto libre"
+        string home_ownership "owned|rented|other"
+        string rental_allows_pets "yes|no|unknown, solo si es rented"
+        string outdoor_space
+        string household_members
+        string household_agreement "yes|not_discussed"
         string other_pets
+        string previous_pets
+        string hours_alone "less_than_4|4_to_8|more_than_8"
+        string living_space
+        string vacation_care
+        string contingency_plan
+        string adoption_reason "opcional"
         bool accepts_commitment "obligatorio"
+        bool accepts_neutering "true o vacío: solo si la mascota no está castrada"
+        bool accepts_follow_up "obligatorio"
+        bool accepts_return_notice "obligatorio"
+        bool declares_truthful "obligatorio"
         string status "pending|approved|rejected"
         string rejection_reason
-        string meeting_point "lo completa Staff al aprobar"
         int reviewed_by_id FK
         datetime reviewed_at
         bool is_active
@@ -501,7 +516,7 @@ erDiagram
 | `PetPhoto` | Fotos del carrusel; la de `position` 0 es la principal. Al menos una por mascota. |
 | `PetStatusLog` | Historial de revisiones y cambios de estado: quién, cuándo y el motivo de un rechazo. |
 | `Favorite` | Tabla intermedia usuario ↔ mascota (muchos a muchos). Exige cuenta. |
-| `AdoptionRequest` | Solicitud de adopción con el cuestionario de 3 bloques y la respuesta de Staff. |
+| `AdoptionRequest` | Solicitud de adopción con el cuestionario de 4 bloques (datos personales, hogar y entorno, experiencia y rutina, y compromiso) y la respuesta de Staff. |
 | `Sponsorship` | Apadrinamiento registrado, sin cobro real. `pet_id` vacío = fondo general. |
 | `Product` | Producto de la tienda. Los de Refugio verificado arrancan en `in_review`; los de Staff y Admin, en `published`. |
 | `ProductStatusLog` | Historial de revisiones de productos. |
@@ -509,12 +524,12 @@ erDiagram
 **Reglas de adopción y colaborar:**
 - **No se guardan, se calculan:** las insignias de la mascota, su edad y grupo de edad (desde `estimated_birth_date`) y la cantidad de padrinos (desde `Sponsorship`).
 - **Caso urgente:** se muestra solo si `is_urgent_requested` e `is_urgent_validated` son verdaderos y la mascota no está adoptada.
-- **Solicitud aprobada:** el contacto del hogar de tránsito sale de quien publicó la mascota (nombre, insignia de rol y `contact_phone`); el punto de encuentro público lo escribe Staff en `meeting_point`. La dirección nunca se muestra.
+- **Solicitud aprobada:** el contacto sale de quien publicó la mascota (nombre, insignia de rol y `contact_phone`) y, si es Refugio verificado, se suma su `shelter_public_address`. No hay punto de encuentro: coordinan entre ellos. La dirección de la cuenta (`address`) nunca se muestra.
 - **La solicitud copia** nombre, email y teléfono del solicitante: guarda lo que declaró en ese momento, aunque después cambie sus datos.
 - **Restricciones en la base:**
   - `Favorite`: un solo favorito por usuario y mascota (`user_id` + `pet_id` únicos);
   - `PetPhoto`: posiciones únicas por mascota entre las fotos activas (dar de baja lógica una foto libera su posición);
-  - `AdoptionRequest`: `age` ≥ 18, `accepts_commitment` verdadero y una sola solicitud pendiente por persona y mascota;
+  - `AdoptionRequest`: `age` ≥ 18; `accepts_commitment`, `accepts_follow_up`, `accepts_return_notice` y `declares_truthful` verdaderos; `accepts_neutering` verdadero o vacío; `rental_allows_pets` completo solo si `home_ownership` es `rented`, y una sola solicitud pendiente por persona y mascota;
   - `Sponsorship`: `monthly_amount` ≥ 500.
 
 ### Comunidad: alertas, noticias, comentarios y notificaciones
