@@ -19,7 +19,6 @@ def test_adoption_request_defaults_to_pending_and_active() -> None:
     assert adoption_request.status == AdoptionRequest.Status.PENDING
     assert adoption_request.is_active is True
     assert adoption_request.rejection_reason == ""
-    assert adoption_request.meeting_point == ""
     assert adoption_request.reviewed_by is None
     assert adoption_request.reviewed_at is None
     assert (
@@ -48,6 +47,40 @@ def test_adoption_request_db_enforces_minimum_age_18() -> None:
 def test_adoption_request_db_enforces_accepts_commitment_true() -> None:
     with pytest.raises(IntegrityError), transaction.atomic():
         AdoptionRequestFactory(accepts_commitment=False)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    ["accepts_follow_up", "accepts_return_notice", "declares_truthful"],
+)
+def test_adoption_request_db_enforces_commitment_checkboxes(field_name: str) -> None:
+    with pytest.raises(IntegrityError), transaction.atomic():
+        AdoptionRequestFactory(**{field_name: False})
+
+
+def test_adoption_request_db_enforces_rental_answer_only_when_rented() -> None:
+    with pytest.raises(IntegrityError), transaction.atomic():
+        AdoptionRequestFactory(home_ownership=AdoptionRequest.HomeOwnership.RENTED)
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        AdoptionRequestFactory(
+            home_ownership=AdoptionRequest.HomeOwnership.OWNED,
+            rental_allows_pets=AdoptionRequest.RentalPetsPolicy.YES,
+        )
+
+    rented = AdoptionRequestFactory(
+        home_ownership=AdoptionRequest.HomeOwnership.RENTED,
+        rental_allows_pets=AdoptionRequest.RentalPetsPolicy.NO,
+    )
+    assert rented.pk is not None
+
+
+def test_adoption_request_db_enforces_neutering_true_or_empty() -> None:
+    with pytest.raises(IntegrityError), transaction.atomic():
+        AdoptionRequestFactory(accepts_neutering=False)
+
+    assert AdoptionRequestFactory(accepts_neutering=True).accepts_neutering is True
+    assert AdoptionRequestFactory(accepts_neutering=None).accepts_neutering is None
 
 
 def test_adoption_request_db_enforces_unique_active_pending_per_applicant_and_pet() -> None:

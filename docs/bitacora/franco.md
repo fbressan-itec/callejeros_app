@@ -351,3 +351,29 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Leandro actualice develop para tener el test corregido.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para encontrar la causa del fallo en el CI, corregir el test y escribir esta entrada.
+
+## 2026-11-24 — Cuestionario de adopción ampliado en el back (FR-09a)
+
+- **Tarjeta:** #141 (FR-09a, sub-tarjeta de la épica #27, FR-09)
+- **Rama:** feature/fr09-141-cuestionario-ampliado-back
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Definí el cuestionario de adopción con la IA. Primero lo comparé con el maquetado y con lo que ya hacía el back (BK-07). Después investigamos formularios de refugios y protectoras y guías de ASPCA y Best Friends, y armamos uno más completo.
+  - Dividí la épica #27 en tres sub-tarjetas: back (#141), página de respuesta (#142) y cuestionario en la ficha (#143). Cambié el criterio de #27 y dejé comentarios en #29, #11 y #26 sobre las notificaciones y el teléfono al publicar.
+  - Actualicé en local `contexto-ia/` (01, 03, 04, 05, 05b, 06 y `decisiones.md`) y anoté dos ideas en la ToDo List: "Obtener cuenta refugio" y punto de encuentro fijado por quien publica.
+  - Cuestionario de 4 bloques en `AdoptionRequest`, con migración nueva, reglas en la base, validaciones en el servicio (alquiler, castración según la mascota y casillas de compromiso), serializer, Swagger, seed y tests.
+  - Saqué el punto de encuentro: aprobar ya no pide datos (migración que borra `meeting_point`).
+  - Campo `shelter_public_address` en `User` (migración nueva). El adoptante aprobado lo ve solo si quien publicó es Refugio verificado y lo cargó.
+  - README: endpoints de adopción y diagrama entidad-relación.
+- **Decisiones tomadas:**
+  - El cuestionario del maquetado era una muestra: el nuevo pregunta por la vivienda (propia o alquilada), las protecciones, quiénes viven, la experiencia, las horas solo, dónde vive, quién lo cuida en viajes y qué haría si no puede seguir, más compromisos de castración, seguimiento, avisar antes de darlo y veracidad. Se dejaron afuera las preguntas invasivas (ingresos, estado civil, DNI y similares).
+  - Sin punto de encuentro: los voluntarios no tienen tiempo de organizarlo. El adoptante recibe el teléfono de la publicación y coordinan entre ellos, con un aviso de encontrarse en un lugar público.
+  - La dirección del refugio es un campo aparte y no la de la cuenta, porque muchos refugios funcionan en una casa particular.
+  - Las solicitudes viejas (solo datos de prueba) quedan con textos vacíos y casillas en verdadero al migrar.
+- **Problemas y cómo los resolví:**
+  - `makemigrations` pedía valores por defecto para los campos nuevos, así que escribí la migración del cuestionario a mano y comprobé con `makemigrations --check` que coincide con el modelo.
+  - No hay admin de Django para usuarios: por ahora la dirección del refugio se carga desde el seed.
+  - La suite del back tarda unos 12 minutos: la corrí en segundo plano.
+- **Pendiente:** PR de la #141; después, FR-09b (#142) y FR-09c (#143).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para comparar el maquetado con el back, investigar cuestionarios de adopción, proponer las decisiones y la división, escribir el código, las migraciones y los tests, y actualizar la documentación.

@@ -33,8 +33,22 @@ def _valid_request_body(pet_id: int, **overrides) -> dict:
         "address": "Belgrano 750",
         "city": "Río Cuarto",
         "housing_type": "PH interno con patio cerrado y medianeras altas",
+        "home_ownership": "rented",
+        "rental_allows_pets": "yes",
+        "outdoor_space": "Patio cerrado con medianeras altas",
+        "household_members": "Mi pareja y yo",
+        "household_agreement": "yes",
         "other_pets": "1 perro castrado y vacunado",
+        "previous_pets": "Tuve dos perros adoptados",
+        "hours_alone": "less_than_4",
+        "living_space": "Adentro de la casa",
+        "vacation_care": "Mi hermano",
+        "contingency_plan": "Me lo llevo conmigo",
+        "adoption_reason": "Me encantó su historia",
         "accepts_commitment": True,
+        "accepts_follow_up": True,
+        "accepts_return_notice": True,
+        "declares_truthful": True,
     }
     body.update(overrides)
     return body
@@ -67,7 +81,6 @@ def test_create_adoption_request_succeeds_for_any_authenticated_role(role_code: 
             pet.pk,
             # El cliente intenta inyectar campos internos que deben ignorarse
             status=AdoptionRequest.Status.APPROVED,
-            meeting_point="Punto inventado",
             rejection_reason="Motivo inventado",
         ),
         format="json",
@@ -81,7 +94,6 @@ def test_create_adoption_request_succeeds_for_any_authenticated_role(role_code: 
     assert "contact_phone" not in data["pet"]
     assert data["housing_type"] == "PH interno con patio cerrado y medianeras altas"
     assert data["foster_contact"] is None
-    assert data["meeting_point"] == ""
     assert data["rejection_reason"] == ""
     assert data["reviewed_by"] is None
     assert data["reviewed_at"] is None
@@ -126,7 +138,7 @@ def test_create_adoption_request_copies_applicant_snapshot() -> None:
     assert detail["phone"] == "+54 9 358 4111111"
 
 
-def test_create_adoption_request_validates_three_blocks() -> None:
+def test_create_adoption_request_validates_four_blocks() -> None:
     applicant = UserFactory()
     pet = PetFactory(status=Pet.Status.PUBLISHED)
     client = _auth_client(applicant)
@@ -154,6 +166,69 @@ def test_create_adoption_request_validates_three_blocks() -> None:
     assert incomplete_resp.status_code == status.HTTP_400_BAD_REQUEST
     assert "housing_type" in incomplete_resp.json()
     assert "other_pets" in incomplete_resp.json()
+
+    # Bloque 3: opción inválida
+    invalid_resp = client.post(
+        url,
+        data=_valid_request_body(pet.pk, hours_alone="todo_el_dia"),
+        format="json",
+    )
+    assert invalid_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert invalid_resp.json()["hours_alone"] == ["Elegí una opción válida."]
+
+    # Bloque 4: casilla sin marcar
+    unchecked_resp = client.post(
+        url,
+        data=_valid_request_body(pet.pk, declares_truthful=False),
+        format="json",
+    )
+    assert unchecked_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "declares_truthful" in unchecked_resp.json()
+
+    # Vivienda alquilada sin decir si el alquiler permite animales
+    rental_resp = client.post(
+        url,
+        data=_valid_request_body(pet.pk, rental_allows_pets=""),
+        format="json",
+    )
+    assert rental_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "rental_allows_pets" in rental_resp.json()
+
+    # Casilla de compromiso ausente
+    missing_checkbox = _valid_request_body(pet.pk)
+    missing_checkbox.pop("accepts_return_notice")
+    missing_resp = client.post(url, data=missing_checkbox, format="json")
+    assert missing_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "accepts_return_notice" in missing_resp.json()
+
+
+def test_create_adoption_request_returns_expanded_questionnaire() -> None:
+    applicant = UserFactory()
+    pet = PetFactory(status=Pet.Status.PUBLISHED, is_neutered=False)
+    client = _auth_client(applicant)
+    url = reverse("adoptions:adoption-request-create")
+
+    without_neutering = client.post(url, data=_valid_request_body(pet.pk), format="json")
+    assert without_neutering.status_code == status.HTTP_400_BAD_REQUEST
+    assert "accepts_neutering" in without_neutering.json()
+
+    response = client.post(
+        url,
+        data=_valid_request_body(pet.pk, accepts_neutering=True),
+        format="json",
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["home_ownership"] == "rented"
+    assert data["rental_allows_pets"] == "yes"
+    assert data["household_agreement"] == "yes"
+    assert data["hours_alone"] == "less_than_4"
+    assert data["contingency_plan"] == "Me lo llevo conmigo"
+    assert data["adoption_reason"] == "Me encantó su historia"
+    assert data["accepts_neutering"] is True
+    assert data["accepts_follow_up"] is True
+    assert data["accepts_return_notice"] is True
+    assert data["declares_truthful"] is True
 
 
 @pytest.mark.parametrize(
@@ -214,7 +289,6 @@ def test_my_adoption_requests_list_is_paginated_scoped_and_filterable() -> None:
     approved = AdoptionRequestFactory(
         applicant=applicant,
         status=AdoptionRequest.Status.APPROVED,
-        meeting_point="Plaza Roca",
     )
     inactive = AdoptionRequestFactory(applicant=applicant, status=AdoptionRequest.Status.REJECTED)
     inactive.deactivate()
@@ -260,7 +334,7 @@ def test_adoption_request_detail_permissions_and_soft_delete() -> None:
     assert _auth_client(staff).get(url).status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_approved_response_exposes_foster_contact_and_meeting_point_without_address(
+def test_approved_response_exposes_foster_contact_without_address(
     settings,
     tmp_path,
 ) -> None:
@@ -270,6 +344,7 @@ def test_approved_response_exposes_foster_contact_and_meeting_point_without_addr
         last_name="Patitas",
         role__code=RoleCode.VERIFIED_SHELTER,
         address="Calle Privada Secreta 999",
+        shelter_public_address="Sobremonte 1250, Río Cuarto",
         city="Río Cuarto",
         neighborhood="Centro Privado",
     )
@@ -287,7 +362,6 @@ def test_approved_response_exposes_foster_contact_and_meeting_point_without_addr
         pet=pet,
         applicant=applicant,
         status=AdoptionRequest.Status.APPROVED,
-        meeting_point="Centro Vecinal Alberdi (Av. Colombres y Pasteur)",
         reviewed_by=staff,
         reviewed_at=timezone.now(),
     )
@@ -299,11 +373,11 @@ def test_approved_response_exposes_foster_contact_and_meeting_point_without_addr
     data = response.json()
 
     assert data["status"] == AdoptionRequest.Status.APPROVED
-    assert data["meeting_point"] == "Centro Vecinal Alberdi (Av. Colombres y Pasteur)"
     assert data["foster_contact"] == {
         "name": "Refugio Patitas",
         "role": {"code": RoleCode.VERIFIED_SHELTER, "name": "Refugio verificado"},
         "contact_phone": "+54 9 358 4222222",
+        "shelter_public_address": "Sobremonte 1250, Río Cuarto",
     }
     assert data["pet"]["main_photo"] is not None
     # Nunca se expone la dirección privada de quien publicó la mascota
@@ -355,3 +429,41 @@ def test_openapi_schema_documents_adoption_request_endpoints() -> None:
     assert "get" in paths["/api/adoption-requests/mine/"]
     assert "/api/adoption-requests/{request_id}/" in paths
     assert "get" in paths["/api/adoption-requests/{request_id}/"]
+
+
+def test_foster_contact_hides_shelter_address_for_members_and_unapproved_requests() -> None:
+    # Un particular que cargó el campo por error no lo expone: es solo para refugios
+    member_publisher = UserFactory(
+        role__code=RoleCode.MEMBER,
+        shelter_public_address="Mi casa 123",
+    )
+    applicant = UserFactory()
+    approved = AdoptionRequestFactory(
+        pet=PetFactory(published_by=member_publisher, status=Pet.Status.PUBLISHED),
+        applicant=applicant,
+        status=AdoptionRequest.Status.APPROVED,
+    )
+    approved_data = (
+        _auth_client(applicant)
+        .get(reverse("adoptions:adoption-request-detail", kwargs={"request_id": approved.pk}))
+        .json()
+    )
+    assert approved_data["foster_contact"]["shelter_public_address"] is None
+    assert "Mi casa 123" not in str(approved_data)
+
+    # Mientras está en revisión, no hay contacto (ni teléfono ni dirección del refugio)
+    shelter_publisher = UserFactory(
+        role__code=RoleCode.VERIFIED_SHELTER,
+        shelter_public_address="Sobremonte 1250, Río Cuarto",
+    )
+    pending = AdoptionRequestFactory(
+        pet=PetFactory(published_by=shelter_publisher, status=Pet.Status.PUBLISHED),
+        applicant=applicant,
+    )
+    pending_data = (
+        _auth_client(applicant)
+        .get(reverse("adoptions:adoption-request-detail", kwargs={"request_id": pending.pk}))
+        .json()
+    )
+    assert pending_data["foster_contact"] is None
+    assert "Sobremonte 1250" not in str(pending_data)

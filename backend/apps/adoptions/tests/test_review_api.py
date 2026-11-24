@@ -10,7 +10,6 @@ from rest_framework.test import APIClient
 
 from apps.adoptions.models import AdoptionRequest
 from apps.adoptions.services import (
-    MAX_MEETING_POINT_LENGTH,
     MAX_REJECTION_REASON_LENGTH,
     ONLY_PENDING_REQUEST_ERROR,
     PET_UNAVAILABLE_ON_APPROVE_ERROR,
@@ -89,7 +88,7 @@ def test_review_queue_orders_oldest_first_and_paginates() -> None:
 def test_approve_endpoint_permissions() -> None:
     adoption_request = AdoptionRequestFactory()
     url = reverse("adoptions:adoption-request-approve", kwargs={"request_id": adoption_request.pk})
-    body = {"meeting_point": "Plaza Roca"}
+    body: dict = {}
 
     assert (
         APIClient().post(url, data=body, format="json").status_code == status.HTTP_401_UNAUTHORIZED
@@ -126,14 +125,12 @@ def test_approve_endpoint_exposes_foster_contact_without_address(role_code: str)
 
     response = _auth_client(reviewer).post(
         reverse("adoptions:adoption-request-approve", kwargs={"request_id": adoption_request.pk}),
-        data={"meeting_point": "Centro Vecinal Alberdi (Av. Colombres y Pasteur)"},
         format="json",
     )
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status"] == AdoptionRequest.Status.APPROVED
-    assert data["meeting_point"] == "Centro Vecinal Alberdi (Av. Colombres y Pasteur)"
     assert data["rejection_reason"] == ""
     assert data["reviewed_by"]["id"] == reviewer.pk
     assert data["reviewed_at"] is not None
@@ -141,38 +138,26 @@ def test_approve_endpoint_exposes_foster_contact_without_address(role_code: str)
         "name": "Refugio Patitas",
         "role": {"code": RoleCode.VERIFIED_SHELTER, "name": "Refugio verificado"},
         "contact_phone": "+54 9 358 4222222",
+        # El refugio no cargó su dirección pública: se comparte solo el teléfono
+        "shelter_public_address": None,
     }
     assert "Dirección Secreta del Tránsito 456" not in str(data["foster_contact"])
     assert "address" not in data["foster_contact"]
 
 
-def test_approve_endpoint_validates_meeting_point_and_state() -> None:
+def test_approve_endpoint_needs_no_body_and_validates_state() -> None:
     staff = UserFactory(role__code=RoleCode.STAFF)
     client = _auth_client(staff)
     adoption_request = AdoptionRequestFactory()
     url = reverse("adoptions:adoption-request-approve", kwargs={"request_id": adoption_request.pk})
 
-    # Sin meeting_point / vacío / demasiado largo
-    assert client.post(url, data={}, format="json").status_code == status.HTTP_400_BAD_REQUEST
-    assert (
-        client.post(url, data={"meeting_point": "   "}, format="json").status_code
-        == status.HTTP_400_BAD_REQUEST
-    )
-    assert (
-        client.post(
-            url,
-            data={"meeting_point": "a" * (MAX_MEETING_POINT_LENGTH + 1)},
-            format="json",
-        ).status_code
-        == status.HTTP_400_BAD_REQUEST
-    )
+    # Aprobar no pide datos: un cuerpo vacío alcanza y un campo de más se ignora
+    response = client.post(url, data={"meeting_point": "Plaza Roca"}, format="json")
+    assert response.status_code == status.HTTP_200_OK
+    assert "meeting_point" not in response.json()
 
-    # Aprobar una vez funciona; intentar aprobar de nuevo falla con 400
-    assert (
-        client.post(url, data={"meeting_point": "Plaza Roca"}, format="json").status_code
-        == status.HTTP_200_OK
-    )
-    second = client.post(url, data={"meeting_point": "Otro punto"}, format="json")
+    # Intentar aprobar de nuevo falla con 400
+    second = client.post(url, format="json")
     assert second.status_code == status.HTTP_400_BAD_REQUEST
     assert second.json()["status"] == [ONLY_PENDING_REQUEST_ERROR]
 
@@ -180,10 +165,7 @@ def test_approve_endpoint_validates_meeting_point_and_state() -> None:
     inactive = AdoptionRequestFactory()
     inactive.deactivate()
     inactive_url = reverse("adoptions:adoption-request-approve", kwargs={"request_id": inactive.pk})
-    assert (
-        client.post(inactive_url, data={"meeting_point": "Plaza Roca"}, format="json").status_code
-        == status.HTTP_404_NOT_FOUND
-    )
+    assert client.post(inactive_url, format="json").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_reject_endpoint_permissions_validation_and_privacy() -> None:
@@ -238,7 +220,6 @@ def test_reject_endpoint_permissions_validation_and_privacy() -> None:
     data = response.json()
     assert data["status"] == AdoptionRequest.Status.REJECTED
     assert data["rejection_reason"] == "Necesitamos confirmar cerramiento del patio."
-    assert data["meeting_point"] == ""
     assert data["foster_contact"] is None
     assert data["reviewed_by"]["id"] == admin.pk
     assert data["reviewed_at"] is not None
@@ -251,7 +232,6 @@ def test_reject_endpoint_permissions_validation_and_privacy() -> None:
 
     approve_after_reject = client.post(
         reverse("adoptions:adoption-request-approve", kwargs={"request_id": adoption_request.pk}),
-        data={"meeting_point": "Plaza Roca"},
         format="json",
     )
     assert approve_after_reject.status_code == status.HTTP_400_BAD_REQUEST
@@ -267,7 +247,6 @@ def test_approve_fails_and_reject_succeeds_when_pet_is_adopted_or_inactive() -> 
 
     approve_adopted = client.post(
         reverse("adoptions:adoption-request-approve", kwargs={"request_id": adopted_req.pk}),
-        data={"meeting_point": "Plaza Roca"},
         format="json",
     )
     assert approve_adopted.status_code == status.HTTP_400_BAD_REQUEST
@@ -287,7 +266,6 @@ def test_approve_fails_and_reject_succeeds_when_pet_is_adopted_or_inactive() -> 
 
     approve_inactive = client.post(
         reverse("adoptions:adoption-request-approve", kwargs={"request_id": inactive_pet_req.pk}),
-        data={"meeting_point": "Plaza Roca"},
         format="json",
     )
     assert approve_inactive.status_code == status.HTTP_400_BAD_REQUEST
