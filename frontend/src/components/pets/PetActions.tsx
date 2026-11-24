@@ -7,17 +7,19 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { AuthRequiredModal } from "@/components/auth/AuthRequiredModal";
 import type { PetDetail } from "@/lib/pets/types";
 
+export const OWN_PET_ADOPTION_MESSAGE =
+  "No podés postularte para adoptar una mascota que publicaste vos mismo.";
+
 export interface PetActionsProps {
   pet: PetDetail;
-  /** Gancho para conectar el modal del cuestionario de adopción en FR-09. */
+  /** Abre el cuestionario de adopción (con sesión y si la mascota no es propia). */
   onAdoptClick?: (pet: PetDetail) => void;
 }
 
 export function PetActions({ pet, onAdoptClick }: PetActionsProps) {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [showPendingQuestionnaireNotice, setShowPendingQuestionnaireNotice] =
-    useState(false);
+  const [showOwnPetNotice, setShowOwnPetNotice] = useState(false);
 
   const isAdopted = pet.status === "adopted";
 
@@ -26,11 +28,12 @@ export function PetActions({ pet, onAdoptClick }: PetActionsProps) {
       setIsAuthModalOpen(true);
       return;
     }
-    if (onAdoptClick) {
-      onAdoptClick(pet);
+    // Quien publicó no se postula: se avisa sin abrir el cuestionario (el back lo controla igual)
+    if (user?.id === pet.published_by.id) {
+      setShowOwnPetNotice(true);
       return;
     }
-    setShowPendingQuestionnaireNotice(true);
+    onAdoptClick?.(pet);
   }
 
   function handleShareClick() {
@@ -87,14 +90,13 @@ export function PetActions({ pet, onAdoptClick }: PetActionsProps) {
               ¡Adoptame!
             </button>
 
-            {showPendingQuestionnaireNotice ? (
+            {showOwnPetNotice ? (
               <p
                 role="status"
                 aria-live="polite"
                 className="rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-center text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
-                El cuestionario de adopción para {pet.name} se habilitará en la
-                próxima entrega.
+                {OWN_PET_ADOPTION_MESSAGE}
               </p>
             ) : null}
           </>
