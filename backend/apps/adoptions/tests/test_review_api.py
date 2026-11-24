@@ -138,6 +138,8 @@ def test_approve_endpoint_exposes_foster_contact_without_address(role_code: str)
         "name": "Refugio Patitas",
         "role": {"code": RoleCode.VERIFIED_SHELTER, "name": "Refugio verificado"},
         "contact_phone": "+54 9 358 4222222",
+        # El refugio no cargó su dirección pública: se comparte solo el teléfono
+        "shelter_public_address": None,
     }
     assert "Dirección Secreta del Tránsito 456" not in str(data["foster_contact"])
     assert "address" not in data["foster_contact"]

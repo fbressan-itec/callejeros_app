@@ -15,6 +15,7 @@ from apps.adoptions.services import (
     REQUIRED_CHECKBOX_FIELDS,
     REQUIRED_CHOICE_FIELDS,
     REQUIRED_TEXT_FIELDS,
+    get_public_shelter_address,
 )
 from apps.pets.models import Pet
 from apps.users.models import User
@@ -59,11 +60,16 @@ class AdoptionPetSummarySerializer(serializers.ModelSerializer):
 
 
 class FosterContactSerializer(serializers.Serializer):
-    """Contacto del hogar de tránsito visible solo en solicitudes aprobadas (sin dirección)."""
+    """Contacto de quien publicó, visible solo en solicitudes aprobadas.
+
+    Nunca incluye la dirección privada de la cuenta. `shelter_public_address` tiene valor
+    solo si quien publicó es Refugio verificado y cargó su dirección pública.
+    """
 
     name = serializers.CharField(read_only=True)
     role = RoleSummarySerializer(read_only=True)
     contact_phone = serializers.CharField(read_only=True)
+    shelter_public_address = serializers.CharField(read_only=True, allow_null=True)
 
 
 _TEXT_FIELD_RULES = {
@@ -184,8 +190,9 @@ class AdoptionRequestSerializer(serializers.ModelSerializer):
     """Respuesta completa de una solicitud de adopción para solicitante o Staff/Admin.
 
     Cuando la solicitud está `approved`, incluye `foster_contact` (nombre, rol y
-    `contact_phone` de la publicación) para que coordinen el encuentro entre ellos, sin
-    exponer nunca la dirección de la cuenta. En `pending` o `rejected`, `foster_contact`
+    `contact_phone` de la publicación, más la dirección pública si es un refugio
+    verificado) para que coordinen el encuentro entre ellos, sin exponer nunca la dirección
+    de la cuenta. En `pending` o `rejected`, `foster_contact`
     es `null`.
     """
 
@@ -244,6 +251,7 @@ class AdoptionRequestSerializer(serializers.ModelSerializer):
             "name": full_name,
             "role": RoleSummarySerializer(publisher.role).data,
             "contact_phone": obj.pet.contact_phone,
+            "shelter_public_address": get_public_shelter_address(publisher),
         }
 
 

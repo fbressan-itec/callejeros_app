@@ -22,6 +22,7 @@ SEED_USERS = [
         "phone": "+54 9 358 4222222",
         "city": "Río Cuarto",
         "neighborhood": "Centro",
+        "shelter_public_address": "Sobremonte 1250, Río Cuarto",
         "role_code": RoleCode.VERIFIED_SHELTER,
     },
     {
@@ -67,6 +68,7 @@ def run() -> str:
                 "is_phone_verified": True,
                 "city": item["city"],
                 "neighborhood": item["neighborhood"],
+                "shelter_public_address": item.get("shelter_public_address", ""),
                 "role": Role.objects.get(code=item["role_code"]),
                 "is_active": True,
             },

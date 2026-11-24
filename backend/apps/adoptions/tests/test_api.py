@@ -344,6 +344,7 @@ def test_approved_response_exposes_foster_contact_without_address(
         last_name="Patitas",
         role__code=RoleCode.VERIFIED_SHELTER,
         address="Calle Privada Secreta 999",
+        shelter_public_address="Sobremonte 1250, Río Cuarto",
         city="Río Cuarto",
         neighborhood="Centro Privado",
     )
@@ -376,6 +377,7 @@ def test_approved_response_exposes_foster_contact_without_address(
         "name": "Refugio Patitas",
         "role": {"code": RoleCode.VERIFIED_SHELTER, "name": "Refugio verificado"},
         "contact_phone": "+54 9 358 4222222",
+        "shelter_public_address": "Sobremonte 1250, Río Cuarto",
     }
     assert data["pet"]["main_photo"] is not None
     # Nunca se expone la dirección privada de quien publicó la mascota
@@ -427,3 +429,41 @@ def test_openapi_schema_documents_adoption_request_endpoints() -> None:
     assert "get" in paths["/api/adoption-requests/mine/"]
     assert "/api/adoption-requests/{request_id}/" in paths
     assert "get" in paths["/api/adoption-requests/{request_id}/"]
+
+
+def test_foster_contact_hides_shelter_address_for_members_and_unapproved_requests() -> None:
+    # Un particular que cargó el campo por error no lo expone: es solo para refugios
+    member_publisher = UserFactory(
+        role__code=RoleCode.MEMBER,
+        shelter_public_address="Mi casa 123",
+    )
+    applicant = UserFactory()
+    approved = AdoptionRequestFactory(
+        pet=PetFactory(published_by=member_publisher, status=Pet.Status.PUBLISHED),
+        applicant=applicant,
+        status=AdoptionRequest.Status.APPROVED,
+    )
+    approved_data = (
+        _auth_client(applicant)
+        .get(reverse("adoptions:adoption-request-detail", kwargs={"request_id": approved.pk}))
+        .json()
+    )
+    assert approved_data["foster_contact"]["shelter_public_address"] is None
+    assert "Mi casa 123" not in str(approved_data)
+
+    # Mientras está en revisión, no hay contacto (ni teléfono ni dirección del refugio)
+    shelter_publisher = UserFactory(
+        role__code=RoleCode.VERIFIED_SHELTER,
+        shelter_public_address="Sobremonte 1250, Río Cuarto",
+    )
+    pending = AdoptionRequestFactory(
+        pet=PetFactory(published_by=shelter_publisher, status=Pet.Status.PUBLISHED),
+        applicant=applicant,
+    )
+    pending_data = (
+        _auth_client(applicant)
+        .get(reverse("adoptions:adoption-request-detail", kwargs={"request_id": pending.pk}))
+        .json()
+    )
+    assert pending_data["foster_contact"] is None
+    assert "Sobremonte 1250" not in str(pending_data)

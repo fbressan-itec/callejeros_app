@@ -95,8 +95,9 @@ class MyAdoptionRequestListView(APIView):
             "Devuelve paginadas de a 12 (`count`, `next`, `previous`, `results`) todas las "
             "solicitudes de adopción activas enviadas por el usuario autenticado, ordenadas de "
             "la más reciente a la más antigua. Permite filtrar opcionalmente por `status`. "
-            "En las aprobadas incluye `foster_contact` (nombre, rol y teléfono del hogar de "
-            "tránsito) para coordinar el encuentro, nunca la dirección de la cuenta. "
+            "En las aprobadas incluye `foster_contact` (nombre, rol, teléfono de contacto y, "
+            "si es un refugio verificado, `shelter_public_address`) para coordinar el "
+            "encuentro, nunca la dirección de la cuenta. "
             "Permiso: usuario autenticado (`IsAuthenticated`)."
         ),
         parameters=[
@@ -142,8 +143,10 @@ class AdoptionRequestDetailView(APIView):
         description=(
             "Devuelve los datos del cuestionario y el estado actual de la solicitud. Cuando "
             "está `approved`, incluye `foster_contact` (nombre, rol y teléfono de contacto de "
-            "la publicación) para que coordinen el encuentro entre ellos, sin exponer nunca "
-            "la dirección de la cuenta. Cuando está `rejected`, incluye `rejection_reason`. "
+            "la publicación, y `shelter_public_address` si quien publicó es un refugio "
+            "verificado que la cargó; si no, `null`) para que coordinen el encuentro entre "
+            "ellos, sin exponer nunca la dirección de la cuenta. Cuando está `rejected`, "
+            "incluye `rejection_reason`. "
             "Solo es visible para el solicitante, `staff` o `admin` (`404` para terceros, sin "
             "revelar si existe)."
         ),
@@ -228,8 +231,9 @@ class AdoptionRequestApproveView(APIView):
         description=(
             "Cambia el estado de `pending` a `approved` siempre que la mascota siga activa y "
             "`published`, registra `reviewed_by` y `reviewed_at` y devuelve la solicitud "
-            "aprobada con `foster_contact` (nombre, rol y teléfono de contacto de la "
-            "publicación) para que coordinen el encuentro entre ellos. No lleva cuerpo: no hay "
+            "aprobada con `foster_contact` (nombre, rol, teléfono de contacto de la "
+            "publicación y `shelter_public_address` si es un refugio verificado) para que "
+            "coordinen el encuentro entre ellos. No lleva cuerpo: no hay "
             "punto de encuentro que fije Staff. Nunca expone la dirección de la cuenta. "
             "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
         ),

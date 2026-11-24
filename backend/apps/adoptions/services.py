@@ -20,7 +20,7 @@ from apps.adoptions.models import (
 )
 from apps.adoptions.permissions import STAFF_OR_ADMIN_ROLES, can_view_adoption_request
 from apps.pets.models import Pet, PetPhoto
-from apps.users.models import User
+from apps.users.models import RoleCode, User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE, user_has_role
 
 MAX_APPLICANT_AGE = 120
@@ -130,6 +130,18 @@ def _base_active_adoption_requests_queryset() -> QuerySet[AdoptionRequest]:
         )
         .prefetch_related(active_photos_prefetch)
     )
+
+
+def get_public_shelter_address(publisher: User) -> str | None:
+    """Dirección que ve el adoptante aprobado: solo la pública de un refugio verificado.
+
+    Nunca devuelve la dirección privada de la cuenta (`address`). Si quien publicó no es
+    Refugio verificado o no cargó su dirección pública, devuelve `None`.
+    """
+    role = getattr(publisher, "role", None)
+    if role is None or role.code != RoleCode.VERIFIED_SHELTER:
+        return None
+    return publisher.shelter_public_address.strip() or None
 
 
 def get_my_adoption_requests_queryset(

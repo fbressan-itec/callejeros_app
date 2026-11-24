@@ -19,6 +19,7 @@ from apps.adoptions.services import (
     TRUTHFUL_REQUIRED_ERROR,
     create_adoption_request,
     get_my_adoption_requests_queryset,
+    get_public_shelter_address,
     get_visible_adoption_request_or_404,
 )
 from apps.adoptions.tests.factories import AdoptionRequestFactory
@@ -372,3 +373,25 @@ def test_create_adoption_request_limits_open_answers_to_500_characters() -> None
     with pytest.raises(ValidationError) as exc_info:
         _create(contingency_plan="a" * 501)
     assert "contingency_plan" in exc_info.value.detail
+
+
+@pytest.mark.parametrize(
+    ("role_code", "public_address", "expected"),
+    [
+        (RoleCode.VERIFIED_SHELTER, "  Sobremonte 1250  ", "Sobremonte 1250"),
+        (RoleCode.VERIFIED_SHELTER, "   ", None),
+        (RoleCode.MEMBER, "Mi casa 123", None),
+        (RoleCode.STAFF, "Oficina 1", None),
+        (RoleCode.ADMIN, "Oficina 2", None),
+    ],
+)
+def test_get_public_shelter_address_only_for_verified_shelters(
+    role_code: str, public_address: str, expected: str | None
+) -> None:
+    publisher = UserFactory(
+        role__code=role_code,
+        address="Dirección privada 999",
+        shelter_public_address=public_address,
+    )
+
+    assert get_public_shelter_address(publisher) == expected
