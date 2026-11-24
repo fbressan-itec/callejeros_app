@@ -273,7 +273,7 @@ describe("PetDetailView", () => {
     );
   });
 
-  it("con sesión iniciada muestra el aviso temporal al tocar ¡Adoptame!", async () => {
+  it("con sesión iniciada abre el cuestionario de adopción al tocar ¡Adoptame!", async () => {
     const authValue: AuthContextValue = {
       user: {
         id: 1,
@@ -308,10 +308,16 @@ describe("PetDetailView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "¡Adoptame!" }));
     expect(
-      screen.getByText(
-        "El cuestionario de adopción para Loki se habilitará en la próxima entrega.",
-      ),
+      screen.getByRole("dialog", { name: "Adoptar a Loki" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Paso 1 de 4")).toBeInTheDocument();
+    // Nombre y correo de la cuenta, precargados
+    expect(screen.getByLabelText("Nombre Completo *")).toHaveValue(
+      "Tomás Gómez",
+    );
+    expect(screen.getByLabelText("Correo Electrónico *")).toHaveValue(
+      "miembro@callejeros.ar",
+    );
   });
 
   it('muestra "¡Ya encontró hogar! 🧡" y oculta ¡Adoptame! cuando la mascota está adoptada', async () => {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BackButton } from "@/components/layout/BackButton";
-import { PetActions } from "@/components/pets/PetActions";
+import { PetAdoptionFlow } from "@/components/adoptions/PetAdoptionFlow";
 import { PetBadges } from "@/components/pets/PetBadges";
 import { PetInfoAccordions } from "@/components/pets/PetInfoAccordions";
 import { PetPhotoCarousel } from "@/components/pets/PetPhotoCarousel";
@@ -187,7 +187,7 @@ export function PetDetailView({ rawId }: PetDetailViewProps) {
               pet={state.pet}
               descriptionRef={descriptionDetailsRef}
             />
-            <PetActions pet={state.pet} />
+            <PetAdoptionFlow pet={state.pet} />
           </>
         ) : null}
       </div>
