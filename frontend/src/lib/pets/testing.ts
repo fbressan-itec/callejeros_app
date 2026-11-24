@@ -1,4 +1,4 @@
-import type { PetListItem } from "@/lib/pets/types";
+import type { PetListItem, PetReviewItem } from "@/lib/pets/types";
 
 /**
  * Mascota de ejemplo para tests (forma del listado `GET /api/pets/`).
@@ -42,6 +42,22 @@ export function buildPet(overrides: Partial<PetListItem> = {}): PetListItem {
     ],
     created_at: "2026-11-20T12:00:00Z",
     updated_at: "2026-11-20T12:00:00Z",
+    ...overrides,
+  };
+}
+
+/**
+ * Mascota en revisión de ejemplo para tests del panel de Staff (ficha de gestión).
+ * Se pisa lo que haga falta: `buildPetReviewItem({ is_urgent_requested: true })`.
+ */
+export function buildPetReviewItem(
+  overrides: Partial<PetReviewItem> = {},
+): PetReviewItem {
+  return {
+    ...buildPet({ status: "in_review" }),
+    contact_phone: "358 4222222",
+    is_urgent_requested: false,
+    is_urgent_validated: false,
     ...overrides,
   };
 }

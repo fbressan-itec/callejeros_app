@@ -54,3 +54,30 @@ export function getPetCoverPhotoUrl(
   if (!cover) return null;
   return resolvePetImageUrl(cover.image) || null;
 }
+
+export interface PetHealthRow {
+  label: string;
+  value: string;
+}
+
+/**
+ * Filas de "Estado de salud" (incluye el cuidado especial), sin las vacías. Las usan la
+ * ficha pública y la ficha de gestión del panel de Staff.
+ */
+export function getPetHealthRows(
+  pet: Pick<PetListItem, "health" | "special_care">,
+): PetHealthRow[] {
+  return [
+    { label: "Estado clínico", value: pet.health?.general_status ?? "" },
+    { label: "Vacunas", value: pet.health?.vaccines ?? "" },
+    { label: "Parásitos", value: pet.health?.deworming ?? "" },
+    {
+      label: "Pulgas / garrapatas",
+      value: pet.health?.flea_tick_treatment ?? "",
+    },
+    { label: "Otros", value: pet.health?.other ?? "" },
+    { label: "Cuidado especial", value: pet.special_care ?? "" },
+  ]
+    .map((row) => ({ ...row, value: row.value.trim() }))
+    .filter((row) => row.value !== "");
+}

@@ -2,6 +2,8 @@
 
 import type { ReactNode, RefObject } from "react";
 
+import { getPetHealthRows } from "@/lib/pets/format";
+
 import {
   PET_AGE_GROUP_LABELS,
   type PetCompatibility,
@@ -11,13 +13,14 @@ import {
 const EMPTY_INFO_MESSAGE =
   "Sin información cargada. Consultá con el rescatista.";
 
-function formatAgeDisplay(pet: PetDetail): string {
+/** "2 Años · Adulto" (o solo la etapa si el back no calcula la edad). */
+export function formatAgeDisplay(pet: PetDetail): string {
   const groupLabel = PET_AGE_GROUP_LABELS[pet.age_group];
   const ageLabel = pet.age_label?.trim();
   return ageLabel ? `${ageLabel} · ${groupLabel}` : groupLabel;
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+export function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 border-b border-slate-100 py-1 last:border-0 dark:border-slate-700/60">
       <span className="text-slate-500 dark:text-slate-400">{label}</span>
@@ -28,7 +31,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CoexistRow({
+export function CoexistRow({
   label,
   value,
 }: {
@@ -121,20 +124,7 @@ export function PetInfoAccordions({
       ? "No castrada"
       : "No castrado";
 
-  const healthRows: Array<{ label: string; value: string }> = [
-    {
-      label: "Estado clínico",
-      value: pet.health?.general_status?.trim() ?? "",
-    },
-    { label: "Vacunas", value: pet.health?.vaccines?.trim() ?? "" },
-    { label: "Parásitos", value: pet.health?.deworming?.trim() ?? "" },
-    {
-      label: "Pulgas / garrapatas",
-      value: pet.health?.flea_tick_treatment?.trim() ?? "",
-    },
-    { label: "Otros", value: pet.health?.other?.trim() ?? "" },
-    { label: "Cuidado especial", value: pet.special_care?.trim() ?? "" },
-  ].filter((row) => Boolean(row.value));
+  const healthRows = getPetHealthRows(pet);
 
   const notesText = pet.notes?.trim() ?? "";
 
