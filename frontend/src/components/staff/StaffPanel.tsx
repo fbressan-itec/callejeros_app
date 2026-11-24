@@ -3,6 +3,7 @@
 import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 
 import { AdoptionReviewQueue } from "@/components/staff/AdoptionReviewQueue";
+import { PetReviewQueue } from "@/components/staff/PetReviewQueue";
 
 interface StaffPanelTab {
   id: string;
@@ -10,12 +11,20 @@ interface StaffPanelTab {
   content: () => ReactNode;
 }
 
-/** Pestañas del panel. Las publicaciones en revisión se suman en FR-10b (#150). */
+/**
+ * Pestañas del panel. Alertas, comentarios y productos se suman cuando existan sus endpoints;
+ * las del Admin (roles y usuarios), en FR-18 (#36).
+ */
 const STAFF_PANEL_TABS: readonly StaffPanelTab[] = [
   {
     id: "solicitudes",
     label: "📋 Solicitudes de adopción",
     content: () => <AdoptionReviewQueue />,
+  },
+  {
+    id: "publicaciones",
+    label: "🐾 Publicaciones en revisión",
+    content: () => <PetReviewQueue />,
   },
 ];
 
