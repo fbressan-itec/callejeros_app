@@ -46,6 +46,5 @@ class AdoptionRequestFactory(factory.django.DjangoModelFactory):
     declares_truthful = True
     status = AdoptionRequest.Status.PENDING
     rejection_reason = ""
-    meeting_point = ""
     reviewed_by = None
     reviewed_at = None

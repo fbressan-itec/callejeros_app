@@ -19,7 +19,6 @@ def test_adoption_request_defaults_to_pending_and_active() -> None:
     assert adoption_request.status == AdoptionRequest.Status.PENDING
     assert adoption_request.is_active is True
     assert adoption_request.rejection_reason == ""
-    assert adoption_request.meeting_point == ""
     assert adoption_request.reviewed_by is None
     assert adoption_request.reviewed_at is None
     assert (

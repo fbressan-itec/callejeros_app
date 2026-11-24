@@ -81,7 +81,6 @@ def test_create_adoption_request_succeeds_for_any_authenticated_role(role_code: 
             pet.pk,
             # El cliente intenta inyectar campos internos que deben ignorarse
             status=AdoptionRequest.Status.APPROVED,
-            meeting_point="Punto inventado",
             rejection_reason="Motivo inventado",
         ),
         format="json",
@@ -95,7 +94,6 @@ def test_create_adoption_request_succeeds_for_any_authenticated_role(role_code: 
     assert "contact_phone" not in data["pet"]
     assert data["housing_type"] == "PH interno con patio cerrado y medianeras altas"
     assert data["foster_contact"] is None
-    assert data["meeting_point"] == ""
     assert data["rejection_reason"] == ""
     assert data["reviewed_by"] is None
     assert data["reviewed_at"] is None
@@ -291,7 +289,6 @@ def test_my_adoption_requests_list_is_paginated_scoped_and_filterable() -> None:
     approved = AdoptionRequestFactory(
         applicant=applicant,
         status=AdoptionRequest.Status.APPROVED,
-        meeting_point="Plaza Roca",
     )
     inactive = AdoptionRequestFactory(applicant=applicant, status=AdoptionRequest.Status.REJECTED)
     inactive.deactivate()
@@ -337,7 +334,7 @@ def test_adoption_request_detail_permissions_and_soft_delete() -> None:
     assert _auth_client(staff).get(url).status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_approved_response_exposes_foster_contact_and_meeting_point_without_address(
+def test_approved_response_exposes_foster_contact_without_address(
     settings,
     tmp_path,
 ) -> None:
@@ -364,7 +361,6 @@ def test_approved_response_exposes_foster_contact_and_meeting_point_without_addr
         pet=pet,
         applicant=applicant,
         status=AdoptionRequest.Status.APPROVED,
-        meeting_point="Centro Vecinal Alberdi (Av. Colombres y Pasteur)",
         reviewed_by=staff,
         reviewed_at=timezone.now(),
     )
@@ -376,7 +372,6 @@ def test_approved_response_exposes_foster_contact_and_meeting_point_without_addr
     data = response.json()
 
     assert data["status"] == AdoptionRequest.Status.APPROVED
-    assert data["meeting_point"] == "Centro Vecinal Alberdi (Av. Colombres y Pasteur)"
     assert data["foster_contact"] == {
         "name": "Refugio Patitas",
         "role": {"code": RoleCode.VERIFIED_SHELTER, "name": "Refugio verificado"},

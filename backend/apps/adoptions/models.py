@@ -131,11 +131,6 @@ class AdoptionRequest(BaseModel):
         max_length=400,
         blank=True,
     )
-    meeting_point = models.CharField(
-        "punto de encuentro",
-        max_length=255,
-        blank=True,
-    )
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

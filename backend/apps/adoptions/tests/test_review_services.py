@@ -9,10 +9,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from apps.adoptions.models import AdoptionRequest
 from apps.adoptions.services import (
     INACTIVE_REQUEST_ERROR,
-    MAX_MEETING_POINT_LENGTH,
     MAX_REJECTION_REASON_LENGTH,
-    MEETING_POINT_REQUIRED_ERROR,
-    MEETING_POINT_TOO_LONG_ERROR,
     ONLY_PENDING_REQUEST_ERROR,
     PET_UNAVAILABLE_ON_APPROVE_ERROR,
     REJECTION_REASON_REQUIRED_ERROR,
@@ -39,11 +36,9 @@ def test_approve_adoption_request_updates_status_and_metadata(role_code: str) ->
     reviewed = approve_adoption_request(
         adoption_request=adoption_request,
         actor=reviewer,
-        meeting_point="  Plaza Roca (frente a la Municipalidad)  ",
     )
 
     assert reviewed.status == AdoptionRequest.Status.APPROVED
-    assert reviewed.meeting_point == "Plaza Roca (frente a la Municipalidad)"
     assert reviewed.rejection_reason == ""
     assert reviewed.reviewed_by_id == reviewer.pk
     assert reviewed.reviewed_at is not None
@@ -62,7 +57,6 @@ def test_reject_adoption_request_updates_status_and_metadata(role_code: str) -> 
 
     assert reviewed.status == AdoptionRequest.Status.REJECTED
     assert reviewed.rejection_reason == "El patio no está cerrado y el animal requiere contención."
-    assert reviewed.meeting_point == ""
     assert reviewed.reviewed_by_id == reviewer.pk
     assert reviewed.reviewed_at is not None
 
@@ -76,7 +70,6 @@ def test_non_staff_cannot_approve_or_reject_in_service(role_code: str) -> None:
         approve_adoption_request(
             adoption_request=adoption_request,
             actor=actor,
-            meeting_point="Plaza Roca",
         )
 
     with pytest.raises(PermissionDenied):
@@ -96,29 +89,7 @@ def test_inactive_staff_cannot_review_in_service() -> None:
         approve_adoption_request(
             adoption_request=adoption_request,
             actor=staff,
-            meeting_point="Plaza Roca",
         )
-
-
-def test_approve_validates_meeting_point_required_and_max_length() -> None:
-    staff = UserFactory(role__code=RoleCode.STAFF)
-    adoption_request = AdoptionRequestFactory()
-
-    with pytest.raises(ValidationError) as blank_exc:
-        approve_adoption_request(
-            adoption_request=adoption_request,
-            actor=staff,
-            meeting_point="   ",
-        )
-    assert blank_exc.value.detail["meeting_point"] == [MEETING_POINT_REQUIRED_ERROR]
-
-    with pytest.raises(ValidationError) as long_exc:
-        approve_adoption_request(
-            adoption_request=adoption_request,
-            actor=staff,
-            meeting_point="x" * (MAX_MEETING_POINT_LENGTH + 1),
-        )
-    assert long_exc.value.detail["meeting_point"] == [MEETING_POINT_TOO_LONG_ERROR]
 
 
 def test_reject_validates_rejection_reason_required_and_max_length() -> None:
@@ -154,7 +125,6 @@ def test_cannot_review_already_resolved_request(current_status: str) -> None:
         approve_adoption_request(
             adoption_request=adoption_request,
             actor=staff,
-            meeting_point="Plaza Roca",
         )
     assert approve_exc.value.detail["status"] == [ONLY_PENDING_REQUEST_ERROR]
 
@@ -176,7 +146,6 @@ def test_cannot_review_inactive_request() -> None:
         approve_adoption_request(
             adoption_request=adoption_request,
             actor=staff,
-            meeting_point="Plaza Roca",
         )
     assert exc_info.value.detail["detail"] == [INACTIVE_REQUEST_ERROR]
 
@@ -194,7 +163,6 @@ def test_cannot_approve_when_pet_is_no_longer_published_but_can_reject(pet_statu
         approve_adoption_request(
             adoption_request=adoption_request,
             actor=staff,
-            meeting_point="Plaza Roca",
         )
     assert exc_info.value.detail["pet"] == [PET_UNAVAILABLE_ON_APPROVE_ERROR]
 
@@ -216,7 +184,6 @@ def test_cannot_approve_when_pet_is_inactive_but_can_reject() -> None:
         approve_adoption_request(
             adoption_request=adoption_request,
             actor=staff,
-            meeting_point="Plaza Roca",
         )
     assert exc_info.value.detail["pet"] == [PET_UNAVAILABLE_ON_APPROVE_ERROR]
 
@@ -243,7 +210,7 @@ def test_workflow_invokes_notification_hooks() -> None:
     req_a = AdoptionRequestFactory()
     req_b = AdoptionRequestFactory()
 
-    workflow.approve(adoption_request=req_a, actor=staff, meeting_point="Plaza Olmos")
+    workflow.approve(adoption_request=req_a, actor=staff)
     workflow.reject(adoption_request=req_b, actor=staff, rejection_reason="Motivo")
 
     assert events == [

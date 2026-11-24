@@ -8,10 +8,7 @@ from apps.adoptions.services import (
     INVALID_CHOICE_ERROR,
     MAX_AGE_ERROR,
     MAX_APPLICANT_AGE,
-    MAX_MEETING_POINT_LENGTH,
     MAX_REJECTION_REASON_LENGTH,
-    MEETING_POINT_REQUIRED_ERROR,
-    MEETING_POINT_TOO_LONG_ERROR,
     MIN_AGE_ERROR,
     REJECTION_REASON_REQUIRED_ERROR,
     REJECTION_REASON_TOO_LONG_ERROR,
@@ -187,8 +184,9 @@ class AdoptionRequestSerializer(serializers.ModelSerializer):
     """Respuesta completa de una solicitud de adopción para solicitante o Staff/Admin.
 
     Cuando la solicitud está `approved`, incluye `foster_contact` (nombre, rol y
-    `contact_phone` de la publicación) y `meeting_point`, sin exponer nunca la dirección
-    del hogar de tránsito. En `pending` o `rejected`, `foster_contact` es `null`.
+    `contact_phone` de la publicación) para que coordinen el encuentro entre ellos, sin
+    exponer nunca la dirección de la cuenta. En `pending` o `rejected`, `foster_contact`
+    es `null`.
     """
 
     pet = AdoptionPetSummarySerializer(read_only=True)
@@ -228,7 +226,6 @@ class AdoptionRequestSerializer(serializers.ModelSerializer):
             "declares_truthful",
             "status",
             "rejection_reason",
-            "meeting_point",
             "foster_contact",
             "reviewed_by",
             "reviewed_at",
@@ -257,19 +254,6 @@ class PaginatedAdoptionRequestSerializer(serializers.Serializer):
     next = serializers.URLField(allow_null=True, read_only=True)
     previous = serializers.URLField(allow_null=True, read_only=True)
     results = AdoptionRequestSerializer(many=True, read_only=True)
-
-
-class AdoptionRequestApproveSerializer(serializers.Serializer):
-    """Entrada para aprobar una solicitud pendiente indicando el punto de encuentro público."""
-
-    meeting_point = serializers.CharField(
-        max_length=MAX_MEETING_POINT_LENGTH,
-        error_messages={
-            "required": MEETING_POINT_REQUIRED_ERROR,
-            "blank": MEETING_POINT_REQUIRED_ERROR,
-            "max_length": MEETING_POINT_TOO_LONG_ERROR,
-        },
-    )
 
 
 class AdoptionRequestRejectSerializer(serializers.Serializer):

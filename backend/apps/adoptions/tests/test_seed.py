@@ -29,7 +29,6 @@ def test_seed_command_populates_adoption_requests_idempotently(
     assert AdoptionRequest.objects.filter(status=AdoptionRequest.Status.REJECTED).count() == 1
 
     approved = AdoptionRequest.objects.get(status=AdoptionRequest.Status.APPROVED)
-    assert approved.meeting_point != ""
     assert approved.reviewed_by is not None
     assert approved.reviewed_at is not None
 

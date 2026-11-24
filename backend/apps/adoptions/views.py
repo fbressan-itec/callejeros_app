@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 
 from apps.adoptions.models import AdoptionRequest
 from apps.adoptions.serializers import (
-    AdoptionRequestApproveSerializer,
     AdoptionRequestCreateSerializer,
     AdoptionRequestRejectSerializer,
     AdoptionRequestSerializer,
@@ -97,7 +96,7 @@ class MyAdoptionRequestListView(APIView):
             "solicitudes de adopción activas enviadas por el usuario autenticado, ordenadas de "
             "la más reciente a la más antigua. Permite filtrar opcionalmente por `status`. "
             "En las aprobadas incluye `foster_contact` (nombre, rol y teléfono del hogar de "
-            "tránsito) y `meeting_point`, nunca la dirección. "
+            "tránsito) para coordinar el encuentro, nunca la dirección de la cuenta. "
             "Permiso: usuario autenticado (`IsAuthenticated`)."
         ),
         parameters=[
@@ -143,8 +142,8 @@ class AdoptionRequestDetailView(APIView):
         description=(
             "Devuelve los datos del cuestionario y el estado actual de la solicitud. Cuando "
             "está `approved`, incluye `foster_contact` (nombre, rol y teléfono de contacto de "
-            "la publicación) y `meeting_point`, sin exponer nunca la dirección del hogar de "
-            "tránsito. Cuando está `rejected`, incluye `rejection_reason`. "
+            "la publicación) para que coordinen el encuentro entre ellos, sin exponer nunca "
+            "la dirección de la cuenta. Cuando está `rejected`, incluye `rejection_reason`. "
             "Solo es visible para el solicitante, `staff` o `admin` (`404` para terceros, sin "
             "revelar si existe)."
         ),
@@ -171,8 +170,8 @@ _ADOPTION_REVIEW_ERROR_RESPONSES = {
     400: OpenApiResponse(
         description=(
             "La solicitud no está en estado `pending`, la mascota ya no está disponible "
-            "(al aprobar) o faltan/superan el límite los datos de respuesta (`meeting_point` "
-            "o `rejection_reason`)."
+            "(al aprobar) o falta o supera el límite el motivo de desaprobación "
+            "(`rejection_reason`)."
         ),
     ),
     401: OpenApiResponse(description="Sin token Bearer válido o cuenta inactiva."),
@@ -228,24 +227,20 @@ class AdoptionRequestApproveView(APIView):
         summary="Aprobar una solicitud de adopción",
         description=(
             "Cambia el estado de `pending` a `approved` siempre que la mascota siga activa y "
-            "`published`, guarda el `meeting_point` (punto de encuentro público obligatorio), "
-            "`reviewed_by` y `reviewed_at`, y devuelve la solicitud aprobada con "
-            "`foster_contact` (nombre, rol y teléfono de contacto de la publicación) y "
-            "`meeting_point`, sin exponer nunca la dirección del hogar de tránsito. "
+            "`published`, registra `reviewed_by` y `reviewed_at` y devuelve la solicitud "
+            "aprobada con `foster_contact` (nombre, rol y teléfono de contacto de la "
+            "publicación) para que coordinen el encuentro entre ellos. No lleva cuerpo: no hay "
+            "punto de encuentro que fije Staff. Nunca expone la dirección de la cuenta. "
             "Permiso: `staff` o `admin` (`IsStaffOrAdmin`)."
         ),
-        request=AdoptionRequestApproveSerializer,
+        request=None,
         responses={200: AdoptionRequestSerializer, **_ADOPTION_REVIEW_ERROR_RESPONSES},
     )
     def post(self, request: Request, request_id: int) -> Response:
         adoption_request = get_active_adoption_request_or_404(request_id)
-        serializer = AdoptionRequestApproveSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
         reviewed = approve_adoption_request(
             adoption_request=adoption_request,
             actor=request.user,
-            meeting_point=serializer.validated_data["meeting_point"],
         )
         return Response(
             AdoptionRequestSerializer(reviewed, context={"request": request}).data,

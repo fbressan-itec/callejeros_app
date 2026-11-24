@@ -33,7 +33,6 @@ SEED_ADOPTION_REQUESTS = [
         "accepts_commitment": True,
         "status": AdoptionRequest.Status.PENDING,
         "rejection_reason": "",
-        "meeting_point": "",
         "reviewed": False,
     },
     {
@@ -61,7 +60,6 @@ SEED_ADOPTION_REQUESTS = [
         "accepts_commitment": True,
         "status": AdoptionRequest.Status.APPROVED,
         "rejection_reason": "",
-        "meeting_point": "Centro Vecinal Alberdi (Av. Colombres y Pasteur)",
         "reviewed": True,
     },
     {
@@ -92,7 +90,6 @@ SEED_ADOPTION_REQUESTS = [
             "Rocco necesita un hogar sin otros animales y con patio cerrado; "
             "te invitamos a conocer otras mascotas compatibles en el catálogo."
         ),
-        "meeting_point": "",
         "reviewed": True,
     },
 ]
@@ -152,7 +149,6 @@ def run() -> str:
                 "declares_truthful": True,
                 "status": item["status"],
                 "rejection_reason": item["rejection_reason"],
-                "meeting_point": item["meeting_point"],
                 "reviewed_by": staff_user if item["reviewed"] else None,
                 "reviewed_at": now if item["reviewed"] else None,
                 "is_active": True,

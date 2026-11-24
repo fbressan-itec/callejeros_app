@@ -24,7 +24,6 @@ from apps.users.models import User
 from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE, user_has_role
 
 MAX_APPLICANT_AGE = 120
-MAX_MEETING_POINT_LENGTH = 255
 MAX_REJECTION_REASON_LENGTH = 400
 
 MIN_AGE_ERROR = f"Para adoptar tenés que ser mayor de {MIN_APPLICANT_AGE} años."
@@ -52,10 +51,6 @@ INVALID_STATUS_FILTER_ERROR = "Estado de solicitud inválido."
 ONLY_PENDING_REQUEST_ERROR = "Solo se puede revisar una solicitud que esté pendiente."
 INACTIVE_REQUEST_ERROR = "La solicitud de adopción no está activa."
 PET_UNAVAILABLE_ON_APPROVE_ERROR = "Esta mascota ya no está disponible para adopción."
-MEETING_POINT_REQUIRED_ERROR = "Indicá un punto de encuentro público para aprobar la solicitud."
-MEETING_POINT_TOO_LONG_ERROR = (
-    f"El punto de encuentro no puede superar los {MAX_MEETING_POINT_LENGTH} caracteres."
-)
 REJECTION_REASON_REQUIRED_ERROR = "Indicá el motivo de desaprobación para responder al solicitante."
 REJECTION_REASON_TOO_LONG_ERROR = (
     f"El motivo de desaprobación no puede superar los {MAX_REJECTION_REASON_LENGTH} caracteres."
@@ -334,20 +329,16 @@ class AdoptionRequestReviewWorkflow:
         *,
         adoption_request: AdoptionRequest,
         actor: Any,
-        meeting_point: str,
     ) -> AdoptionRequest:
-        """Aprueba una solicitud pendiente registrando punto de encuentro, revisor y fecha."""
-        cleaned_point = meeting_point.strip() if isinstance(meeting_point, str) else ""
-        if not cleaned_point:
-            raise ValidationError({"meeting_point": [MEETING_POINT_REQUIRED_ERROR]})
-        if len(cleaned_point) > MAX_MEETING_POINT_LENGTH:
-            raise ValidationError({"meeting_point": [MEETING_POINT_TOO_LONG_ERROR]})
+        """Aprueba una solicitud pendiente registrando revisor y fecha.
 
+        No pide datos extra: el solicitante recibe el contacto de quien publicó y coordinan
+        el encuentro entre ellos (sin punto de encuentro fijado por Staff).
+        """
         reviewed = self._apply_review(
             adoption_request=adoption_request,
             actor=actor,
             new_status=AdoptionRequest.Status.APPROVED,
-            meeting_point=cleaned_point,
             rejection_reason="",
             require_available_pet=True,
         )
@@ -372,7 +363,6 @@ class AdoptionRequestReviewWorkflow:
             adoption_request=adoption_request,
             actor=actor,
             new_status=AdoptionRequest.Status.REJECTED,
-            meeting_point="",
             rejection_reason=cleaned_reason,
             require_available_pet=False,
         )
@@ -392,7 +382,6 @@ class AdoptionRequestReviewWorkflow:
         adoption_request: AdoptionRequest,
         actor: Any,
         new_status: str,
-        meeting_point: str,
         rejection_reason: str,
         require_available_pet: bool,
     ) -> AdoptionRequest:
@@ -414,14 +403,12 @@ class AdoptionRequestReviewWorkflow:
             raise ValidationError({"pet": [PET_UNAVAILABLE_ON_APPROVE_ERROR]})
 
         locked.status = new_status
-        locked.meeting_point = meeting_point
         locked.rejection_reason = rejection_reason
         locked.reviewed_by = actor
         locked.reviewed_at = timezone.now()
         locked.save(
             update_fields=[
                 "status",
-                "meeting_point",
                 "rejection_reason",
                 "reviewed_by",
                 "reviewed_at",
@@ -438,13 +425,11 @@ def approve_adoption_request(
     *,
     adoption_request: AdoptionRequest,
     actor: User,
-    meeting_point: str,
 ) -> AdoptionRequest:
-    """Aprueba una solicitud pendiente con el punto de encuentro público indicado por Staff."""
+    """Aprueba una solicitud pendiente; el solicitante pasa a ver el contacto de quien publicó."""
     return adoption_request_review_workflow.approve(
         adoption_request=adoption_request,
         actor=actor,
-        meeting_point=meeting_point,
     )
 
 
