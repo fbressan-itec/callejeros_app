@@ -1,3 +1,4 @@
+import type { AdoptionRequestPayload } from "@/lib/adoptions/questionnaire";
 import { api } from "@/lib/api/client";
 import { requestWithAuth } from "@/lib/auth/session";
 import type {
@@ -26,6 +27,22 @@ export function fetchAdoptionRequestById(
     api.get<AdoptionRequestDetail>(`adoption-requests/${requestId}/`, {
       headers,
       signal: options.signal,
+    }),
+  );
+}
+
+/**
+ * Envía el cuestionario a `POST /api/adoption-requests/`. Exige sesión. Si el back lo
+ * rechaza, lanza un `ApiError` con los errores por campo (`fieldErrors`) y, en `pet`,
+ * los de la mascota: solicitud duplicada, mascota no disponible o publicada por la misma
+ * persona.
+ */
+export function createAdoptionRequest(
+  payload: AdoptionRequestPayload,
+): Promise<AdoptionRequestDetail> {
+  return requestWithAuth((headers) =>
+    api.post<AdoptionRequestDetail>("adoption-requests/", payload, {
+      headers,
     }),
   );
 }
