@@ -419,3 +419,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** cerrar la épica #27 cuando se mergee este PR.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para escribir el esquema, el modal y los tests, y probar el recorrido completo en el navegador contra el back local.
+
+## 2026-11-24 — Panel de Staff: solicitudes de adopción (FR-10a)
+
+- **Tarjeta:** #149 (FR-10a, sub-tarjeta de la épica #28, FR-10)
+- **Rama:** feature/fr10-149-panel-staff-solicitudes
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #28 en FR-10a (#149, solicitudes de adopción) y FR-10b (#150, publicaciones en revisión). Alertas, comentarios y productos de Refugio quedan para cuando existan BK-09, BK-10 y BK-12.
+  - Página `/panel-staff`, solo para Staff y Admin (`RequireAuth` con `allowedRoles`; el back también lo controla), y botón "🛡️ Panel de Staff" en el menú hamburguesa, debajo de la insignia de rol.
+  - Pestañas accesibles con teclado. Por ahora, "📋 Solicitudes de adopción" con la cola de pendientes (de la más vieja a la más nueva, de a 12), `LoadingScreen`, error con "Reintentar" y estado vacío.
+  - Tarjeta por solicitud (mascota, solicitante y fecha) con el desplegable "Ver cuestionario", que muestra las respuestas en los 4 bloques con las mismas preguntas que ve el solicitante.
+  - "Aprobar" abre una confirmación ("Va a recibir el teléfono de contacto de la publicación") y "Desaprobar" abre un modal con el motivo obligatorio (zod + react-hook-form, hasta 400 caracteres, mismos mensajes que el back). Después de responder, un aviso confirma la acción y la cola se vuelve a cargar.
+  - Tests en Vitest de la API, de la lógica de revisión, del menú, del panel y de los modales.
+- **Decisiones tomadas:**
+  - **Panel único para Staff y Admin** (reemplaza la de paneles separados del 16/11): un solo botón y una sola página, con pestañas según el rol; el Admin suma las suyas en FR-18. Lo publiqué en Discussions (#151), actualicé la tarjeta FR-18 (#36) y `contexto-ia/`.
+  - El foco del modal de aprobar arranca en "Cancelar", para que confirmar sea una decisión explícita; al cerrar, vuelve al botón que lo abrió.
+  - Si aprobar o desaprobar falla (por ejemplo, otra persona ya la respondió o la mascota ya no está disponible), el modal muestra el motivo del back y la cola se vuelve a pedir al cerrarlo.
+- **Problemas y cómo los resolví:** el foco inicial del campo del motivo no funcionaba con `setFocus` de react-hook-form en los tests; lo resolví enfocando el campo por su id al abrir el modal.
+- **Pendiente:** FR-10b (#150), publicaciones en revisión.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer la división, escribir el panel, los modales y los tests, probar aprobar y desaprobar en el navegador contra el back local con la cuenta de Staff del seed, y redactar la Discussion.
