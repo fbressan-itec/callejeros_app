@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  approveAdoptionRequest,
   buildMapSearchUrl,
+  fetchAdoptionReviewQueue,
+  rejectAdoptionRequest,
   buildTelHref,
   fetchAdoptionRequestById,
   formatAdoptionRequestDate,
@@ -51,6 +54,49 @@ describe("lib/adoptions/api", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe(
       "Bearer token-acceso",
     );
+  });
+
+  it("pide la cola del panel de Staff y agrega la página solo si no es la primera", async () => {
+    const empty = { count: 0, next: null, previous: null, results: [] };
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(empty)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(empty)));
+
+    await fetchAdoptionReviewQueue();
+    await fetchAdoptionReviewQueue({ page: 3 });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://api.test/api/adoption-requests/review-queue/",
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "http://api.test/api/adoption-requests/review-queue/?page=3",
+    );
+  });
+
+  it("aprueba sin cuerpo y desaprueba con el motivo", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 7 })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 7 })));
+
+    await approveAdoptionRequest(7);
+    await rejectAdoptionRequest(7, "No tiene patio cerrado.");
+
+    const [approveUrl, approveInit] = fetchMock.mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    expect(approveUrl).toBe("http://api.test/api/adoption-requests/7/approve/");
+    expect(approveInit.method).toBe("POST");
+    expect(approveInit.body).toBeUndefined();
+
+    const [rejectUrl, rejectInit] = fetchMock.mock.calls[1] as [
+      string,
+      RequestInit,
+    ];
+    expect(rejectUrl).toBe("http://api.test/api/adoption-requests/7/reject/");
+    expect(JSON.parse(rejectInit.body as string)).toEqual({
+      rejection_reason: "No tiene patio cerrado.",
+    });
   });
 
   it("solo considera finales las solicitudes aprobadas o desaprobadas", () => {
