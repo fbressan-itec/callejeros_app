@@ -6,6 +6,9 @@ import { type ReactNode, useEffect } from "react";
 
 export type UserRoleCode = "member" | "verified_shelter" | "staff" | "admin";
 
+/** Ruta del panel de Staff (solo Staff y Admin). */
+export const STAFF_PANEL_HREF = "/panel-staff";
+
 export interface MenuUser {
   name: string;
   email?: string;
@@ -258,6 +261,25 @@ export function MobileMenu({
                     {userInitial}
                   </div>
                 </div>
+
+                {(user.role === "staff" || user.role === "admin") && (
+                  <Link
+                    href={STAFF_PANEL_HREF}
+                    onClick={onClose}
+                    aria-current={
+                      isLinkActive(STAFF_PANEL_HREF, pathname)
+                        ? "page"
+                        : undefined
+                    }
+                    className={`mt-3 flex min-h-[44px] w-full items-center justify-center rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 shadow-xs transition-all hover:bg-violet-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40 dark:focus-visible:ring-offset-slate-900 ${
+                      isLinkActive(STAFF_PANEL_HREF, pathname)
+                        ? "ring-2 ring-orange-500"
+                        : ""
+                    }`}
+                  >
+                    🛡️ Panel de Staff
+                  </Link>
+                )}
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Link
