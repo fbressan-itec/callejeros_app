@@ -40,9 +40,15 @@ class AdoptionRequestCreateView(APIView):
         tags=[ADOPTIONS_TAG],
         summary="Enviar solicitud de adopción",
         description=(
-            "Recibe el cuestionario de 3 bloques (datos personales con edad mínima 18, hogar "
-            "y entorno con `housing_type` en texto libre, y compromiso obligatorio) para una "
-            "mascota activa en estado `published`. Guarda los datos declarados por el "
+            "Recibe el cuestionario de 4 bloques para una mascota activa en estado "
+            "`published`: (1) datos personales con edad mínima 18; (2) hogar y entorno, con "
+            "`housing_type` en texto libre, `home_ownership` y `rental_allows_pets` "
+            "(obligatorio solo si la vivienda es `rented`); (3) experiencia y rutina, con "
+            "`adoption_reason` opcional; y (4) compromiso: `accepts_commitment`, "
+            "`accepts_follow_up`, `accepts_return_notice` y `declares_truthful` en `true`, y "
+            "`accepts_neutering` en `true` solo si la mascota no está castrada (si ya lo está, "
+            "se guarda `null`). Las respuestas abiertas admiten hasta 500 caracteres y "
+            "`adoption_reason` hasta 1000. Guarda los datos declarados por el "
             "solicitante y crea la solicitud en estado `pending`. Rechaza postularse a una "
             "mascota publicada por el mismo usuario e impide enviar una segunda solicitud "
             "`pending` para la misma mascota. "

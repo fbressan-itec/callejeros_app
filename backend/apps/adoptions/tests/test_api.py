@@ -33,8 +33,22 @@ def _valid_request_body(pet_id: int, **overrides) -> dict:
         "address": "Belgrano 750",
         "city": "Río Cuarto",
         "housing_type": "PH interno con patio cerrado y medianeras altas",
+        "home_ownership": "rented",
+        "rental_allows_pets": "yes",
+        "outdoor_space": "Patio cerrado con medianeras altas",
+        "household_members": "Mi pareja y yo",
+        "household_agreement": "yes",
         "other_pets": "1 perro castrado y vacunado",
+        "previous_pets": "Tuve dos perros adoptados",
+        "hours_alone": "less_than_4",
+        "living_space": "Adentro de la casa",
+        "vacation_care": "Mi hermano",
+        "contingency_plan": "Me lo llevo conmigo",
+        "adoption_reason": "Me encantó su historia",
         "accepts_commitment": True,
+        "accepts_follow_up": True,
+        "accepts_return_notice": True,
+        "declares_truthful": True,
     }
     body.update(overrides)
     return body
@@ -126,7 +140,7 @@ def test_create_adoption_request_copies_applicant_snapshot() -> None:
     assert detail["phone"] == "+54 9 358 4111111"
 
 
-def test_create_adoption_request_validates_three_blocks() -> None:
+def test_create_adoption_request_validates_four_blocks() -> None:
     applicant = UserFactory()
     pet = PetFactory(status=Pet.Status.PUBLISHED)
     client = _auth_client(applicant)
@@ -154,6 +168,69 @@ def test_create_adoption_request_validates_three_blocks() -> None:
     assert incomplete_resp.status_code == status.HTTP_400_BAD_REQUEST
     assert "housing_type" in incomplete_resp.json()
     assert "other_pets" in incomplete_resp.json()
+
+    # Bloque 3: opción inválida
+    invalid_resp = client.post(
+        url,
+        data=_valid_request_body(pet.pk, hours_alone="todo_el_dia"),
+        format="json",
+    )
+    assert invalid_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert invalid_resp.json()["hours_alone"] == ["Elegí una opción válida."]
+
+    # Bloque 4: casilla sin marcar
+    unchecked_resp = client.post(
+        url,
+        data=_valid_request_body(pet.pk, declares_truthful=False),
+        format="json",
+    )
+    assert unchecked_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "declares_truthful" in unchecked_resp.json()
+
+    # Vivienda alquilada sin decir si el alquiler permite animales
+    rental_resp = client.post(
+        url,
+        data=_valid_request_body(pet.pk, rental_allows_pets=""),
+        format="json",
+    )
+    assert rental_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "rental_allows_pets" in rental_resp.json()
+
+    # Casilla de compromiso ausente
+    missing_checkbox = _valid_request_body(pet.pk)
+    missing_checkbox.pop("accepts_return_notice")
+    missing_resp = client.post(url, data=missing_checkbox, format="json")
+    assert missing_resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "accepts_return_notice" in missing_resp.json()
+
+
+def test_create_adoption_request_returns_expanded_questionnaire() -> None:
+    applicant = UserFactory()
+    pet = PetFactory(status=Pet.Status.PUBLISHED, is_neutered=False)
+    client = _auth_client(applicant)
+    url = reverse("adoptions:adoption-request-create")
+
+    without_neutering = client.post(url, data=_valid_request_body(pet.pk), format="json")
+    assert without_neutering.status_code == status.HTTP_400_BAD_REQUEST
+    assert "accepts_neutering" in without_neutering.json()
+
+    response = client.post(
+        url,
+        data=_valid_request_body(pet.pk, accepts_neutering=True),
+        format="json",
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["home_ownership"] == "rented"
+    assert data["rental_allows_pets"] == "yes"
+    assert data["household_agreement"] == "yes"
+    assert data["hours_alone"] == "less_than_4"
+    assert data["contingency_plan"] == "Me lo llevo conmigo"
+    assert data["adoption_reason"] == "Me encantó su historia"
+    assert data["accepts_neutering"] is True
+    assert data["accepts_follow_up"] is True
+    assert data["accepts_return_notice"] is True
+    assert data["declares_truthful"] is True
 
 
 @pytest.mark.parametrize(

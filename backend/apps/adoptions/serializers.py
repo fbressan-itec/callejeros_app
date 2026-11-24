@@ -3,9 +3,9 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.adoptions.models import MIN_APPLICANT_AGE, AdoptionRequest
+from apps.adoptions.models import MAX_ADOPTION_REASON_LENGTH, MIN_APPLICANT_AGE, AdoptionRequest
 from apps.adoptions.services import (
-    COMMITMENT_REQUIRED_ERROR,
+    INVALID_CHOICE_ERROR,
     MAX_AGE_ERROR,
     MAX_APPLICANT_AGE,
     MAX_MEETING_POINT_LENGTH,
@@ -15,6 +15,9 @@ from apps.adoptions.services import (
     MIN_AGE_ERROR,
     REJECTION_REASON_REQUIRED_ERROR,
     REJECTION_REASON_TOO_LONG_ERROR,
+    REQUIRED_CHECKBOX_FIELDS,
+    REQUIRED_CHOICE_FIELDS,
+    REQUIRED_TEXT_FIELDS,
 )
 from apps.pets.models import Pet
 from apps.users.models import User
@@ -66,18 +69,53 @@ class FosterContactSerializer(serializers.Serializer):
     contact_phone = serializers.CharField(read_only=True)
 
 
+_TEXT_FIELD_RULES = {
+    name: (message, max_length) for name, message, max_length in REQUIRED_TEXT_FIELDS
+}
+_CHOICE_FIELD_RULES = {
+    name: (message, choices) for name, message, choices in REQUIRED_CHOICE_FIELDS
+}
+_CHECKBOX_FIELD_RULES = dict(REQUIRED_CHECKBOX_FIELDS)
+
+
+def _required_text(field_name: str) -> serializers.CharField:
+    """Texto obligatorio con el mensaje y el largo máximo que define el servicio."""
+    message, max_length = _TEXT_FIELD_RULES[field_name]
+    return serializers.CharField(
+        max_length=max_length,
+        error_messages={"required": message, "blank": message},
+    )
+
+
+def _required_choice(field_name: str) -> serializers.ChoiceField:
+    """Opción obligatoria con el mensaje y los valores que define el servicio."""
+    message, choices = _CHOICE_FIELD_RULES[field_name]
+    return serializers.ChoiceField(
+        choices=choices.choices,
+        error_messages={
+            "required": message,
+            "blank": message,
+            "invalid_choice": INVALID_CHOICE_ERROR,
+        },
+    )
+
+
+def _required_checkbox(field_name: str) -> serializers.BooleanField:
+    """Casilla de compromiso: si falta, responde con el mismo mensaje que si no se marca."""
+    message = _CHECKBOX_FIELD_RULES[field_name]
+    return serializers.BooleanField(error_messages={"required": message})
+
+
 class AdoptionRequestCreateSerializer(serializers.Serializer):
-    """Valida el cuestionario de 3 bloques para postularse a adoptar una mascota."""
+    """Valida el tipo de dato del cuestionario de 4 bloques para postularse a adoptar.
+
+    Las reglas de negocio (casillas marcadas, alquiler, castración según la mascota) las
+    aplica `apps.adoptions.services.create_adoption_request`.
+    """
 
     pet = serializers.IntegerField(min_value=1)
     # Bloque 1: Datos personales
-    full_name = serializers.CharField(
-        max_length=200,
-        error_messages={
-            "required": "El nombre completo es obligatorio.",
-            "blank": "El nombre completo es obligatorio.",
-        },
-    )
+    full_name = _required_text("full_name")
     age = serializers.IntegerField(
         min_value=MIN_APPLICANT_AGE,
         max_value=MAX_APPLICANT_AGE,
@@ -86,13 +124,7 @@ class AdoptionRequestCreateSerializer(serializers.Serializer):
             "max_value": MAX_AGE_ERROR,
         },
     )
-    phone = serializers.CharField(
-        max_length=30,
-        error_messages={
-            "required": "El WhatsApp o teléfono es obligatorio.",
-            "blank": "El WhatsApp o teléfono es obligatorio.",
-        },
-    )
+    phone = _required_text("phone")
     email = serializers.EmailField(
         error_messages={
             "required": "El correo electrónico es obligatorio.",
@@ -100,42 +132,55 @@ class AdoptionRequestCreateSerializer(serializers.Serializer):
             "invalid": "Ingresá un correo electrónico válido.",
         },
     )
-    address = serializers.CharField(
-        max_length=255,
-        error_messages={
-            "required": "La dirección es obligatoria.",
-            "blank": "La dirección es obligatoria.",
-        },
-    )
-    city = serializers.CharField(
-        max_length=100,
-        error_messages={
-            "required": "La localidad es obligatoria.",
-            "blank": "La localidad es obligatoria.",
-        },
-    )
+    address = _required_text("address")
+    city = _required_text("city")
     # Bloque 2: Hogar y entorno
-    housing_type = serializers.CharField(
-        max_length=200,
-        error_messages={
-            "required": "El tipo de vivienda es obligatorio.",
-            "blank": "El tipo de vivienda es obligatorio.",
-        },
+    housing_type = _required_text("housing_type")
+    home_ownership = _required_choice("home_ownership")
+    rental_allows_pets = serializers.ChoiceField(
+        choices=AdoptionRequest.RentalPetsPolicy.choices,
+        required=False,
+        allow_blank=True,
+        help_text="Obligatorio solo si `home_ownership` es `rented`; si no, se ignora.",
+        error_messages={"invalid_choice": INVALID_CHOICE_ERROR},
     )
-    other_pets = serializers.CharField(
-        max_length=255,
-        error_messages={
-            "required": "Indicá si tenés otros animales actualmente.",
-            "blank": "Indicá si tenés otros animales actualmente.",
-        },
+    outdoor_space = _required_text("outdoor_space")
+    household_members = _required_text("household_members")
+    household_agreement = _required_choice("household_agreement")
+    other_pets = _required_text("other_pets")
+    # Bloque 3: Experiencia y rutina
+    previous_pets = _required_text("previous_pets")
+    hours_alone = _required_choice("hours_alone")
+    living_space = _required_text("living_space")
+    vacation_care = _required_text("vacation_care")
+    contingency_plan = _required_text("contingency_plan")
+    adoption_reason = serializers.CharField(
+        max_length=MAX_ADOPTION_REASON_LENGTH,
+        required=False,
+        allow_blank=True,
     )
-    # Bloque 3: Compromiso
-    accepts_commitment = serializers.BooleanField()
+    # Bloque 4: Compromiso
+    accepts_commitment = _required_checkbox("accepts_commitment")
+    accepts_neutering = serializers.BooleanField(
+        required=False,
+        allow_null=True,
+        help_text=(
+            "Obligatorio (`true`) solo si la mascota no está castrada; si ya lo está, se ignora."
+        ),
+    )
+    accepts_follow_up = _required_checkbox("accepts_follow_up")
+    accepts_return_notice = _required_checkbox("accepts_return_notice")
+    declares_truthful = _required_checkbox("declares_truthful")
 
-    def validate_accepts_commitment(self, value: bool) -> bool:
-        if value is not True:
-            raise serializers.ValidationError(COMMITMENT_REQUIRED_ERROR)
-        return value
+    def validate(self, attrs: dict) -> dict:
+        errors = {
+            field_name: [message]
+            for field_name, message in _CHECKBOX_FIELD_RULES.items()
+            if attrs.get(field_name) is not True
+        }
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
 
 class AdoptionRequestSerializer(serializers.ModelSerializer):
@@ -164,8 +209,23 @@ class AdoptionRequestSerializer(serializers.ModelSerializer):
             "address",
             "city",
             "housing_type",
+            "home_ownership",
+            "rental_allows_pets",
+            "outdoor_space",
+            "household_members",
+            "household_agreement",
             "other_pets",
+            "previous_pets",
+            "hours_alone",
+            "living_space",
+            "vacation_care",
+            "contingency_plan",
+            "adoption_reason",
             "accepts_commitment",
+            "accepts_neutering",
+            "accepts_follow_up",
+            "accepts_return_notice",
+            "declares_truthful",
             "status",
             "rejection_reason",
             "meeting_point",

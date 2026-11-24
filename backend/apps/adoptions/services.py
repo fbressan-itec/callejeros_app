@@ -5,14 +5,19 @@ from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Prefetch, QuerySet
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from apps.adoptions.models import MIN_APPLICANT_AGE, AdoptionRequest
+from apps.adoptions.models import (
+    MAX_ADOPTION_REASON_LENGTH,
+    MAX_OPEN_ANSWER_LENGTH,
+    MIN_APPLICANT_AGE,
+    AdoptionRequest,
+)
 from apps.adoptions.permissions import STAFF_OR_ADMIN_ROLES, can_view_adoption_request
 from apps.pets.models import Pet, PetPhoto
 from apps.users.models import User
@@ -27,6 +32,18 @@ MAX_AGE_ERROR = f"La edad no puede superar los {MAX_APPLICANT_AGE} años."
 COMMITMENT_REQUIRED_ERROR = (
     "Tenés que aceptar el compromiso de adopción responsable para enviar la solicitud."
 )
+NEUTERING_REQUIRED_ERROR = "Tenés que comprometerte a castrarlo/a para enviar la solicitud."
+FOLLOW_UP_REQUIRED_ERROR = (
+    "Tenés que aceptar el seguimiento después de la adopción para enviar la solicitud."
+)
+RETURN_NOTICE_REQUIRED_ERROR = (
+    "Tenés que comprometerte a avisar a Callejeros antes de darlo a otra persona."
+)
+TRUTHFUL_REQUIRED_ERROR = (
+    "Tenés que declarar que los datos son verdaderos para enviar la solicitud."
+)
+INVALID_CHOICE_ERROR = "Elegí una opción válida."
+RENTAL_ALLOWS_PETS_REQUIRED_ERROR = "Indicá si el contrato o el dueño permite animales."
 PET_NOT_AVAILABLE_ERROR = "Solo podés postularte para mascotas publicadas y disponibles."
 OWN_PET_ADOPTION_ERROR = "No podés postularte para adoptar una mascota que publicaste vos mismo."
 DUPLICATE_PENDING_REQUEST_ERROR = "Ya tenés una solicitud pendiente para esta mascota."
@@ -51,7 +68,54 @@ REQUIRED_TEXT_FIELDS: tuple[tuple[str, str, int], ...] = (
     ("address", "La dirección es obligatoria.", 255),
     ("city", "La localidad es obligatoria.", 100),
     ("housing_type", "El tipo de vivienda es obligatorio.", 200),
+    (
+        "outdoor_space",
+        "Contanos cómo es el patio, balcón o terraza y qué protecciones tiene.",
+        MAX_OPEN_ANSWER_LENGTH,
+    ),
+    ("household_members", "Contanos quiénes viven con vos.", MAX_OPEN_ANSWER_LENGTH),
     ("other_pets", "Indicá si tenés otros animales actualmente.", 255),
+    (
+        "previous_pets",
+        "Contanos si tuviste animales antes y qué pasó con ellos.",
+        MAX_OPEN_ANSWER_LENGTH,
+    ),
+    ("living_space", "Contanos dónde va a dormir y pasar el día.", MAX_OPEN_ANSWER_LENGTH),
+    (
+        "vacation_care",
+        "Contanos quién lo cuida si viajás o te vas de vacaciones.",
+        MAX_OPEN_ANSWER_LENGTH,
+    ),
+    (
+        "contingency_plan",
+        "Contanos qué harías si te mudás o no podés seguir cuidándolo.",
+        MAX_OPEN_ANSWER_LENGTH,
+    ),
+)
+
+REQUIRED_CHOICE_FIELDS: tuple[tuple[str, str, type[models.TextChoices]], ...] = (
+    (
+        "home_ownership",
+        "Indicá si la vivienda es propia, alquilada u otra.",
+        AdoptionRequest.HomeOwnership,
+    ),
+    (
+        "household_agreement",
+        "Indicá si todos en tu casa están de acuerdo con la adopción.",
+        AdoptionRequest.HouseholdAgreement,
+    ),
+    (
+        "hours_alone",
+        "Indicá cuántas horas por día pasaría solo/a.",
+        AdoptionRequest.HoursAlone,
+    ),
+)
+
+REQUIRED_CHECKBOX_FIELDS: tuple[tuple[str, str], ...] = (
+    ("accepts_commitment", COMMITMENT_REQUIRED_ERROR),
+    ("accepts_follow_up", FOLLOW_UP_REQUIRED_ERROR),
+    ("accepts_return_notice", RETURN_NOTICE_REQUIRED_ERROR),
+    ("declares_truthful", TRUTHFUL_REQUIRED_ERROR),
 )
 
 
@@ -101,8 +165,16 @@ def get_visible_adoption_request_or_404(*, request_id: int, actor: Any) -> Adopt
     return adoption_request
 
 
-def _validate_questionnaire_data(data: Mapping[str, Any]) -> dict[str, Any]:
-    """Valida los 3 bloques del cuestionario y devuelve los valores normalizados."""
+def _validate_questionnaire_data(
+    data: Mapping[str, Any],
+    *,
+    requires_neutering: bool,
+) -> dict[str, Any]:
+    """Valida los 4 bloques del cuestionario y devuelve los valores normalizados.
+
+    `requires_neutering` indica si la mascota todavía no está castrada: en ese caso el
+    compromiso de castración es obligatorio; si ya lo está, se guarda vacío.
+    """
     errors: dict[str, list[str]] = {}
     cleaned: dict[str, Any] = {}
 
@@ -134,10 +206,48 @@ def _validate_questionnaire_data(data: Mapping[str, Any]) -> dict[str, Any]:
     else:
         cleaned["age"] = age
 
-    if data.get("accepts_commitment") is not True:
-        errors["accepts_commitment"] = [COMMITMENT_REQUIRED_ERROR]
+    for field_name, required_msg, choices in REQUIRED_CHOICE_FIELDS:
+        value = data.get(field_name)
+        if not value:
+            errors[field_name] = [required_msg]
+        elif value not in choices.values:
+            errors[field_name] = [INVALID_CHOICE_ERROR]
+        else:
+            cleaned[field_name] = value
+
+    rental_allows_pets = data.get("rental_allows_pets") or ""
+    if cleaned.get("home_ownership") == AdoptionRequest.HomeOwnership.RENTED:
+        if not rental_allows_pets:
+            errors["rental_allows_pets"] = [RENTAL_ALLOWS_PETS_REQUIRED_ERROR]
+        elif rental_allows_pets not in AdoptionRequest.RentalPetsPolicy.values:
+            errors["rental_allows_pets"] = [INVALID_CHOICE_ERROR]
+        else:
+            cleaned["rental_allows_pets"] = rental_allows_pets
     else:
-        cleaned["accepts_commitment"] = True
+        # Si la vivienda no es alquilada, la respuesta sobre el alquiler no aplica.
+        cleaned["rental_allows_pets"] = ""
+
+    raw_reason = data.get("adoption_reason")
+    reason = raw_reason.strip() if isinstance(raw_reason, str) else ""
+    if len(reason) > MAX_ADOPTION_REASON_LENGTH:
+        errors["adoption_reason"] = [
+            f"Este campo no puede superar los {MAX_ADOPTION_REASON_LENGTH} caracteres."
+        ]
+    else:
+        cleaned["adoption_reason"] = reason
+
+    for field_name, required_msg in REQUIRED_CHECKBOX_FIELDS:
+        if data.get(field_name) is not True:
+            errors[field_name] = [required_msg]
+        else:
+            cleaned[field_name] = True
+
+    if not requires_neutering:
+        cleaned["accepts_neutering"] = None
+    elif data.get("accepts_neutering") is not True:
+        errors["accepts_neutering"] = [NEUTERING_REQUIRED_ERROR]
+    else:
+        cleaned["accepts_neutering"] = True
 
     if errors:
         raise ValidationError(errors)
@@ -160,9 +270,12 @@ def create_adoption_request(
     ):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-    cleaned = _validate_questionnaire_data(data)
-
     pet = Pet.objects.active().select_related("published_by__role").filter(pk=pet_id).first()
+    cleaned = _validate_questionnaire_data(
+        data,
+        requires_neutering=pet is not None and not pet.is_neutered,
+    )
+
     if pet is None or pet.status != Pet.Status.PUBLISHED:
         raise ValidationError({"pet": [PET_NOT_AVAILABLE_ERROR]})
 

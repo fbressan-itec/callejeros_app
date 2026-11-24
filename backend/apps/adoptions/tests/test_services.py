@@ -8,9 +8,15 @@ from apps.adoptions.models import AdoptionRequest
 from apps.adoptions.services import (
     COMMITMENT_REQUIRED_ERROR,
     DUPLICATE_PENDING_REQUEST_ERROR,
+    FOLLOW_UP_REQUIRED_ERROR,
+    INVALID_CHOICE_ERROR,
     MIN_AGE_ERROR,
+    NEUTERING_REQUIRED_ERROR,
     OWN_PET_ADOPTION_ERROR,
     PET_NOT_AVAILABLE_ERROR,
+    RENTAL_ALLOWS_PETS_REQUIRED_ERROR,
+    RETURN_NOTICE_REQUIRED_ERROR,
+    TRUTHFUL_REQUIRED_ERROR,
     create_adoption_request,
     get_my_adoption_requests_queryset,
     get_visible_adoption_request_or_404,
@@ -33,8 +39,20 @@ def _valid_questionnaire_payload(**overrides) -> dict:
         "address": "  Sobremonte 450  ",
         "city": "  Río Cuarto  ",
         "housing_type": "  Departamento con balcón con red de protección  ",
+        "home_ownership": AdoptionRequest.HomeOwnership.OWNED,
+        "outdoor_space": "  Balcón con red de protección en todo el frente  ",
+        "household_members": "  Vivo sola  ",
+        "household_agreement": AdoptionRequest.HouseholdAgreement.YES,
         "other_pets": "  Una gata castrada de 3 años  ",
+        "previous_pets": "  Siempre tuve gatos  ",
+        "hours_alone": AdoptionRequest.HoursAlone.FROM_4_TO_8,
+        "living_space": "  Adentro del departamento  ",
+        "vacation_care": "  Mi hermana  ",
+        "contingency_plan": "  Me la llevo conmigo  ",
         "accepts_commitment": True,
+        "accepts_follow_up": True,
+        "accepts_return_notice": True,
+        "declares_truthful": True,
     }
     payload.update(overrides)
     return payload
@@ -60,7 +78,20 @@ def test_create_adoption_request_normalizes_fields_and_starts_pending() -> None:
     assert created.city == "Río Cuarto"
     assert created.housing_type == "Departamento con balcón con red de protección"
     assert created.other_pets == "Una gata castrada de 3 años"
+    assert created.outdoor_space == "Balcón con red de protección en todo el frente"
+    assert created.household_members == "Vivo sola"
+    assert created.previous_pets == "Siempre tuve gatos"
+    assert created.living_space == "Adentro del departamento"
+    assert created.vacation_care == "Mi hermana"
+    assert created.contingency_plan == "Me la llevo conmigo"
+    assert created.home_ownership == AdoptionRequest.HomeOwnership.OWNED
+    assert created.rental_allows_pets == ""
+    assert created.adoption_reason == ""
     assert created.accepts_commitment is True
+    assert created.accepts_neutering is None
+    assert created.accepts_follow_up is True
+    assert created.accepts_return_notice is True
+    assert created.declares_truthful is True
 
 
 @pytest.mark.parametrize("invalid_age", [0, 17, 121, True, "25"])
@@ -96,7 +127,21 @@ def test_create_adoption_request_requires_commitment() -> None:
 
 @pytest.mark.parametrize(
     "field_name",
-    ["full_name", "phone", "email", "address", "city", "housing_type", "other_pets"],
+    [
+        "full_name",
+        "phone",
+        "email",
+        "address",
+        "city",
+        "housing_type",
+        "outdoor_space",
+        "household_members",
+        "other_pets",
+        "previous_pets",
+        "living_space",
+        "vacation_care",
+        "contingency_plan",
+    ],
 )
 def test_create_adoption_request_rejects_blank_required_fields(field_name: str) -> None:
     applicant = UserFactory()
@@ -235,3 +280,95 @@ def test_get_my_adoption_requests_queryset_filters_by_status_and_validates() -> 
     with pytest.raises(ValidationError) as exc_info:
         get_my_adoption_requests_queryset(actor=applicant, status_filter="unknown")
     assert "status" in exc_info.value.detail
+
+
+def _create(pet: Pet | None = None, **overrides) -> AdoptionRequest:
+    return create_adoption_request(
+        applicant=UserFactory(),
+        pet_id=(pet or PetFactory(status=Pet.Status.PUBLISHED)).pk,
+        data=_valid_questionnaire_payload(**overrides),
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "message"),
+    [
+        ("accepts_follow_up", FOLLOW_UP_REQUIRED_ERROR),
+        ("accepts_return_notice", RETURN_NOTICE_REQUIRED_ERROR),
+        ("declares_truthful", TRUTHFUL_REQUIRED_ERROR),
+    ],
+)
+def test_create_adoption_request_requires_every_commitment_checkbox(
+    field_name: str, message: str
+) -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        _create(**{field_name: False})
+
+    assert exc_info.value.detail[field_name] == [message]
+
+
+@pytest.mark.parametrize("field_name", ["home_ownership", "household_agreement", "hours_alone"])
+def test_create_adoption_request_validates_required_choices(field_name: str) -> None:
+    with pytest.raises(ValidationError) as missing_exc:
+        _create(**{field_name: ""})
+    assert field_name in missing_exc.value.detail
+
+    with pytest.raises(ValidationError) as invalid_exc:
+        _create(**{field_name: "otra_cosa"})
+    assert invalid_exc.value.detail[field_name] == [INVALID_CHOICE_ERROR]
+
+
+def test_create_adoption_request_requires_rental_answer_only_when_rented() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        _create(home_ownership=AdoptionRequest.HomeOwnership.RENTED)
+    assert exc_info.value.detail["rental_allows_pets"] == [RENTAL_ALLOWS_PETS_REQUIRED_ERROR]
+
+    with pytest.raises(ValidationError) as invalid_exc:
+        _create(home_ownership=AdoptionRequest.HomeOwnership.RENTED, rental_allows_pets="quizas")
+    assert invalid_exc.value.detail["rental_allows_pets"] == [INVALID_CHOICE_ERROR]
+
+    rented = _create(
+        home_ownership=AdoptionRequest.HomeOwnership.RENTED,
+        rental_allows_pets=AdoptionRequest.RentalPetsPolicy.UNKNOWN,
+    )
+    assert rented.rental_allows_pets == AdoptionRequest.RentalPetsPolicy.UNKNOWN
+
+    # Si la vivienda no es alquilada, la respuesta sobre el alquiler se descarta.
+    owned = _create(
+        home_ownership=AdoptionRequest.HomeOwnership.OWNED,
+        rental_allows_pets=AdoptionRequest.RentalPetsPolicy.NO,
+    )
+    assert owned.rental_allows_pets == ""
+
+
+def test_create_adoption_request_requires_neutering_only_for_unneutered_pets() -> None:
+    unneutered_pet = PetFactory(status=Pet.Status.PUBLISHED, is_neutered=False)
+    with pytest.raises(ValidationError) as exc_info:
+        _create(pet=unneutered_pet)
+    assert exc_info.value.detail["accepts_neutering"] == [NEUTERING_REQUIRED_ERROR]
+
+    accepted = _create(pet=unneutered_pet, accepts_neutering=True)
+    assert accepted.accepts_neutering is True
+
+    # Si la mascota ya está castrada, el compromiso no aplica y se guarda vacío.
+    neutered_pet = PetFactory(status=Pet.Status.PUBLISHED, is_neutered=True)
+    neutered = _create(pet=neutered_pet, accepts_neutering=True)
+    assert neutered.accepts_neutering is None
+
+
+def test_create_adoption_request_adoption_reason_is_optional_and_limited() -> None:
+    without_reason = _create()
+    assert without_reason.adoption_reason == ""
+
+    with_reason = _create(adoption_reason="  Porque me enamoré de su historia  ")
+    assert with_reason.adoption_reason == "Porque me enamoré de su historia"
+
+    with pytest.raises(ValidationError) as exc_info:
+        _create(adoption_reason="a" * 1001)
+    assert "adoption_reason" in exc_info.value.detail
+
+
+def test_create_adoption_request_limits_open_answers_to_500_characters() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        _create(contingency_plan="a" * 501)
+    assert "contingency_plan" in exc_info.value.detail
