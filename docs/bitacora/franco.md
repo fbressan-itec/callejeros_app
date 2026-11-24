@@ -440,3 +440,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** FR-10b (#150), publicaciones en revisión.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para proponer la división, escribir el panel, los modales y los tests, probar aprobar y desaprobar en el navegador contra el back local con la cuenta de Staff del seed, y redactar la Discussion.
+
+## 2026-11-24 — Panel de Staff: publicaciones en revisión (FR-10b)
+
+- **Tarjeta:** #150 (FR-10b, sub-tarjeta de la épica #28, FR-10)
+- **Rama:** feature/fr10-150-panel-staff-publicaciones
+- **Área:** front, test
+- **Qué hice:**
+  - Pestaña "🐾 Publicaciones en revisión" en el panel, con la cola de `GET /api/pets/review-queue/` (primero las urgentes, de a 12), `LoadingScreen`, error con "Reintentar" y estado vacío.
+  - Ficha de gestión por mascota: portada, especie, sexo, edad y castración; quién la publicó con su insignia de rol; teléfono de contacto (se puede tocar para llamar) y fecha. "Ver ficha completa" muestra todas las fotos, la descripción, la convivencia, la salud y las notas.
+  - Si quien publicó pidió "caso urgente", un recuadro permite validarlo o quitarle la validación (`POST /api/pets/{id}/urgency/`); el cambio se ve en la tarjeta sin volver a cargar la cola.
+  - Un solo modal para aprobar o rechazar, con nota opcional (zod + react-hook-form, hasta 255 caracteres). Al rechazar avisa que es final y qué motivo se guarda si no se escribe ninguno.
+  - Insignia de rol reutilizable (`RoleBadge`), igual a las de `mi-cuenta.html`.
+  - Tests en Vitest de la API, de la insignia y de la pestaña completa (urgencia, aprobar, rechazar, errores y teclado).
+- **Decisiones tomadas:**
+  - Saqué la cola de FR-10a a piezas compartidas (`useReviewQueue` y `ReviewQueueView`) para no repetirla en cada pestaña; las que faltan (alertas, comentarios, productos y las del Admin) las reusan.
+  - Las filas de salud pasaron a `getPetHealthRows` y las usan la ficha pública y la de gestión.
+  - El Admin no tiene insignia en el maquetado: usa la violeta de Staff con el texto "🛡️ Admin" (se puede revisar en FR-18).
+- **Problemas y cómo los resolví:** en los tests, una misma respuesta simulada de `fetch` se reutilizaba y fallaba la segunda lectura del cuerpo; ahora cada llamada recibe una respuesta nueva.
+- **Pendiente:** cerrar la épica #28 cuando existan las pestañas de alertas, comentarios y productos (BK-09, BK-10 y BK-12). Probar la tarjeta en 375px y el rechazo en el navegador con otra mascota en revisión (en el seed había solo una).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para escribir la pestaña, las piezas compartidas y los tests, y probar validar urgente y aprobar en el navegador contra el back local.
