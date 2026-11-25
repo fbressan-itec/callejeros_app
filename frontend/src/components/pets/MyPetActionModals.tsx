@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useEffect,
   useId,
+  useRef,
   useState,
 } from "react";
 
@@ -30,9 +31,11 @@ function ActionDialog({
   children,
 }: ActionDialogProps) {
   const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const opener = document.activeElement;
+    closeButtonRef.current?.focus();
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) {
         opener.focus();
@@ -75,6 +78,7 @@ function ActionDialog({
             </h2>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             disabled={isBusy}
