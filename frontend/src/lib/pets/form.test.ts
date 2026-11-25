@@ -77,6 +77,20 @@ describe("petFormSchema", () => {
     );
   });
 
+  it("muestra mensaje claro (no técnico) si react-hook-form entrega null en radios sin marcar", () => {
+    const result = petFormSchema.safeParse({
+      ...validValues(),
+      isNeutered: null,
+      isSociable: null,
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const errors = result.error.flatten().fieldErrors;
+    expect(errors.isNeutered).toEqual(["Indicá si la mascota está castrada."]);
+    expect(errors.isSociable).toEqual(["Indicá si la mascota es sociable."]);
+  });
+
   it("exige texto de cuidado especial (≤ 150) solo cuando la casilla está marcada", () => {
     const emptyChecked = petFormSchema.safeParse(
       validValues({ hasSpecialCare: true, specialCare: "   " }),

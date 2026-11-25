@@ -220,10 +220,16 @@ export function PetForm({
     }
   }
 
+  function onInvalidSubmit() {
+    if (requirePhotos && selectedPhotos.length === 0) {
+      setPhotoError(PET_PHOTO_REQUIRED_ERROR);
+    }
+  }
+
   return (
     <form
       id="form-publicar-mascota"
-      onSubmit={handleSubmit(onValidSubmit)}
+      onSubmit={handleSubmit(onValidSubmit, onInvalidSubmit)}
       noValidate
       className="space-y-4"
     >

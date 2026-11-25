@@ -95,12 +95,18 @@ export const petFormSchema = z
         },
       ),
     ageUnit: z.enum(["years", "months"]),
-    isNeutered: z.enum(["", "true", "false"]).refine((value) => value !== "", {
-      message: "Indicá si la mascota está castrada.",
-    }),
-    isSociable: z.enum(["", "true", "false"]).refine((value) => value !== "", {
-      message: "Indicá si la mascota es sociable.",
-    }),
+    isNeutered: z.custom<TriBooleanOption>(
+      (value) => value === "true" || value === "false",
+      {
+        message: "Indicá si la mascota está castrada.",
+      },
+    ),
+    isSociable: z.custom<TriBooleanOption>(
+      (value) => value === "true" || value === "false",
+      {
+        message: "Indicá si la mascota es sociable.",
+      },
+    ),
     goodWithChildren: z.enum(["not_evaluated", "yes", "no"]),
     goodWithAnimals: z.enum(["not_evaluated", "yes", "no"]),
     isUrgentRequested: z.boolean(),
