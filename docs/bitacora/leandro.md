@@ -225,11 +225,12 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Implementé el componente reutilizable `PetForm` (`src/components/pets/PetForm.tsx`), `PublishPetView` y la ruta protegida `/adopciones/publicar` (`RequireAuth` con `LoadingScreen`), fiel a `contexto-ia/maquetado/adopciones.html` adaptado a Tailwind 4, WCAG AA y modo claro/oscuro: sin vista previa de insignias, contadores en cuidados especiales (`0 / 150`) y descripción (`0 / 400`), carga de una o más fotos con vista previa y botón para quitar cada una, botón deshabilitado en gerundio (`"Publicando..."`), errores por campo del back y confirmación `"¡Publicación enviada!"` (o `"¡Publicación publicada!"` para Admin).
   - Conecté el enlace `"Publicar"` en `MobileMenu.tsx` y el botón `+ Publicar` en `AdoptionCatalog.tsx` hacia `/adopciones/publicar`.
   - Escribí 7 tests de integración en `PublishPetView.test.tsx` (35 archivos y 218 tests pasando, `lint`, `format:check`, `typecheck` y `build` en verde) y realicé la comparación visual en navegador contra `adopciones.html` en 375 px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #157: actualicé el texto de ayuda del teléfono en `PetForm.tsx` al texto exacto de `03-reglas-de-negocio.md` (con su aserción en `PublishPetView.test.tsx`), cambié el título de éxito para Admin a `"¡Mascota publicada!"` y documenté en la descripción del PR los botones de la pantalla de éxito.
 - **Decisiones tomadas:**
   - Implementé la publicación en la ruta dedicada `/adopciones/publicar` en lugar de un modal dentro de `AdoptionCatalog.tsx` para evitar conflictos con `FR-06b/c` (en curso por Ulises) y dejar `PetForm` listo para reutilizar en edición (`FR-08c`).
   - Prellenado automático del teléfono de contacto con el del perfil autenticado (`user.phone`) cuando existe, manteniendo el campo editable y obligatorio.
 - **Problemas y cómo los resolví:**
   - En la comparación visual en navegador detecté dos detalles: (1) al desenfocar un radio sin marcar, `react-hook-form` entregaba `null` y `z.enum` mostraba un error técnico crudo; lo resolví usando `z.custom<TriBooleanOption>` en `form.ts`; (2) al enviar todo vacío, la foto obligatoria no mostraba su error hasta que el resto de los campos pasaban `zod`; lo resolví agregando `onInvalidSubmit` en `PetForm.tsx`. Ambos casos quedaron cubiertos con tests.
-- **Pendiente:** abrir el PR de #154 hacia `develop` para revisión de Franco y continuar con #155 (FR-08b: Mis publicaciones, marcar adoptada y dar de baja).
-- **PR:** pendiente
+- **Pendiente:** que Franco revise los ajustes del PR #157 para continuar con #155 (FR-08b: Mis publicaciones, marcar adoptada y dar de baja).
+- **PR:** #157
 - **IA usada:** Antigravity — para dividir la épica, extender el cliente API con `FormData`, implementar `PetForm` y `/adopciones/publicar` con validación `zod`, escribir los tests con Vitest y realizar la comparación visual en navegador.
