@@ -52,7 +52,7 @@ const MENU_GROUPS: readonly MenuGroup[] = [
     ),
     links: [
       { href: "/adopciones", label: "Adoptar" },
-      { href: "/adopciones#publicar", label: "Publicar" },
+      { href: "/adopciones/publicar", label: "Publicar" },
       { href: "/alertas", label: "🚨 Alerta Callejero!", variant: "alert" },
     ],
   },

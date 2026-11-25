@@ -67,6 +67,22 @@ describe("respuestas correctas", () => {
     expect(init.body).toBe(JSON.stringify({ name: "Luna" }));
   });
 
+  it("POST manda FormData sin fijar Content-Type para permitir multipart/form-data", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { id: 8 }));
+    const formData = new FormData();
+    formData.append("name", "Manchitas");
+
+    await api.post("pets/", formData, {
+      headers: { Authorization: "Bearer token-123" },
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.method).toBe("POST");
+    expect(init.headers["Content-Type"]).toBeUndefined();
+    expect(init.headers.Authorization).toBe("Bearer token-123");
+    expect(init.body).toBe(formData);
+  });
+
   it("una respuesta sin contenido (204) devuelve null", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 

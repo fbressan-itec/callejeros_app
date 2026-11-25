@@ -86,3 +86,19 @@ export function fetchPetById(
     { allowPublicFallback: true },
   );
 }
+
+/**
+ * Publica una mascota en adopción enviando datos y fotos (`POST /api/pets/`).
+ * Requiere sesión activa (renueva el token Bearer una vez ante `401`).
+ */
+export function createPet(
+  formData: FormData,
+  options: FetchPetOptions = {},
+): Promise<PetDetail> {
+  return requestWithAuth((headers) =>
+    api.post<PetDetail>("pets/", formData, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
