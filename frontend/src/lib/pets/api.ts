@@ -2,7 +2,7 @@ import { api, getApiUrl } from "@/lib/api/client";
 import { parsePositiveId } from "@/lib/api/ids";
 import type { PaginatedResponse } from "@/lib/api/pagination";
 import { requestWithAuth } from "@/lib/auth/session";
-import type { PetDetail, PetListItem } from "@/lib/pets/types";
+import type { PetDetail, PetListItem, PetStatus } from "@/lib/pets/types";
 
 export interface FetchPetOptions {
   signal?: AbortSignal;
@@ -97,6 +97,64 @@ export function createPet(
 ): Promise<PetDetail> {
   return requestWithAuth((headers) =>
     api.post<PetDetail>("pets/", formData, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
+
+export interface MyPetsParams {
+  status?: PetStatus;
+  page?: number;
+}
+
+/**
+ * Pide una página de las publicaciones propias del usuario autenticado (`GET /api/pets/mine/`),
+ * con filtro opcional por estado (`in_review`, `published`, `rejected` o `adopted`).
+ */
+export function fetchMyPets(
+  params: MyPetsParams = {},
+  options: FetchPetOptions = {},
+): Promise<PaginatedResponse<PetDetail>> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.page && params.page > 1) query.set("page", String(params.page));
+  const search = query.toString();
+  const path = search ? `pets/mine/?${search}` : "pets/mine/";
+  return requestWithAuth((headers) =>
+    api.get<PaginatedResponse<PetDetail>>(path, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
+
+/**
+ * Marca una mascota publicada como adoptada (`POST /api/pets/{id}/adopt/`).
+ */
+export function adoptPet(
+  petId: number,
+  note = "",
+  options: FetchPetOptions = {},
+): Promise<PetDetail> {
+  return requestWithAuth((headers) =>
+    api.post<PetDetail>(
+      `pets/${petId}/adopt/`,
+      { note: note.trim() },
+      { headers, signal: options.signal },
+    ),
+  );
+}
+
+/**
+ * Da de baja lógica una publicación de mascota (`DELETE /api/pets/{id}/`).
+ */
+export function deactivatePet(
+  petId: number,
+  options: FetchPetOptions = {},
+): Promise<void> {
+  return requestWithAuth((headers) =>
+    api.delete<void>(`pets/${petId}/`, {
       headers,
       signal: options.signal,
     }),
