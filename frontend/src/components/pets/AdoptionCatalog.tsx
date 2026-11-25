@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { BackButton } from "@/components/layout/BackButton";
@@ -177,9 +178,9 @@ export function AdoptionCatalog() {
                 <span>Filtros</span>
               </button>
 
-              {/* Botón Publicar Mascota (sin destino hasta FR-08, #26) */}
-              <button
-                type="button"
+              {/* Botón Publicar Mascota */}
+              <Link
+                href="/adopciones/publicar"
                 id="btn-open-publish-pet"
                 aria-label="Publicar mascota para adopción"
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
@@ -188,7 +189,7 @@ export function AdoptionCatalog() {
                   +
                 </span>
                 <span className="hidden sm:inline">Publicar</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
