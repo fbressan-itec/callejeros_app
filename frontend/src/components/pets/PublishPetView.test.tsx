@@ -106,6 +106,11 @@ describe("PublishPetView y PetForm", () => {
     expect(healthTextarea).toBeDisabled();
     expect(screen.getByText("0 / 150")).toBeInTheDocument();
     expect(screen.getByText("0 / 400")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Lo ve el equipo de voluntarios y, si aprobamos una solicitud de adopción, también la persona aprobada, para coordinar el encuentro.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("valida campos obligatorios con zod y exige foto al intentar enviar vacío", async () => {
@@ -320,7 +325,7 @@ describe("PublishPetView y PetForm", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "¡Publicación publicada!" }),
+      await screen.findByRole("heading", { name: "¡Mascota publicada!" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

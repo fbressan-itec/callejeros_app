@@ -55,7 +55,7 @@ export function PublishPetView() {
               className="font-display text-2xl font-extrabold text-slate-900 dark:text-white"
             >
               {isPublishedDirectly
-                ? "¡Publicación publicada!"
+                ? "¡Mascota publicada!"
                 : "¡Publicación enviada!"}
             </h1>
             <p className="text-xs leading-relaxed text-slate-600 sm:text-sm dark:text-slate-300">

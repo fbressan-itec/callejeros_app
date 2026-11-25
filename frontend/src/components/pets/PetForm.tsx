@@ -696,7 +696,8 @@ export function PetForm({
           id="pub-contact-help"
           className="mt-1 text-[11px] text-slate-600 dark:text-slate-400"
         >
-          Solo lo ve el equipo de voluntarios para revisar la publicación.
+          Lo ve el equipo de voluntarios y, si aprobamos una solicitud de
+          adopción, también la persona aprobada, para coordinar el encuentro.
         </p>
         {errors.contactPhone ? (
           <p
