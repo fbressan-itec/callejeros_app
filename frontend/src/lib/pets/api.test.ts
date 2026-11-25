@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { AUTH_SESSION_STORAGE_KEY } from "@/lib/auth/session";
 import {
+  createPet,
   fetchPetById,
   fetchPets,
   parsePetId,
@@ -347,6 +348,83 @@ describe("fetchPets", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe(
       "Bearer token-renovado",
+    );
+  });
+});
+
+describe("createPet", () => {
+  it("envía FormData a POST /api/pets/ con token Bearer y sin fijar Content-Type", async () => {
+    window.localStorage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        access: "token-publicar",
+        refresh: "refresh-publicar",
+        user: {
+          id: 1,
+          email: "miembro@callejeros.ar",
+          first_name: "Tomás",
+          last_name: "Gómez",
+          phone: "3584123456",
+          is_phone_verified: true,
+          photo: null,
+          role: { code: "member", name: "Miembro" },
+        },
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { ...SAMPLE_PET, status: "in_review" }),
+    );
+
+    const formData = new FormData();
+    formData.append("name", "Manchitas");
+
+    const created = await createPet(formData);
+
+    expect(created.status).toBe("in_review");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer token-publicar");
+    expect(init.headers["Content-Type"]).toBeUndefined();
+    expect(init.body).toBe(formData);
+  });
+
+  it("renueva el token Bearer si POST /api/pets/ responde 401 y reintenta", async () => {
+    window.localStorage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        access: "token-vencido",
+        refresh: "refresh-valido",
+        user: {
+          id: 1,
+          email: "miembro@callejeros.ar",
+          first_name: "Tomás",
+          last_name: "Gómez",
+          phone: "",
+          is_phone_verified: true,
+          photo: null,
+          role: { code: "member", name: "Miembro" },
+        },
+      }),
+    );
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { detail: "Token vencido" }))
+      .mockResolvedValueOnce(jsonResponse(200, { access: "token-nuevo" }))
+      .mockResolvedValueOnce(
+        jsonResponse(201, { ...SAMPLE_PET, status: "in_review" }),
+      );
+
+    const formData = new FormData();
+    formData.append("name", "Manchitas");
+
+    const created = await createPet(formData);
+
+    expect(created.status).toBe("in_review");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe(
+      "Bearer token-nuevo",
     );
   });
 });

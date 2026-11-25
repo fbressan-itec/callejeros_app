@@ -3,7 +3,7 @@ import { ApiError, parseApiError } from "./errors";
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type RequestOptions = {
-  /** Datos a enviar; se mandan como JSON. */
+  /** Datos a enviar: JSON por defecto o `FormData` para subir archivos (`multipart/form-data`). */
   body?: unknown;
   /** Encabezados extra (por ejemplo, el token de sesión desde FR-03). */
   headers?: Record<string, string>;
@@ -44,6 +44,8 @@ export async function request<T>(
 ): Promise<T> {
   const { body, headers = {}, signal } = options;
   const url = `${getApiUrl()}/${path.replace(/^\/+/, "")}`;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   let response: Response;
   try {
@@ -52,10 +54,17 @@ export async function request<T>(
       signal,
       headers: {
         Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(body !== undefined && !isFormData
+          ? { "Content-Type": "application/json" }
+          : {}),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? body
+            : JSON.stringify(body),
     });
   } catch (error) {
     // Si se canceló a propósito, no es un error de conexión.
