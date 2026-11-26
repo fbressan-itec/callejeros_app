@@ -62,10 +62,18 @@ describe("MyPetsView", () => {
 
     resolveRequest(
       makePage([
-        buildPet({ id: 1, name: "Loki", status: "published" }),
-        buildPet({ id: 2, name: "Milo", status: "in_review" }),
-        buildPet({ id: 3, name: "Pancho", status: "adopted" }),
-        buildPet({ id: 4, name: "Toto", status: "rejected" }),
+        buildPet({ id: 1, name: "Loki", sex: "male", status: "published" }),
+        buildPet({
+          id: 2,
+          name: "Milo",
+          sex: "male",
+          status: "in_review",
+          is_urgent_requested: true,
+          is_urgent: false,
+        }),
+        buildPet({ id: 3, name: "Luna", sex: "female", status: "published" }),
+        buildPet({ id: 4, name: "Pancho", status: "adopted" }),
+        buildPet({ id: 5, name: "Toto", status: "rejected" }),
       ]),
     );
 
@@ -73,16 +81,26 @@ describe("MyPetsView", () => {
       await screen.findByRole("heading", { name: "Loki" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Milo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Luna" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pancho" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Toto" })).toBeInTheDocument();
 
-    // Solo las publicadas tienen botón "Marcar adoptada"
+    // Solo las publicadas tienen botón de adopción, con concordancia según sexo
     expect(
-      screen.getAllByRole("button", { name: "Marcar adoptada" }),
-    ).toHaveLength(1);
+      screen.getByRole("button", { name: "Marcar adoptado" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Marcar adoptada" }),
+    ).toBeInTheDocument();
+    // Urgencia pendiente menciona "un voluntario"
+    expect(
+      screen.getByText(
+        "Caso urgente solicitado (pendiente de validación de un voluntario).",
+      ),
+    ).toBeInTheDocument();
     // Todas las activas tienen "Dar de baja"
     expect(screen.getAllByRole("button", { name: "Dar de baja" })).toHaveLength(
-      4,
+      5,
     );
     // Rechazada muestra aviso de estado final y enlace "Cargar nueva"
     expect(
@@ -173,10 +191,10 @@ describe("MyPetsView", () => {
     render(<MyPetsView />);
     await screen.findByRole("heading", { name: "Loki" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Marcar adoptada" }));
+    fireEvent.click(screen.getByRole("button", { name: "Marcar adoptado" }));
 
     expect(
-      screen.getByRole("dialog", { name: "Marcar a Loki como adoptada" }),
+      screen.getByRole("dialog", { name: "Marcar a Loki como adoptado" }),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Nota (opcional)"), {
@@ -193,7 +211,7 @@ describe("MyPetsView", () => {
 
     expect(
       await screen.findByText(
-        "¡Qué alegría! Loki quedó marcada como adoptada.",
+        "¡Qué alegría! Loki quedó marcado como adoptado.",
       ),
     ).toBeInTheDocument();
     expect(adoptPetSpy).toHaveBeenCalledWith(
@@ -242,7 +260,9 @@ describe("MyPetsView", () => {
     resolveDeactivate();
 
     expect(
-      await screen.findByText("Milo fue dada de baja correctamente."),
+      await screen.findByText(
+        "La publicación de Milo fue dada de baja correctamente.",
+      ),
     ).toBeInTheDocument();
     expect(deactivatePetSpy).toHaveBeenCalledWith(2);
     await waitFor(() => {

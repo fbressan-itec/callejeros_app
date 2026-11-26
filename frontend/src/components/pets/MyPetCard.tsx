@@ -107,7 +107,8 @@ export function MyPetCard({
           pet.status !== "adopted" &&
           pet.status !== "rejected" ? (
             <p className="text-[11px] font-medium text-rose-700 dark:text-rose-300">
-              Caso urgente solicitado (pendiente de validación de Staff).
+              Caso urgente solicitado (pendiente de validación de un
+              voluntario).
             </p>
           ) : null}
 
@@ -148,7 +149,7 @@ export function MyPetCard({
               onClick={() => onRequestAdopt(pet)}
               className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-emerald-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
             >
-              Marcar adoptada
+              {pet.sex === "female" ? "Marcar adoptada" : "Marcar adoptado"}
             </button>
           ) : null}
         </div>

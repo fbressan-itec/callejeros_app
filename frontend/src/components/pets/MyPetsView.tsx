@@ -103,16 +103,24 @@ export function MyPetsView() {
 
   function handleAdoptSuccess(updatedPet: PetDetail) {
     setPetToAdopt(null);
+    const adoptedPhrase =
+      updatedPet.sex === "female"
+        ? "marcada como adoptada"
+        : "marcado como adoptado";
     setFeedbackMessage(
-      `¡Qué alegría! ${updatedPet.name} quedó marcada como adoptada.`,
+      `¡Qué alegría! ${updatedPet.name} quedó ${adoptedPhrase}.`,
     );
     setReloadCount((prev) => prev + 1);
   }
 
   function handleDeactivateSuccess() {
-    const name = petToDeactivate?.name ?? "La publicación";
+    const name = petToDeactivate?.name;
     setPetToDeactivate(null);
-    setFeedbackMessage(`${name} fue dada de baja correctamente.`);
+    setFeedbackMessage(
+      name
+        ? `La publicación de ${name} fue dada de baja correctamente.`
+        : "La publicación fue dada de baja correctamente.",
+    );
     setReloadCount((prev) => prev + 1);
   }
 
@@ -182,19 +190,19 @@ export function MyPetsView() {
         })}
       </div>
 
-      {/* Aviso de éxito tras acción */}
+      {/* Aviso de éxito fijo abajo para que siempre sea visible en celular (375 px) */}
       {feedbackMessage ? (
         <div
           role="status"
           aria-live="polite"
-          className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+          className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-lg items-center justify-between gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-950 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"
         >
           <span>{feedbackMessage}</span>
           <button
             type="button"
             onClick={() => setFeedbackMessage(null)}
             aria-label="Cerrar aviso"
-            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-emerald-800 hover:bg-emerald-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-emerald-900 hover:bg-emerald-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 dark:text-emerald-200 dark:hover:bg-emerald-900/60"
           >
             ✕
           </button>

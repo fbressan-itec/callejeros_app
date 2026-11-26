@@ -40,10 +40,12 @@ export function AdoptPetModal({ pet, onClose, onSuccess }: AdoptPetModalProps) {
     }
   }
 
+  const adoptedLabel = pet.sex === "female" ? "adoptada" : "adoptado";
+
   return (
     <ActionDialog
       kicker="Mis publicaciones"
-      title={`Marcar a ${pet.name} como adoptada`}
+      title={`Marcar a ${pet.name} como ${adoptedLabel}`}
       isBusy={isSubmitting}
       onClose={onClose}
     >
