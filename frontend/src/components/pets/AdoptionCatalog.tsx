@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BackButton } from "@/components/layout/BackButton";
+import {
+  CatalogFiltersModal,
+  countActiveCatalogFilters,
+  DEFAULT_CATALOG_FILTERS,
+  type CatalogFilters,
+} from "@/components/pets/CatalogFiltersModal";
 import { PetCard } from "@/components/pets/PetCard";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { ApiError } from "@/lib/api/client";
 import { ERROR_MESSAGES } from "@/lib/api/errors";
 import type { PaginatedResponse } from "@/lib/api/pagination";
-import { fetchPets } from "@/lib/pets/api";
+import { fetchPets, type PetListParams } from "@/lib/pets/api";
 import type { PetListItem, PetSpecies } from "@/lib/pets/types";
 
 const PAGE_SIZE = 12;
@@ -28,25 +34,78 @@ type CatalogFetchResult =
 
 type CatalogState = { status: "loading" } | CatalogFetchResult;
 
+function buildCatalogQueryParams(
+  species: SpeciesFilter,
+  filters: CatalogFilters,
+  page: number,
+): PetListParams {
+  return {
+    species: species === "all" ? undefined : species,
+    search: filters.search || undefined,
+    age_group: filters.ageGroup ?? undefined,
+    is_sociable:
+      filters.sociability === "all"
+        ? undefined
+        : filters.sociability === "sociable",
+    good_with_children: filters.goodWithChildren ? "yes" : undefined,
+    good_with_animals: filters.goodWithAnimals ? "yes" : undefined,
+    is_neutered:
+      filters.neutered === "all" ? undefined : filters.neutered === "neutered",
+    urgent: filters.onlyUrgent ? true : undefined,
+    sex: filters.sex === "all" ? undefined : filters.sex,
+    favorites: filters.onlyFavorites ? true : undefined,
+    adopted: filters.adopted ? true : undefined,
+    page,
+  };
+}
+
 export function AdoptionCatalog() {
   const [species, setSpecies] = useState<SpeciesFilter>("all");
+  const [filters, setFilters] = useState<CatalogFilters>(
+    DEFAULT_CATALOG_FILTERS,
+  );
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [reloadCount, setReloadCount] = useState(0);
   const [fetched, setFetched] = useState<{
     key: string;
     result: CatalogFetchResult;
   } | null>(null);
+  const filtersBtnRef = useRef<HTMLButtonElement>(null);
 
-  const requestKey = `${species}:${page}:${reloadCount}`;
+  const queryParams = useMemo(
+    () => buildCatalogQueryParams(species, filters, page),
+    [species, filters, page],
+  );
+  const requestKey = `${JSON.stringify(queryParams)}:${reloadCount}`;
+  const activeFiltersCount = countActiveCatalogFilters(filters);
+  const hasAnyFilter = species !== "all" || activeFiltersCount > 0;
+  const isOnlyFavoritesEmpty =
+    filters.onlyFavorites && activeFiltersCount === 1 && species === "all";
+
+  const handleCloseFilters = useCallback(() => {
+    setIsFiltersOpen(false);
+    filtersBtnRef.current?.focus();
+  }, []);
 
   const handleSelectSpecies = useCallback((nextSpecies: SpeciesFilter) => {
     setSpecies(nextSpecies);
     setPage(1);
   }, []);
 
+  const handleApplyFilters = useCallback((nextFilters: CatalogFilters) => {
+    setFilters(nextFilters);
+    setPage(1);
+    setIsFiltersOpen(false);
+    filtersBtnRef.current?.focus();
+  }, []);
+
   const handleResetFilters = useCallback(() => {
     setSpecies("all");
+    setFilters(DEFAULT_CATALOG_FILTERS);
     setPage(1);
+    setIsFiltersOpen(false);
+    filtersBtnRef.current?.focus();
   }, []);
 
   const handleRetry = useCallback(() => {
@@ -56,13 +115,7 @@ export function AdoptionCatalog() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchPets(
-      {
-        species: species === "all" ? undefined : species,
-        page,
-      },
-      { signal: controller.signal },
-    )
+    fetchPets(queryParams, { signal: controller.signal })
       .then((data) => {
         if (controller.signal.aborted) return;
         setFetched({ key: requestKey, result: { status: "success", data } });
@@ -83,7 +136,7 @@ export function AdoptionCatalog() {
     return () => {
       controller.abort();
     };
-  }, [species, page, requestKey]);
+  }, [queryParams, requestKey]);
 
   const state: CatalogState =
     fetched?.key === requestKey ? fetched.result : { status: "loading" };
@@ -154,11 +207,22 @@ export function AdoptionCatalog() {
 
             {/* Grupo Filtros + Publicar: en 375px bajan juntos a la segunda fila */}
             <div className="flex shrink-0 items-center gap-2">
-              {/* Botón Filtros (se conecta al modal en FR-06b, #130) */}
+              {/* Botón Filtros */}
               <button
+                ref={filtersBtnRef}
                 type="button"
                 id="btn-open-filters"
-                aria-label="Abrir filtros avanzados"
+                aria-haspopup="dialog"
+                aria-expanded={isFiltersOpen}
+                aria-controls="modal-filtros"
+                aria-label={
+                  activeFiltersCount === 1
+                    ? "Abrir filtros avanzados (1 activo)"
+                    : activeFiltersCount > 1
+                      ? `Abrir filtros avanzados (${activeFiltersCount} activos)`
+                      : "Abrir filtros avanzados"
+                }
+                onClick={() => setIsFiltersOpen(true)}
                 className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-all hover:bg-slate-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-750 dark:focus-visible:ring-offset-slate-900"
               >
                 <svg
@@ -176,6 +240,11 @@ export function AdoptionCatalog() {
                   />
                 </svg>
                 <span>Filtros</span>
+                {activeFiltersCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-700 px-1.5 text-[11px] font-extrabold text-white">
+                    {activeFiltersCount}
+                  </span>
+                ) : null}
               </button>
 
               {/* Botón Publicar Mascota */}
@@ -220,27 +289,49 @@ export function AdoptionCatalog() {
           </button>
         </div>
       ) : state.data.results.length === 0 ? (
-        <div className="py-16 text-center text-slate-600 dark:text-slate-400">
-          <span className="mb-2 block text-4xl" aria-hidden="true">
-            🔍
-          </span>
-          <p className="text-base font-bold text-slate-800 sm:text-lg dark:text-slate-200">
-            No encontramos animalitos con esos filtros.
-          </p>
-          <p className="mt-1 text-xs sm:text-sm">
-            Probá limpiando los filtros para ver todos los rescatados
-            disponibles.
-          </p>
-          {species !== "all" ? (
+        isOnlyFavoritesEmpty ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center text-slate-600 dark:text-slate-400">
+            <span className="block text-4xl" aria-hidden="true">
+              🤍
+            </span>
+            <p className="text-base font-bold text-slate-800 sm:text-lg dark:text-slate-200">
+              Todavía no tenés favoritos
+            </p>
+            <p className="max-w-sm text-xs sm:text-sm">
+              Tocá el ❤️ en las mascotas que te gusten para guardarlas y
+              encontrarlas rápido acá.
+            </p>
             <button
               type="button"
               onClick={handleResetFilters}
-              className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/60 dark:focus-visible:ring-offset-slate-900"
+              className="mt-1 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-orange-700 px-5 text-sm font-bold text-white shadow-xs transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
             >
-              Limpiar Filtros
+              Ver mascotas en adopción
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <div className="py-16 text-center text-slate-600 dark:text-slate-400">
+            <span className="mb-2 block text-4xl" aria-hidden="true">
+              🔍
+            </span>
+            <p className="text-base font-bold text-slate-800 sm:text-lg dark:text-slate-200">
+              No encontramos animalitos con esos filtros.
+            </p>
+            <p className="mt-1 text-xs sm:text-sm">
+              Probá limpiando los filtros para ver todos los rescatados
+              disponibles.
+            </p>
+            {hasAnyFilter ? (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/60 dark:focus-visible:ring-offset-slate-900"
+              >
+                Limpiar Filtros
+              </button>
+            ) : null}
+          </div>
+        )
       ) : (
         <>
           <div
@@ -280,6 +371,14 @@ export function AdoptionCatalog() {
           ) : null}
         </>
       )}
+
+      <CatalogFiltersModal
+        isOpen={isFiltersOpen}
+        initialFilters={filters}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+        onClose={handleCloseFilters}
+      />
     </main>
   );
 }

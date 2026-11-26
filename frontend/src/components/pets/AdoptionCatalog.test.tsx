@@ -172,9 +172,101 @@ describe("AdoptionCatalog", () => {
     await waitFor(() => {
       expect(fetchPetsSpy).toHaveBeenNthCalledWith(
         3,
-        { species: "dog", page: 1 },
+        expect.objectContaining({ species: "dog", page: 1 }),
         expect.anything(),
       );
     });
+  });
+
+  it("abre el modal de filtros, aplica Adoptados + búsqueda y muestra contador de filtros activos", async () => {
+    fetchPetsSpy
+      .mockResolvedValueOnce(makePage([buildPet({ id: 1, name: "Loki" })]))
+      .mockResolvedValueOnce(
+        makePage([
+          buildPet({
+            id: 9,
+            name: "Pancho",
+            status: "adopted",
+            is_urgent: true,
+          }),
+        ]),
+      );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir filtros avanzados" }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Buscar ..."), {
+      target: { value: "Pancho" },
+    });
+    fireEvent.click(screen.getByLabelText(/Adoptados/i));
+    fireEvent.click(screen.getByRole("button", { name: "VER RESULTADOS" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Pancho" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("¡Ya encontró hogar! 🧡")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Abrir filtros avanzados (2 activos)",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchPetsSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        search: "Pancho",
+        adopted: true,
+        page: 1,
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("muestra estado vacío propio de favoritos cuando solo Favoritos está activo y permite volver", async () => {
+    fetchPetsSpy
+      .mockResolvedValueOnce(makePage([buildPet({ id: 1, name: "Loki" })]))
+      .mockResolvedValueOnce(makePage([]))
+      .mockResolvedValueOnce(makePage([buildPet({ id: 1, name: "Loki" })]));
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir filtros avanzados" }),
+    );
+    fireEvent.click(screen.getByLabelText("Favoritos"));
+    fireEvent.click(screen.getByRole("button", { name: "VER RESULTADOS" }));
+
+    expect(
+      await screen.findByText("Todavía no tenés favoritos"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Abrir filtros avanzados (1 activo)",
+      }),
+    ).toBeInTheDocument();
+    expect(fetchPetsSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ favorites: true, page: 1 }),
+      expect.anything(),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ver mascotas en adopción" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Loki" }),
+    ).toBeInTheDocument();
+    expect(fetchPetsSpy).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ favorites: undefined, page: 1 }),
+      expect.anything(),
+    );
   });
 });
