@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { AUTH_SESSION_STORAGE_KEY } from "@/lib/auth/session";
 import {
+  addPetFavorite,
   addPetPhoto,
   adoptPet,
   createPet,
@@ -12,6 +13,7 @@ import {
   fetchPetById,
   fetchPets,
   parsePetId,
+  removePetFavorite,
   resolvePetImageUrl,
   updatePet,
 } from "@/lib/pets/api";
@@ -559,6 +561,33 @@ describe("fetchMyPets, adoptPet y deactivatePet", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://api.test/api/pets/1/photos/22/");
+    expect(init.method).toBe("DELETE");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+  });
+
+  it("addPetFavorite envía POST /api/pets/{id}/favorite/ con token Bearer", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { pet_id: 1, is_favorite: true }),
+    );
+
+    const result = await addPetFavorite(1);
+
+    expect(result).toEqual({ pet_id: 1, is_favorite: true });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/favorite/");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+  });
+
+  it("removePetFavorite envía DELETE /api/pets/{id}/favorite/ con token Bearer", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await removePetFavorite(1);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/favorite/");
     expect(init.method).toBe("DELETE");
     expect(init.headers.Authorization).toBe("Bearer token-mio");
   });
