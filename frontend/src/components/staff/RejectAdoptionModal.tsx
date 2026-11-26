@@ -6,10 +6,10 @@ import { useForm } from "react-hook-form";
 
 import { TextAreaField } from "@/components/adoptions/QuestionnaireFields";
 import {
+  ActionDialog,
   DIALOG_SECONDARY_BUTTON_CLASSES,
   DialogError,
-  StaffDialog,
-} from "@/components/staff/StaffDialog";
+} from "@/components/ui/ActionDialog";
 import { rejectAdoptionRequest } from "@/lib/adoptions/api";
 import {
   getApplicantName,
@@ -83,7 +83,9 @@ export function RejectAdoptionModal({
   }
 
   return (
-    <StaffDialog
+    <ActionDialog
+      kickerTone="violet"
+      autoFocusClose={false}
       kicker="Solicitud de adopción"
       title="Desaprobar solicitud"
       isBusy={isSubmitting}
@@ -132,6 +134,6 @@ export function RejectAdoptionModal({
           </button>
         </div>
       </form>
-    </StaffDialog>
+    </ActionDialog>
   );
 }

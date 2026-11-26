@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  ActionDialog,
   DIALOG_SECONDARY_BUTTON_CLASSES,
   DialogError,
-  StaffDialog,
-} from "@/components/staff/StaffDialog";
+} from "@/components/ui/ActionDialog";
 import { approveAdoptionRequest } from "@/lib/adoptions/api";
 import {
   getApplicantName,
@@ -51,7 +51,9 @@ export function ApproveAdoptionModal({
   }
 
   return (
-    <StaffDialog
+    <ActionDialog
+      kickerTone="violet"
+      autoFocusClose={false}
       kicker="Solicitud de adopción"
       title="Aprobar solicitud"
       isBusy={isSubmitting}
@@ -82,6 +84,6 @@ export function ApproveAdoptionModal({
           {isSubmitting ? "Aprobando…" : "Confirmar"}
         </button>
       </div>
-    </StaffDialog>
+    </ActionDialog>
   );
 }
