@@ -134,6 +134,15 @@ export function MyPetCard({
             Ver ficha
           </Link>
 
+          {pet.status === "in_review" || pet.status === "published" ? (
+            <Link
+              href={`/mis-publicaciones/${pet.id}/editar`}
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-orange-700 px-3 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
+            >
+              Editar
+            </Link>
+          ) : null}
+
           {pet.status === "rejected" ? (
             <Link
               href="/adopciones/publicar"
