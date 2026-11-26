@@ -216,9 +216,11 @@ export function AdoptionCatalog() {
                 aria-expanded={isFiltersOpen}
                 aria-controls="modal-filtros"
                 aria-label={
-                  activeFiltersCount > 0
-                    ? `Abrir filtros avanzados (${activeFiltersCount} activos)`
-                    : "Abrir filtros avanzados"
+                  activeFiltersCount === 1
+                    ? "Abrir filtros avanzados (1 activo)"
+                    : activeFiltersCount > 1
+                      ? `Abrir filtros avanzados (${activeFiltersCount} activos)`
+                      : "Abrir filtros avanzados"
                 }
                 onClick={() => setIsFiltersOpen(true)}
                 className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-all hover:bg-slate-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-750 dark:focus-visible:ring-offset-slate-900"

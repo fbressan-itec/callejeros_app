@@ -339,9 +339,13 @@ function CatalogFiltersModalContent({
 
           {/* Sociabilidad */}
           <fieldset className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-850">
-            <legend className="w-full bg-slate-200/70 px-4 py-2.5 font-display text-xs font-bold tracking-wider text-slate-800 uppercase dark:bg-slate-800 dark:text-slate-200">
+            <legend className="sr-only">Sociabilidad</legend>
+            <div
+              aria-hidden="true"
+              className="bg-slate-200/70 px-4 py-2.5 font-display text-xs font-bold tracking-wider text-slate-800 uppercase dark:bg-slate-800 dark:text-slate-200"
+            >
               Sociabilidad
-            </legend>
+            </div>
             <div className="grid grid-cols-3 gap-2 p-2.5">
               {SOCIABILITY_OPTIONS.map((option) => (
                 <label
@@ -417,9 +421,13 @@ function CatalogFiltersModalContent({
 
           {/* Castración */}
           <fieldset className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-850">
-            <legend className="w-full bg-slate-200/70 px-4 py-2.5 font-display text-xs font-bold tracking-wider text-slate-800 uppercase dark:bg-slate-800 dark:text-slate-200">
+            <legend className="sr-only">Castración</legend>
+            <div
+              aria-hidden="true"
+              className="bg-slate-200/70 px-4 py-2.5 font-display text-xs font-bold tracking-wider text-slate-800 uppercase dark:bg-slate-800 dark:text-slate-200"
+            >
               Castración
-            </legend>
+            </div>
             <div className="grid grid-cols-3 gap-2 p-2.5">
               {NEUTERED_OPTIONS.map((option) => (
                 <label
@@ -475,9 +483,13 @@ function CatalogFiltersModalContent({
 
           {/* Sexo */}
           <fieldset className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-850">
-            <legend className="w-full bg-slate-200/70 px-4 py-2.5 font-display text-xs font-bold tracking-wider text-slate-800 uppercase dark:bg-slate-800 dark:text-slate-200">
+            <legend className="sr-only">Sexo</legend>
+            <div
+              aria-hidden="true"
+              className="bg-slate-200/70 px-4 py-2.5 font-display text-xs font-bold tracking-wider text-slate-800 uppercase dark:bg-slate-800 dark:text-slate-200"
+            >
               Sexo
-            </legend>
+            </div>
             <div className="grid grid-cols-3 gap-2 p-2.5">
               {SEX_OPTIONS.map((option) => (
                 <label

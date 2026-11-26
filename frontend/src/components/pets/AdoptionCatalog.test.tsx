@@ -245,6 +245,11 @@ describe("AdoptionCatalog", () => {
     expect(
       await screen.findByText("Todavía no tenés favoritos"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Abrir filtros avanzados (1 activo)",
+      }),
+    ).toBeInTheDocument();
     expect(fetchPetsSpy).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ favorites: true, page: 1 }),
