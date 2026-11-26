@@ -478,3 +478,27 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Leandro, en el PR #159, mande solo los campos que cambiaron y avise "No hiciste cambios".
 - **PR:** pendiente
 - **IA usada:** Claude Code — para encontrar la causa al revisar el PR #159, escribir el arreglo y los tests, y actualizar Swagger y el README.
+
+## 2026-11-26 — Fotos reales en el seed de mascotas (DB-02a)
+
+- **Tarjeta:** #162 (DB-02a, sub-tarjeta de la épica #37, DB-02)
+- **Rama:** feature/db02-162-fotos-seed-mascotas
+- **Área:** db, back, test, docs
+- **Qué hice:**
+  - Reemplacé los rectángulos de un color del seed por 10 fotos reales de Unsplash (las 7 del maquetado y 3 nuevas para Pancho, Nala y Toby), más 3 de reserva para pruebas, en `backend/apps/pets/seed_images/` (800×600, unos 1,1 MB en total).
+  - Función compartida `load_seed_image()` en `apps/core/seed_images.py` para que alertas (BK-09) y noticias (BK-13) carguen sus fotos igual.
+  - El seed de mascotas reconoce sus fotos por el nombre del archivo: crea las que faltan y, en una base ya cargada, cambia el archivo de las fotos de color en la misma fila (sin borrar ni crear filas).
+  - Arreglé el seed de adopciones: fallaba si desde la app el mismo usuario se había vuelto a postular a una mascota del seed.
+  - Tests nuevos del seed (fotos reales, reemplazo de las de color, fotos agregadas o quitadas desde la app, solicitudes creadas desde la app) y README.
+- **Decisiones tomadas:**
+  - Fotos en el repo y no bajadas al correr el seed, para que ande sin internet (Discussion #136, decisión del grupo).
+  - Reemplazar el archivo en la misma `PetPhoto` (opción A): no rompe la baja lógica y es lo más simple.
+  - El seed sigue restaurando los datos de demo (textos, estados, favoritos), pero no revive fotos quitadas desde la app.
+  - Los créditos a los autores van a la Wiki al final (ToDo List), no en un archivo del repo.
+- **Problemas y cómo los resolví:**
+  - El seed viejo fallaba (`IntegrityError`) si se quitaba la foto principal desde la app y después se corría de nuevo, porque reactivaba la foto quitada en la misma posición que la nueva portada. Ahora busca las fotos por nombre y respeta las quitadas.
+  - En mi base local el seed fallaba entero por una segunda solicitud de Tomás para Bora creada desde la app (`MultipleObjectsReturned`). Ahora toma como del seed la solicitud más vieja.
+  - Comprobé que los dos tests nuevos fallaban con el código viejo y probé en el navegador, con mi base, quitar la portada, subir una foto y editar una mascota del seed, y después correr el seed de nuevo.
+- **Pendiente:** el resto de DB-02 sigue desde DB-02b (ejemplos del maquetado, alertas, noticias, demo completa). Al final, borrar a mano los archivos viejos de color de `media/` y dar crédito a los autores de las fotos en la Wiki.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para buscar y bajar las fotos, escribir la función, el seed y los tests, y probar el CRUD en el navegador contra el back local.

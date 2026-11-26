@@ -118,45 +118,67 @@ def run() -> str:
                 "en INSTALLED_APPS."
             )
 
-        _, created = AdoptionRequest.objects.update_or_create(
-            pet=pet,
-            applicant=applicant,
-            defaults={
-                "full_name": item["full_name"],
-                "age": item["age"],
-                "phone": item["phone"],
-                "email": item["email"],
-                "address": item["address"],
-                "city": item["city"],
-                "housing_type": item["housing_type"],
-                "home_ownership": item["home_ownership"],
-                "rental_allows_pets": item["rental_allows_pets"],
-                "outdoor_space": item["outdoor_space"],
-                "household_members": item["household_members"],
-                "household_agreement": item["household_agreement"],
-                "other_pets": item["other_pets"],
-                "previous_pets": item["previous_pets"],
-                "hours_alone": item["hours_alone"],
-                "living_space": item["living_space"],
-                "vacation_care": item["vacation_care"],
-                "contingency_plan": item["contingency_plan"],
-                "adoption_reason": item["adoption_reason"],
-                "accepts_commitment": item["accepts_commitment"],
-                # La castración se pide solo si la mascota todavía no está castrada.
-                "accepts_neutering": None if pet.is_neutered else True,
-                "accepts_follow_up": True,
-                "accepts_return_notice": True,
-                "declares_truthful": True,
-                "status": item["status"],
-                "rejection_reason": item["rejection_reason"],
-                "reviewed_by": staff_user if item["reviewed"] else None,
-                "reviewed_at": now if item["reviewed"] else None,
-                "is_active": True,
-            },
+        fields = {
+            "full_name": item["full_name"],
+            "age": item["age"],
+            "phone": item["phone"],
+            "email": item["email"],
+            "address": item["address"],
+            "city": item["city"],
+            "housing_type": item["housing_type"],
+            "home_ownership": item["home_ownership"],
+            "rental_allows_pets": item["rental_allows_pets"],
+            "outdoor_space": item["outdoor_space"],
+            "household_members": item["household_members"],
+            "household_agreement": item["household_agreement"],
+            "other_pets": item["other_pets"],
+            "previous_pets": item["previous_pets"],
+            "hours_alone": item["hours_alone"],
+            "living_space": item["living_space"],
+            "vacation_care": item["vacation_care"],
+            "contingency_plan": item["contingency_plan"],
+            "adoption_reason": item["adoption_reason"],
+            "accepts_commitment": item["accepts_commitment"],
+            # La castración se pide solo si la mascota todavía no está castrada.
+            "accepts_neutering": None if pet.is_neutered else True,
+            "accepts_follow_up": True,
+            "accepts_return_notice": True,
+            "declares_truthful": True,
+            "status": item["status"],
+            "rejection_reason": item["rejection_reason"],
+            "reviewed_by": staff_user if item["reviewed"] else None,
+            "reviewed_at": now if item["reviewed"] else None,
+            "is_active": True,
+        }
+
+        # Desde la app, el mismo usuario puede volver a postularse a la misma mascota
+        # (por ejemplo, después de una desaprobada). La del seed es la más vieja; las
+        # demás son de quien usó la app y no se tocan.
+        seed_request = (
+            AdoptionRequest.objects.filter(pet=pet, applicant=applicant)
+            .order_by("created_at", "id")
+            .first()
         )
-        if created:
+        if seed_request is None:
+            AdoptionRequest.objects.create(pet=pet, applicant=applicant, **fields)
             created_count += 1
-        else:
-            updated_count += 1
+            continue
+
+        other_pending = (
+            AdoptionRequest.objects.active()
+            .filter(pet=pet, applicant=applicant, status=AdoptionRequest.Status.PENDING)
+            .exclude(pk=seed_request.pk)
+            .exists()
+        )
+        if fields["status"] == AdoptionRequest.Status.PENDING and other_pending:
+            # Ya hay otra pendiente creada desde la app: no puede haber dos (restricción
+            # de la base), así que la del seed conserva su estado y su revisión.
+            for field_name in ("status", "rejection_reason", "reviewed_by", "reviewed_at"):
+                fields.pop(field_name)
+
+        for field_name, value in fields.items():
+            setattr(seed_request, field_name, value)
+        seed_request.save()
+        updated_count += 1
 
     return f"{created_count} solicitudes creadas, {updated_count} actualizadas"
