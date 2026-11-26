@@ -268,10 +268,11 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Implementé `EditPetView` (`src/components/pets/EditPetView.tsx`) y la ruta dinámica protegida `/mis-publicaciones/[id]/editar` (`Suspense` envolviendo `RequireAuth` para `cacheComponents: true` de Next 16), con `LoadingScreen`, manejo de `404`/error, bloqueo en publicaciones `rejected` con enlace a `/adopciones/publicar`, aviso ámbar al autor (no Staff/Admin) al editar una `published` de que volverá a `"En revisión"`, reutilización de `PetForm` y aviso fijo abajo de confirmación.
   - Conecté el botón `"Editar"` en `MyPetCard.tsx` (visible solo en `in_review` y `published`).
   - Escribí 5 tests en `EditPetView.test.tsx` y actualicé `MyPetsView.test.tsx` (37 archivos y 238 tests pasando, `format:check`, `lint`, `typecheck` y `build` en verde), y verifiqué la pantalla en navegador en 375 px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #159: modifiqué `buildUpdatePetPayload` para enviar únicamente los campos modificados (si no hubo cambios, `EditPetView` evita llamar a `PATCH` y muestra `"No hiciste cambios."`), agregué confirmación con `ActionDialog` antes de eliminar una foto en `PetPhotosManager` (indicando si es la portada y si volverá a revisión), y en `EditPetView` oculté el formulario mostrando `"No encontramos esta publicación"` cuando un miembro intenta editar una mascota ajena (37 archivos y 240 tests pasando).
 - **Decisiones tomadas:**
   - En `buildUpdatePetPayload`, preservé `initialPet.estimated_birth_date` cuando `ageValue` y `ageUnit` no se modificaron respecto de la precarga, para que un guardado sin cambios de edad no envíe una fecha distinta que dispare innecesariamente la vuelta a `in_review`.
 - **Problemas y cómo los resolví:**
   - Al correr `npm run build` con `cacheComponents: true`, Next 16 señaló que `RequireAuth` usa `usePathname()` fuera de `<Suspense>` en la ruta dinámica `/mis-publicaciones/[id]/editar`; moví `<Suspense>` por fuera de `<RequireAuth>` en `page.tsx` y el build pasó limpio como `◐ Partial Prerender`.
-- **Pendiente:** abrir el PR de #156 hacia `develop` para revisión de Franco y cerrar la épica #26 (`[FR-08] Publicar, editar y dar de baja mascota`) una vez mergeado.
-- **PR:** pendiente
+- **Pendiente:** que Franco revise los ajustes del PR #159 y cierre la épica #26 (`[FR-08] Publicar, editar y dar de baja mascota`) una vez mergeado.
+- **PR:** #159
 - **IA usada:** Antigravity — para implementar los endpoints y helpers de edición, `PetPhotosManager`, `EditPetView`, la ruta `/mis-publicaciones/[id]/editar`, los tests con Vitest y la verificación visual en navegador.
