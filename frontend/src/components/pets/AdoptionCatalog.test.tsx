@@ -402,4 +402,36 @@ describe("AdoptionCatalog", () => {
     ).toBeInTheDocument();
     expect(removeFavoriteSpy).toHaveBeenCalledWith(1);
   });
+
+  it("cierra AuthRequiredModal automáticamente cuando el usuario inicia sesión y no lo reabre al cerrar sesión", async () => {
+    mockAuthState.isAuthenticated = false;
+    fetchPetsSpy
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+      )
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: true })]),
+      )
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+      );
+
+    const { rerender } = render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Loki en favoritos" }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    mockAuthState.isAuthenticated = true;
+    rerender(<AdoptionCatalog />);
+    await screen.findByRole("button", { name: "Quitar a Loki de favoritos" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    mockAuthState.isAuthenticated = false;
+    rerender(<AdoptionCatalog />);
+    await screen.findByRole("button", { name: "Guardar a Loki en favoritos" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

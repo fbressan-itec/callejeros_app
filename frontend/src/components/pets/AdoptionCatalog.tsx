@@ -77,6 +77,14 @@ export function AdoptionCatalog() {
   );
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [prevIsAuthenticated, setPrevIsAuthenticated] =
+    useState(isAuthenticated);
+  if (prevIsAuthenticated !== isAuthenticated) {
+    setPrevIsAuthenticated(isAuthenticated);
+    if (isAuthenticated && isAuthModalOpen) {
+      setIsAuthModalOpen(false);
+    }
+  }
   const [busyFavoriteIds, setBusyFavoriteIds] = useState<number[]>([]);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -499,7 +507,7 @@ export function AdoptionCatalog() {
       />
 
       <AuthRequiredModal
-        isOpen={isAuthModalOpen}
+        isOpen={!isAuthenticated && isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         redirectTo="/adopciones"
         description={FAVORITE_AUTH_DESCRIPTION}
