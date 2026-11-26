@@ -2,7 +2,15 @@ import { api, getApiUrl } from "@/lib/api/client";
 import { parsePositiveId } from "@/lib/api/ids";
 import type { PaginatedResponse } from "@/lib/api/pagination";
 import { requestWithAuth } from "@/lib/auth/session";
-import type { PetDetail, PetListItem, PetStatus } from "@/lib/pets/types";
+import type {
+  PetCompatibility,
+  PetDetail,
+  PetListItem,
+  PetPhoto,
+  PetSex,
+  PetSpecies,
+  PetStatus,
+} from "@/lib/pets/types";
 
 export interface FetchPetOptions {
   signal?: AbortSignal;
@@ -155,6 +163,72 @@ export function deactivatePet(
 ): Promise<void> {
   return requestWithAuth((headers) =>
     api.delete<void>(`pets/${petId}/`, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
+
+export interface PetUpdatePayload {
+  name?: string;
+  species?: PetSpecies;
+  sex?: PetSex;
+  estimated_birth_date?: string;
+  is_sociable?: boolean;
+  good_with_children?: PetCompatibility;
+  good_with_animals?: PetCompatibility;
+  is_neutered?: boolean;
+  is_urgent_requested?: boolean;
+  special_care?: string;
+  description?: string;
+  contact_phone?: string;
+}
+
+/**
+ * Actualiza los datos editables de una publicación (`PATCH /api/pets/{id}/`).
+ * Si el autor (no Staff/Admin) edita una mascota `published`, el back la pasa a `in_review`.
+ */
+export function updatePet(
+  petId: number,
+  payload: PetUpdatePayload,
+  options: FetchPetOptions = {},
+): Promise<PetDetail> {
+  return requestWithAuth((headers) =>
+    api.patch<PetDetail>(`pets/${petId}/`, payload, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
+
+/**
+ * Sube una nueva foto al carrusel de la mascota (`POST /api/pets/{id}/photos/`).
+ */
+export function addPetPhoto(
+  petId: number,
+  image: File,
+  options: FetchPetOptions = {},
+): Promise<PetPhoto> {
+  const formData = new FormData();
+  formData.append("image", image);
+  return requestWithAuth((headers) =>
+    api.post<PetPhoto>(`pets/${petId}/photos/`, formData, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
+
+/**
+ * Da de baja lógica una foto del carrusel (`DELETE /api/pets/{id}/photos/{photo_id}/`).
+ */
+export function deletePetPhoto(
+  petId: number,
+  photoId: number,
+  options: FetchPetOptions = {},
+): Promise<void> {
+  return requestWithAuth((headers) =>
+    api.delete<void>(`pets/${petId}/photos/${photoId}/`, {
       headers,
       signal: options.signal,
     }),
