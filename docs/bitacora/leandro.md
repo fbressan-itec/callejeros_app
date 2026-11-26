@@ -255,3 +255,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #158 para continuar con #156 (FR-08c: editar publicación y gestionar fotos del carrusel).
 - **PR:** #158
 - **IA usada:** Antigravity — para implementar los métodos de API, la pantalla `/mis-publicaciones` con filtros y modales de confirmación, los tests con Vitest y la verificación visual en navegador.
+
+## 2026-11-26 — Editar publicación y gestionar fotos del carrusel (FR-08c)
+
+- **Tarjeta:** #156 (FR-08c, sub-tarjeta de #26 FR-08)
+- **Rama:** feature/fr08-156-editar-mascota-fotos
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Agregué `updatePet` (`PATCH /api/pets/{id}/`), `addPetPhoto` (`POST /api/pets/{id}/photos/` con `FormData`) y `deletePetPhoto` (`DELETE /api/pets/{id}/photos/{photo_id}/`) en `frontend/src/lib/pets/api.ts` reutilizando `requestWithAuth`, junto con 3 tests unitarios en `api.test.ts`.
+  - Agregué `estimateAgeFromBirthDate`, `petToFormValues` y `buildUpdatePetPayload` en `frontend/src/lib/pets/form.ts` (preservando `estimated_birth_date` si no cambió la edad para evitar mandar a revisión sin cambios reales), con 2 tests en `form.test.ts`.
+  - Implementé `PetPhotosManager` (`src/components/pets/PetPhotosManager.tsx`) para listar fotos ordenadas con etiqueta `"Portada"`, agregar nuevas (JPG/PNG/WEBP ≤ 5 MB) y dar de baja lógica impidiendo borrar la última foto activa.
+  - Implementé `EditPetView` (`src/components/pets/EditPetView.tsx`) y la ruta dinámica protegida `/mis-publicaciones/[id]/editar` (`Suspense` envolviendo `RequireAuth` para `cacheComponents: true` de Next 16), con `LoadingScreen`, manejo de `404`/error, bloqueo en publicaciones `rejected` con enlace a `/adopciones/publicar`, aviso ámbar al autor (no Staff/Admin) al editar una `published` de que volverá a `"En revisión"`, reutilización de `PetForm` y aviso fijo abajo de confirmación.
+  - Conecté el botón `"Editar"` en `MyPetCard.tsx` (visible solo en `in_review` y `published`).
+  - Escribí 5 tests en `EditPetView.test.tsx` y actualicé `MyPetsView.test.tsx` (37 archivos y 238 tests pasando, `format:check`, `lint`, `typecheck` y `build` en verde), y verifiqué la pantalla en navegador en 375 px y escritorio, modo claro y oscuro.
+- **Decisiones tomadas:**
+  - En `buildUpdatePetPayload`, preservé `initialPet.estimated_birth_date` cuando `ageValue` y `ageUnit` no se modificaron respecto de la precarga, para que un guardado sin cambios de edad no envíe una fecha distinta que dispare innecesariamente la vuelta a `in_review`.
+- **Problemas y cómo los resolví:**
+  - Al correr `npm run build` con `cacheComponents: true`, Next 16 señaló que `RequireAuth` usa `usePathname()` fuera de `<Suspense>` en la ruta dinámica `/mis-publicaciones/[id]/editar`; moví `<Suspense>` por fuera de `<RequireAuth>` en `page.tsx` y el build pasó limpio como `◐ Partial Prerender`.
+- **Pendiente:** abrir el PR de #156 hacia `develop` para revisión de Franco y cerrar la épica #26 (`[FR-08] Publicar, editar y dar de baja mascota`) una vez mergeado.
+- **PR:** pendiente
+- **IA usada:** Antigravity — para implementar los endpoints y helpers de edición, `PetPhotosManager`, `EditPetView`, la ruta `/mis-publicaciones/[id]/editar`, los tests con Vitest y la verificación visual en navegador.
