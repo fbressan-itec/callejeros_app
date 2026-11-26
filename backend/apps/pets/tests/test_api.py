@@ -16,7 +16,7 @@ from apps.core.validators import (
     INVALID_IMAGE_FORMAT_ERROR,
     MAX_IMAGE_SIZE_BYTES,
 )
-from apps.pets.models import Pet, PetPhoto, PetStatusLog
+from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.pets.serializers import IS_NEUTERED_REQUIRED_ERROR, IS_SOCIABLE_REQUIRED_ERROR
 from apps.pets.services import (
     ADOPT_ONLY_PUBLISHED_ERROR,
@@ -552,6 +552,99 @@ def test_owner_editing_published_pet_returns_to_in_review_and_logs() -> None:
     log = PetStatusLog.objects.filter(pet=pet, new_status=Pet.Status.IN_REVIEW).get()
     assert log.previous_status == Pet.Status.PUBLISHED
     assert log.performed_by_id == owner.id
+
+
+def _same_values_payload(pet: Pet) -> dict[str, object]:
+    """Arma un PATCH con todos los campos editables iguales a los guardados (como el front)."""
+    health = pet.health
+    return {
+        "name": pet.name,
+        "species": pet.species,
+        "sex": pet.sex,
+        "estimated_birth_date": pet.estimated_birth_date.isoformat(),
+        "is_sociable": pet.is_sociable,
+        "good_with_children": pet.good_with_children,
+        "good_with_animals": pet.good_with_animals,
+        "is_neutered": pet.is_neutered,
+        "is_urgent_requested": pet.is_urgent_requested,
+        "special_care": pet.special_care,
+        "description": pet.description,
+        "contact_phone": pet.contact_phone,
+        "health": {
+            "general_status": health.general_status,
+            "vaccines": health.vaccines,
+            "deworming": health.deworming,
+            "flea_tick_treatment": health.flea_tick_treatment,
+        },
+    }
+
+
+def test_owner_patch_without_real_changes_keeps_published_and_does_not_log() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED, description="Original")
+    PetHealthFactory(pet=pet)
+    updated_at_before = Pet.objects.get(pk=pet.pk).updated_at
+    logs_before = PetStatusLog.objects.filter(pet=pet).count()
+
+    response = _auth_client(owner).patch(
+        f"{PETS_URL}{pet.id}/",
+        _same_values_payload(pet),
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == Pet.Status.PUBLISHED
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.PUBLISHED
+    assert pet.updated_at == updated_at_before
+    assert PetStatusLog.objects.filter(pet=pet).count() == logs_before
+
+
+def test_owner_patch_with_untrimmed_same_text_is_not_a_change() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED, description="Original")
+
+    response = _auth_client(owner).patch(
+        f"{PETS_URL}{pet.id}/",
+        {"description": "  Original  "},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.PUBLISHED
+
+
+def test_owner_changing_only_health_of_published_pet_returns_to_in_review() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED)
+    PetHealthFactory(pet=pet)
+    payload = _same_values_payload(pet)
+    payload["health"] = {**payload["health"], "vaccines": "Falta la antirrábica"}
+
+    response = _auth_client(owner).patch(f"{PETS_URL}{pet.id}/", payload, format="json")
+
+    assert response.status_code == status.HTTP_200_OK
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.IN_REVIEW
+    assert pet.health.vaccines == "Falta la antirrábica"
+    assert PetStatusLog.objects.filter(pet=pet, new_status=Pet.Status.IN_REVIEW).count() == 1
+
+
+def test_owner_patch_with_empty_health_does_not_create_health_record() -> None:
+    owner = UserFactory(role__code=RoleCode.MEMBER)
+    pet = PetFactory(published_by=owner, status=Pet.Status.PUBLISHED)
+
+    response = _auth_client(owner).patch(
+        f"{PETS_URL}{pet.id}/",
+        {"health": {"vaccines": "", "deworming": ""}},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    pet.refresh_from_db()
+    assert pet.status == Pet.Status.PUBLISHED
+    assert not PetHealth.objects.filter(pet=pet).exists()
 
 
 def test_owner_editing_photos_of_published_pet_returns_to_in_review_and_logs() -> None:

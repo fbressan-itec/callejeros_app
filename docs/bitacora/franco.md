@@ -461,3 +461,20 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** cerrar la épica #28 cuando existan las pestañas de alertas, comentarios y productos (BK-09, BK-10 y BK-12). Probar la tarjeta en 375px y el rechazo en el navegador con otra mascota en revisión (en el seed había solo una).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para escribir la pestaña, las piezas compartidas y los tests, y probar validar urgente y aprobar en el navegador contra el back local.
+
+## 2026-11-26 — Edición sin cambios ya no vuelve a revisión (BF-01)
+
+- **Tarjeta:** #77 (BF-01)
+- **Rama:** bugfix/bf01-77-edicion-sin-cambios
+- **Área:** back, test, docs
+- **Qué hice:**
+  - `update_pet` ahora cuenta como cambio solo los campos cuyo valor es distinto del guardado. Un pedido con los mismos datos no guarda nada, no toca `updated_at` y no manda la mascota a revisión.
+  - Pasé el guardado de la salud a `_update_pet_health`, que guarda solo los datos que cambiaron y no crea un registro de salud vacío.
+  - La validación de "urgente" se borra solo cuando se desmarca de verdad.
+  - 4 tests nuevos: pedido con todos los campos iguales, texto igual con espacios, cambio solo en la salud (sí vuelve a revisión) y salud vacía.
+  - Aclaré la regla en Swagger y en el README.
+- **Decisiones tomadas:** arreglarlo en el back y no solo en el front, porque la regla "un pedido sin cambios no la manda a revisión" (03) tiene que cumplirse aunque alguien llame directo a la API.
+- **Problemas y cómo los resolví:** salió al revisar el PR #159 (FR-08c): guardar el formulario de edición sin tocar nada mandaba una mascota publicada a revisión, porque el back tomaba como cambio cualquier campo que llegaba y el formulario los manda todos. Comprobé que 3 de los 4 tests nuevos fallaban sin el arreglo.
+- **Pendiente:** que Leandro, en el PR #159, mande solo los campos que cambiaron y avise "No hiciste cambios".
+- **PR:** pendiente
+- **IA usada:** Claude Code — para encontrar la causa al revisar el PR #159, escribir el arreglo y los tests, y actualizar Swagger y el README.

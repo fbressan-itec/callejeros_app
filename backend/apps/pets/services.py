@@ -299,6 +299,30 @@ def _clean_health_data(health_data: dict[str, Any] | None) -> dict[str, str]:
     return cleaned
 
 
+def _update_pet_health(pet: Pet, cleaned_health: dict[str, str]) -> bool:
+    """Guarda solo los datos de salud que cambiaron. Devuelve si hubo algún cambio."""
+    if not cleaned_health:
+        return False
+
+    health = PetHealth.objects.filter(pet=pet).first()
+    changed = {
+        field: value
+        for field, value in cleaned_health.items()
+        if (getattr(health, field) if health else "") != value
+    }
+    if not changed:
+        return False
+
+    if health is None:
+        PetHealth.objects.create(pet=pet, **changed)
+        return True
+
+    for field, value in changed.items():
+        setattr(health, field, value)
+    health.save(update_fields=[*changed.keys(), "updated_at"])
+    return True
+
+
 @transaction.atomic
 def create_pet(
     *,
@@ -372,33 +396,34 @@ def update_pet(
     data: dict[str, Any],
     health_data: dict[str, Any] | None = None,
 ) -> Pet:
-    """Edita los campos permitidos de una mascota sin tocar estado, validación ni autor."""
+    """Edita los campos permitidos de una mascota sin tocar estado, validación ni autor.
+
+    Solo cuenta como cambio un campo cuyo valor es distinto del guardado: un pedido sin
+    cambios reales no guarda nada ni manda la publicación a revisión.
+    """
     _ensure_can_manage_pet(pet, actor)
     _ensure_not_rejected(pet)
 
     cleaned_data = _validate_pet_fields(data, partial=True)
     cleaned_health = _clean_health_data(health_data)
 
-    updated_fields: list[str] = []
-    for field, value in cleaned_data.items():
-        setattr(pet, field, value)
-        updated_fields.append(field)
+    updated_fields = [
+        field for field, value in cleaned_data.items() if getattr(pet, field) != value
+    ]
+    for field in updated_fields:
+        setattr(pet, field, cleaned_data[field])
 
-    if cleaned_data.get("is_urgent_requested") is False and pet.is_urgent_validated:
-        pet.is_urgent_validated = False
-        updated_fields.append("is_urgent_validated")
+    if "is_urgent_requested" in updated_fields and not pet.is_urgent_requested:
+        if pet.is_urgent_validated:
+            pet.is_urgent_validated = False
+            updated_fields.append("is_urgent_validated")
 
     if updated_fields:
-        updated_fields.append("updated_at")
-        pet.save(update_fields=updated_fields)
+        pet.save(update_fields=[*updated_fields, "updated_at"])
 
-    if cleaned_health:
-        health, _ = PetHealth.objects.get_or_create(pet=pet)
-        for field, value in cleaned_health.items():
-            setattr(health, field, value)
-        health.save(update_fields=[*cleaned_health.keys(), "updated_at"])
+    health_changed = _update_pet_health(pet, cleaned_health)
 
-    if updated_fields or cleaned_health:
+    if updated_fields or health_changed:
         _return_to_review_if_edited_by_author(
             pet,
             actor,

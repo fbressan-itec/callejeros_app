@@ -301,7 +301,8 @@ class PetDetailView(APIView):
             "Actualiza los campos editables y el bloque `health` sin permitir modificar "
             "`status`, `is_urgent_validated` ni `published_by`. Si el autor (no Staff/Admin) "
             "edita una mascota en estado `published`, vuelve automáticamente a `in_review` "
-            "y se registra en `PetStatusLog`. "
+            "y se registra en `PetStatusLog`. Solo cuentan los campos cuyo valor cambia: "
+            "un pedido con los mismos datos no guarda nada ni la manda a revisión. "
             "Permiso: autor de la mascota, `staff` o `admin` (`IsPetOwnerOrStaffOrAdmin`)."
         ),
         request=PetUpdateSerializer,
