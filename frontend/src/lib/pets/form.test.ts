@@ -249,14 +249,25 @@ describe("estimateAgeFromBirthDate, petToFormValues y buildUpdatePetPayload", ()
       contactPhone: "358 4999999",
     });
 
-    const unchangedAgePayload = buildUpdatePetPayload(initialValues, pet, ref);
-    expect(unchangedAgePayload.estimated_birth_date).toBe("2024-05-10");
+    const unchangedPayload = buildUpdatePetPayload(initialValues, pet, ref);
+    expect(unchangedPayload).toEqual({});
 
     const changedAgePayload = buildUpdatePetPayload(
       { ...initialValues, ageValue: "4", ageUnit: "years" },
       pet,
       ref,
     );
-    expect(changedAgePayload.estimated_birth_date).toBe("2022-11-26");
+    expect(changedAgePayload).toEqual({
+      estimated_birth_date: "2022-11-26",
+    });
+
+    const changedNamePayload = buildUpdatePetPayload(
+      { ...initialValues, name: "Luna Nueva" },
+      pet,
+      ref,
+    );
+    expect(changedNamePayload).toEqual({
+      name: "Luna Nueva",
+    });
   });
 });

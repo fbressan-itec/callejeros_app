@@ -3,6 +3,11 @@
 import Image from "next/image";
 import { type ChangeEvent, useState } from "react";
 
+import {
+  ActionDialog,
+  DIALOG_SECONDARY_BUTTON_CLASSES,
+  DialogError,
+} from "@/components/ui/ActionDialog";
 import { getActionErrorMessage } from "@/lib/api/errors";
 import {
   addPetPhoto,
@@ -16,24 +21,34 @@ export interface PetPhotosManagerProps {
   petId: number;
   petName: string;
   photos: readonly PetPhoto[];
+  willReturnToReview?: boolean;
   onPhotosChanged: (action: "added" | "deleted") => Promise<void> | void;
+}
+
+interface PhotoPendingDeletion {
+  photo: PetPhoto;
+  isCover: boolean;
 }
 
 export function PetPhotosManager({
   petId,
   petName,
   photos,
+  willReturnToReview = false,
   onPhotosChanged,
 }: PetPhotosManagerProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null);
+  const [photoToDelete, setPhotoToDelete] =
+    useState<PhotoPendingDeletion | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const orderedPhotos = [...photos].sort(
     (a, b) => a.position - b.position || a.id - b.id,
   );
   const isOnlyPhoto = orderedPhotos.length <= 1;
-  const isBusy = isUploading || deletingPhotoId !== null;
+  const isBusy = isUploading || isDeleting;
 
   async function handleAddPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -59,22 +74,29 @@ export function PetPhotosManager({
     }
   }
 
-  async function handleDeletePhoto(photoId: number) {
+  function handleRequestDelete(photo: PetPhoto, isCover: boolean) {
     if (isOnlyPhoto) {
       setErrorMessage("La mascota debe conservar al menos una foto activa.");
       return;
     }
+    setDeleteError(null);
+    setPhotoToDelete({ photo, isCover });
+  }
 
-    setErrorMessage(null);
-    setDeletingPhotoId(photoId);
+  async function handleConfirmDelete() {
+    if (!photoToDelete) return;
+
+    setDeleteError(null);
+    setIsDeleting(true);
 
     try {
-      await deletePetPhoto(petId, photoId);
+      await deletePetPhoto(petId, photoToDelete.photo.id);
+      setPhotoToDelete(null);
       await onPhotosChanged("deleted");
     } catch (error: unknown) {
-      setErrorMessage(getActionErrorMessage(error));
+      setDeleteError(getActionErrorMessage(error));
     } finally {
-      setDeletingPhotoId(null);
+      setIsDeleting(false);
     }
   }
 
@@ -127,7 +149,7 @@ export function PetPhotosManager({
         className="grid grid-cols-2 gap-3 sm:grid-cols-3"
       >
         {orderedPhotos.map((photo, index) => {
-          const isDeletingThis = deletingPhotoId === photo.id;
+          const isCover = index === 0;
           return (
             <li
               key={photo.id}
@@ -144,7 +166,7 @@ export function PetPhotosManager({
                 />
               </div>
 
-              {index === 0 ? (
+              {isCover ? (
                 <span className="absolute bottom-2 left-2 rounded-md bg-slate-900/80 px-2 py-0.5 text-[10px] font-bold text-white">
                   Portada
                 </span>
@@ -153,7 +175,7 @@ export function PetPhotosManager({
               <button
                 type="button"
                 disabled={isBusy || isOnlyPhoto}
-                onClick={() => void handleDeletePhoto(photo.id)}
+                onClick={() => handleRequestDelete(photo, isCover)}
                 aria-label={`Eliminar foto ${index + 1}`}
                 title={
                   isOnlyPhoto
@@ -162,7 +184,7 @@ export function PetPhotosManager({
                 }
                 className="absolute top-1.5 right-1.5 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-slate-900/75 text-xs font-bold text-white transition-colors hover:bg-red-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {isDeletingThis ? "…" : "✕"}
+                ✕
               </button>
             </li>
           );
@@ -175,6 +197,56 @@ export function PetPhotosManager({
           ? "La mascota debe conservar al menos una foto activa."
           : "La primera foto se muestra como portada en el catálogo."}
       </p>
+
+      {photoToDelete ? (
+        <ActionDialog
+          kicker="Carrusel de fotos"
+          title={
+            photoToDelete.isCover
+              ? "Eliminar foto de portada"
+              : "Eliminar foto del carrusel"
+          }
+          isBusy={isDeleting}
+          onClose={() => setPhotoToDelete(null)}
+        >
+          <div className="space-y-4">
+            <p className="text-xs leading-relaxed text-slate-600 sm:text-sm dark:text-slate-300">
+              {photoToDelete.isCover
+                ? "Esta es la foto de portada actual. Al eliminarla, la siguiente foto pasará a ser la portada."
+                : "¿Querés eliminar esta foto del carrusel de la publicación?"}
+            </p>
+
+            {willReturnToReview ? (
+              <p className="rounded-xl border border-amber-300 bg-amber-100 px-3.5 py-2.5 text-xs font-medium text-amber-950 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                Al modificar las fotos de una publicación aprobada, volverá a
+                estado <strong>«En revisión»</strong> y saldrá del catálogo
+                hasta que un voluntario la apruebe de nuevo.
+              </p>
+            ) : null}
+
+            <DialogError message={deleteError} />
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setPhotoToDelete(null)}
+                disabled={isDeleting}
+                className={DIALOG_SECONDARY_BUTTON_CLASSES}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmDelete()}
+                disabled={isDeleting}
+                className="min-h-[44px] flex-1 rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-red-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-slate-900"
+              >
+                {isDeleting ? "Eliminando..." : "Eliminar foto"}
+              </button>
+            </div>
+          </div>
+        </ActionDialog>
+      ) : null}
     </section>
   );
 }

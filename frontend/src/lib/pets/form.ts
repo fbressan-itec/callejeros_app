@@ -317,15 +317,17 @@ export function petToFormValues(
 }
 
 /**
- * Construye el payload JSON para `PATCH /api/pets/{id}/`.
- * Si la edad no cambió respecto a la precargada, preserva `initialPet.estimated_birth_date`
- * para evitar cambios falsos que manden a revisión una publicación sin modificaciones reales.
+ * Construye el payload JSON para `PATCH /api/pets/{id}/` incluyendo únicamente
+ * los campos que cambiaron respecto de `initialPet`.
+ * Si no hubo cambios, devuelve `{}` para evitar enviar un pedido innecesario.
  */
 export function buildUpdatePetPayload(
   values: PetFormValues,
   initialPet: PetDetail,
   referenceDate: Date = new Date(),
 ): PetUpdatePayload {
+  const payload: PetUpdatePayload = {};
+
   const initialAge = estimateAgeFromBirthDate(
     initialPet.estimated_birth_date,
     referenceDate,
@@ -334,26 +336,73 @@ export function buildUpdatePetPayload(
     values.ageValue.trim() !== initialAge.ageValue ||
     values.ageUnit !== initialAge.ageUnit;
 
-  const estimatedBirthDate = ageChanged
-    ? computeEstimatedBirthDate(
-        Number.parseInt(values.ageValue.trim(), 10),
-        values.ageUnit,
-        referenceDate,
-      )
-    : initialPet.estimated_birth_date;
+  const nextName = values.name.trim();
+  if (nextName !== initialPet.name.trim()) {
+    payload.name = nextName;
+  }
 
-  return {
-    name: values.name.trim(),
-    species: values.species,
-    sex: values.sex,
-    estimated_birth_date: estimatedBirthDate,
-    is_neutered: values.isNeutered === "true",
-    is_sociable: values.isSociable === "true",
-    good_with_children: values.goodWithChildren,
-    good_with_animals: values.goodWithAnimals,
-    is_urgent_requested: values.isUrgentRequested,
-    special_care: values.hasSpecialCare ? values.specialCare.trim() : "",
-    contact_phone: values.contactPhone.trim(),
-    description: values.description.trim(),
-  };
+  if (values.species !== initialPet.species) {
+    payload.species = values.species;
+  }
+
+  if (values.sex !== initialPet.sex) {
+    payload.sex = values.sex;
+  }
+
+  if (ageChanged) {
+    const nextBirthDate = computeEstimatedBirthDate(
+      Number.parseInt(values.ageValue.trim(), 10),
+      values.ageUnit,
+      referenceDate,
+    );
+    if (nextBirthDate !== initialPet.estimated_birth_date) {
+      payload.estimated_birth_date = nextBirthDate;
+    }
+  }
+
+  const nextIsNeutered = values.isNeutered === "true";
+  if (nextIsNeutered !== initialPet.is_neutered) {
+    payload.is_neutered = nextIsNeutered;
+  }
+
+  const nextIsSociable = values.isSociable === "true";
+  if (nextIsSociable !== initialPet.is_sociable) {
+    payload.is_sociable = nextIsSociable;
+  }
+
+  if (values.goodWithChildren !== initialPet.good_with_children) {
+    payload.good_with_children = values.goodWithChildren;
+  }
+
+  if (values.goodWithAnimals !== initialPet.good_with_animals) {
+    payload.good_with_animals = values.goodWithAnimals;
+  }
+
+  const initialUrgentRequested = Boolean(
+    initialPet.is_urgent_requested ?? initialPet.is_urgent,
+  );
+  if (values.isUrgentRequested !== initialUrgentRequested) {
+    payload.is_urgent_requested = values.isUrgentRequested;
+  }
+
+  const nextSpecialCare = values.hasSpecialCare
+    ? values.specialCare.trim()
+    : "";
+  const initialSpecialCare = initialPet.special_care?.trim() ?? "";
+  if (nextSpecialCare !== initialSpecialCare) {
+    payload.special_care = nextSpecialCare;
+  }
+
+  const nextContactPhone = values.contactPhone.trim();
+  const initialContactPhone = initialPet.contact_phone?.trim() ?? "";
+  if (nextContactPhone !== initialContactPhone) {
+    payload.contact_phone = nextContactPhone;
+  }
+
+  const nextDescription = values.description.trim();
+  if (nextDescription !== initialPet.description.trim()) {
+    payload.description = nextDescription;
+  }
+
+  return payload;
 }

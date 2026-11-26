@@ -22,10 +22,11 @@ vi.mock("next/navigation", () => ({
 
 function makeAuthContext(
   roleCode: "member" | "staff" | "admin" = "member",
+  userId = 2,
 ): AuthContextValue {
   return {
     user: {
-      id: 7,
+      id: userId,
       email: "miembro@callejeros.ar",
       first_name: "Sofía",
       last_name: "Pérez",
@@ -45,9 +46,10 @@ function makeAuthContext(
 function renderEditView(
   rawId = "1",
   roleCode: "member" | "staff" | "admin" = "member",
+  userId = 2,
 ) {
   return render(
-    <AuthContext.Provider value={makeAuthContext(roleCode)}>
+    <AuthContext.Provider value={makeAuthContext(roleCode, userId)}>
       <EditPetView rawId={rawId} />
     </AuthContext.Provider>,
   );
@@ -193,10 +195,47 @@ describe("EditPetView y PetPhotosManager", () => {
         "Cambios guardados. La publicación volvió a «En revisión» hasta que un voluntario la apruebe.",
       ),
     ).toBeInTheDocument();
-    expect(updatePetSpy).toHaveBeenCalledWith(
-      1,
-      expect.objectContaining({ name: "Loki Actualizado" }),
+    expect(updatePetSpy).toHaveBeenCalledWith(1, { name: "Loki Actualizado" });
+  });
+
+  it("no llama a updatePet si no hubo cambios y muestra el aviso 'No hiciste cambios.'", async () => {
+    fetchPetByIdSpy.mockResolvedValueOnce(
+      buildPet({
+        id: 1,
+        name: "Loki",
+        status: "published",
+        contact_phone: "358 4123456",
+      }),
     );
+
+    renderEditView("1", "member");
+    await screen.findByRole("heading", { name: "Editar a Loki" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await screen.findByText("No hiciste cambios.")).toBeInTheDocument();
+    expect(updatePetSpy).not.toHaveBeenCalled();
+  });
+
+  it("muestra 'No encontramos esta publicación' cuando otro miembro intenta editar una mascota ajena", async () => {
+    fetchPetByIdSpy.mockResolvedValueOnce(
+      buildPet({
+        id: 1,
+        name: "Loki",
+        status: "published",
+      }),
+    );
+
+    renderEditView("1", "member", 99);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "No encontramos esta publicación",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Guardar cambios" }),
+    ).not.toBeInTheDocument();
   });
 
   it("permite agregar y eliminar fotos del carrusel y valida formato en cliente", async () => {
@@ -272,8 +311,14 @@ describe("EditPetView y PetPhotosManager", () => {
       screen.getByRole("heading", { name: "Fotos de Loki (3)" }),
     ).toBeInTheDocument();
 
-    // Elimina la segunda foto
+    // Pide confirmación con ActionDialog antes de eliminar la segunda foto
     fireEvent.click(screen.getByRole("button", { name: "Eliminar foto 2" }));
+    expect(deletePetPhotoSpy).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "Eliminar foto del carrusel" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar foto" }));
 
     await waitFor(() => {
       expect(deletePetPhotoSpy).toHaveBeenCalledWith(1, 11);

@@ -144,6 +144,37 @@ export function EditPetView({ rawId }: EditPetViewProps) {
   const pet = state.pet;
   const isStaffOrAdmin =
     user?.role.code === "staff" || user?.role.code === "admin";
+  const canEdit =
+    user !== null && (pet.published_by.id === user.id || isStaffOrAdmin);
+
+  if (!canEdit) {
+    return (
+      <main className="mx-auto w-full max-w-lg grow px-4 pt-8 pb-24 sm:px-6 sm:pt-12">
+        <div className="mb-4">
+          <BackButton fallbackHref="/mis-publicaciones" />
+        </div>
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-soft sm:p-8 dark:border-slate-800 dark:bg-slate-900 dark:shadow-soft-dark">
+          <span className="block text-4xl" aria-hidden="true">
+            🐾
+          </span>
+          <h1 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white">
+            No encontramos esta publicación
+          </h1>
+          <p className="text-xs text-slate-600 sm:text-sm dark:text-slate-400">
+            Es posible que haya sido dada de baja o que no tengas permiso para
+            editarla.
+          </p>
+          <Link
+            href="/mis-publicaciones"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-orange-700 px-5 py-2.5 font-display text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
+          >
+            Volver a Mis publicaciones
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
   const willReturnToReview = pet.status === "published" && !isStaffOrAdmin;
 
   if (pet.status === "rejected") {
@@ -189,6 +220,11 @@ export function EditPetView({ rawId }: EditPetViewProps) {
   async function handleSaveChanges(values: PetFormValues): Promise<void> {
     const previousStatus = pet.status;
     const payload = buildUpdatePetPayload(values, pet);
+    if (Object.keys(payload).length === 0) {
+      setFeedbackMessage("No hiciste cambios.");
+      return;
+    }
+
     const updated = await updatePet(pet.id, payload);
 
     setFetched({
@@ -249,6 +285,7 @@ export function EditPetView({ rawId }: EditPetViewProps) {
         petId={pet.id}
         petName={pet.name}
         photos={pet.photos}
+        willReturnToReview={willReturnToReview}
         onPhotosChanged={handlePhotosChanged}
       />
 
