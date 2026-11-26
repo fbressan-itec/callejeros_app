@@ -271,3 +271,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco apruebe y mergee los ajustes del PR #139 para continuar con #130 (`FR-06b`: modal de filtros avanzados, buscador y filtro `Adoptados`).
 - **PR:** #139
 - **IA usada:** Antigravity — para dividir la épica, actualizar `fetchPets`, implementar `PetCard`, `AdoptionCatalog`, `/adopciones`, los tests en Vitest y la comparación visual en el navegador.
+
+## 2026-11-26 — Modal de filtros avanzados, buscador y filtro Adoptados (FR-06b)
+
+- **Tarjeta:** #130 (FR-06b, sub-tarjeta de #24 FR-06)
+- **Rama:** feature/fr06-130-modal-filtros-adoptados
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Actualicé `develop` (tras el merge del PR #139 y los avances de `FR-08`, `FR-09` y `FR-10`) y creé la rama `feature/fr06-130-modal-filtros-adoptados`.
+  - Creé `CatalogFiltersModal` (`frontend/src/components/pets/CatalogFiltersModal.tsx`) fiel a `#modal-filtros` de `contexto-ia/maquetado/adopciones.html` con buscador por nombre (`text-base` 16px), Edad (`Cachorro` / `Adulto` / `Senior` en 3 switches de selección única), Sociabilidad, Convivencia (niños y otros animales), Castración, `🚨 Solo Casos Urgentes`, Sexo, `Favoritos` y el switch `Adoptados` (`?adopted=true`), con botones fijos abajo (`VER RESULTADOS` y `Limpiar Filtros`), cierre por `Escape`/backdrop/`X`, bloqueo de scroll en `body`, controles ≥ 44px y contraste WCAG AA.
+  - Integré el modal en `AdoptionCatalog` (`frontend/src/components/pets/AdoptionCatalog.tsx`) con `buildCatalogQueryParams`, contador visual de filtros activos en el botón `Filtros`, restauración de foco al cerrar, reseteo de página a 1 al aplicar/limpiar y estados vacíos diferenciados (`"Todavía no tenés favoritos"` vs `"No encontramos animalitos con esos filtros."`).
+  - Escribí 6 tests nuevos en `CatalogFiltersModal.test.tsx` y `AdoptionCatalog.test.tsx`, validé `format`, `lint`, `typecheck`, `vitest` y `next build`, y comparé el modal en el navegador contra `adopciones.html` en 375×812 y 1280×800, modo claro y oscuro.
+- **Decisiones tomadas:**
+  - Mantuve el aspecto visual de los 3 switches de Edad del maquetado con selección única (activar uno desmarca los otros) para coincidir 1:1 con el `ChoiceFilter` `?age_group=` del backend sin modificar la API.
+  - Usé un estado borrador (`draft`) dentro del modal para que los cambios solo disparen una consulta a `GET /api/pets/` al confirmar con `VER RESULTADOS` (igual que `adopciones.js`).
+- **Problemas y cómo los resolví:**
+  - En la primera comparación visual en el navegador detecté que usar `flex flex-col gap-5` directo en el `<form>` con `max-h-[90vh] overflow-y-auto` hacía que Flexbox comprimiera verticalmente las secciones (`Edad` y `Sexo`) impidiendo el scroll; lo resolví dejando `<form>` como contenedor de bloque con `overflow-y-auto` y envolviendo las secciones en un `<div className="flex flex-col gap-5">`, re-verificando luego el scroll y el footer `sticky` en los 4 escenarios.
+- **Pendiente:** que Franco revise y apruebe el PR de `FR-06b` para continuar con #131 (`FR-06c`: favoritos interactivos desde la tarjeta y modal de sesión requerida).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para implementar `CatalogFiltersModal`, integrarlo en `AdoptionCatalog`, escribir tests en Vitest y realizar la comparación visual en el navegador.
