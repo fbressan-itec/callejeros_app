@@ -476,8 +476,8 @@ export function AdoptionQuestionnaireModal({
                 registration={register("accepts_follow_up")}
                 error={errors.accepts_follow_up}
               >
-                Acepto que el hogar de tránsito me consulte cómo está, con fotos
-                o mensajes, después de la adopción.
+                Acepto que quien lo publicó me consulte cómo está, con fotos o
+                mensajes, después de la adopción.
               </CheckboxField>
               <CheckboxField
                 id="adopt-return-notice"
