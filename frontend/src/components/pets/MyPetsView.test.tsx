@@ -98,6 +98,10 @@ describe("MyPetsView", () => {
         "Caso urgente solicitado (pendiente de validación de un voluntario).",
       ),
     ).toBeInTheDocument();
+    // Solo las publicadas y en revisión tienen botón "Editar" (nunca adoptadas ni rechazadas)
+    const editLinks = screen.getAllByRole("link", { name: "Editar" });
+    expect(editLinks).toHaveLength(3);
+    expect(editLinks[0]).toHaveAttribute("href", "/mis-publicaciones/1/editar");
     // Todas las activas tienen "Dar de baja"
     expect(screen.getAllByRole("button", { name: "Dar de baja" })).toHaveLength(
       5,

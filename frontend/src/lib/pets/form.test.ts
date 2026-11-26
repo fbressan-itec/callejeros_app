@@ -2,15 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCreatePetFormData,
+  buildUpdatePetPayload,
   computeEstimatedBirthDate,
   DEFAULT_PET_FORM_VALUES,
+  estimateAgeFromBirthDate,
   PET_PHOTO_FORMAT_ERROR,
   PET_PHOTO_MAX_BYTES,
   PET_PHOTO_SIZE_ERROR,
   petFormSchema,
   type PetFormValues,
+  petToFormValues,
   validatePetPhotoFile,
 } from "@/lib/pets/form";
+import { buildPet } from "@/lib/pets/testing";
 
 function validValues(overrides: Partial<PetFormValues> = {}): PetFormValues {
   return {
@@ -200,5 +204,70 @@ describe("buildCreatePetFormData", () => {
     );
 
     expect(formData.get("special_care")).toBe("");
+  });
+});
+
+describe("estimateAgeFromBirthDate, petToFormValues y buildUpdatePetPayload", () => {
+  it("estima edad en meses para menores de 1 año y en años para mayores", () => {
+    const ref = new Date(2026, 10, 26); // 2026-11-26
+    expect(estimateAgeFromBirthDate("2026-06-20", ref)).toEqual({
+      ageValue: "5",
+      ageUnit: "months",
+    });
+    expect(estimateAgeFromBirthDate("2024-05-10", ref)).toEqual({
+      ageValue: "2",
+      ageUnit: "years",
+    });
+  });
+
+  it("precarga PetFormValues desde PetDetail y preserva estimated_birth_date si no cambió la edad", () => {
+    const ref = new Date(2026, 10, 26);
+    const pet = buildPet({
+      name: "Luna",
+      species: "cat",
+      sex: "female",
+      estimated_birth_date: "2024-05-10",
+      is_neutered: false,
+      is_sociable: true,
+      is_urgent_requested: true,
+      special_care: "Dieta renal",
+      contact_phone: "358 4999999",
+    });
+
+    const initialValues = petToFormValues(pet, ref);
+    expect(initialValues).toMatchObject({
+      name: "Luna",
+      species: "cat",
+      sex: "female",
+      ageValue: "2",
+      ageUnit: "years",
+      isNeutered: "false",
+      isSociable: "true",
+      isUrgentRequested: true,
+      hasSpecialCare: true,
+      specialCare: "Dieta renal",
+      contactPhone: "358 4999999",
+    });
+
+    const unchangedPayload = buildUpdatePetPayload(initialValues, pet, ref);
+    expect(unchangedPayload).toEqual({});
+
+    const changedAgePayload = buildUpdatePetPayload(
+      { ...initialValues, ageValue: "4", ageUnit: "years" },
+      pet,
+      ref,
+    );
+    expect(changedAgePayload).toEqual({
+      estimated_birth_date: "2022-11-26",
+    });
+
+    const changedNamePayload = buildUpdatePetPayload(
+      { ...initialValues, name: "Luna Nueva" },
+      pet,
+      ref,
+    );
+    expect(changedNamePayload).toEqual({
+      name: "Luna Nueva",
+    });
   });
 });

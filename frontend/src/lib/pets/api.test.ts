@@ -3,14 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { AUTH_SESSION_STORAGE_KEY } from "@/lib/auth/session";
 import {
+  addPetPhoto,
   adoptPet,
   createPet,
   deactivatePet,
+  deletePetPhoto,
   fetchMyPets,
   fetchPetById,
   fetchPets,
   parsePetId,
   resolvePetImageUrl,
+  updatePet,
 } from "@/lib/pets/api";
 import type { PetDetail } from "@/lib/pets/types";
 
@@ -499,6 +502,63 @@ describe("fetchMyPets, adoptPet y deactivatePet", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://api.test/api/pets/1/");
+    expect(init.method).toBe("DELETE");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+  });
+
+  it("updatePet envía PATCH /api/pets/{id}/ con JSON y token Bearer", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ...SAMPLE_PET,
+        name: "Loki Editado",
+        status: "in_review",
+      }),
+    );
+
+    const updated = await updatePet(1, { name: "Loki Editado" });
+
+    expect(updated.name).toBe("Loki Editado");
+    expect(updated.status).toBe("in_review");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/");
+    expect(init.method).toBe("PATCH");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+    expect(init.body).toBe(JSON.stringify({ name: "Loki Editado" }));
+  });
+
+  it("addPetPhoto envía FormData a POST /api/pets/{id}/photos/ sin fijar Content-Type", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, {
+        id: 22,
+        image: "/media/pets/loki-2.jpg",
+        position: 1,
+        created_at: "2026-11-26T12:00:00Z",
+      }),
+    );
+
+    const file = new File(["jpg"], "loki-2.jpg", { type: "image/jpeg" });
+    const photo = await addPetPhoto(1, file);
+
+    expect(photo.id).toBe(22);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/photos/");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+    expect(init.headers["Content-Type"]).toBeUndefined();
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("image")).toBe(file);
+  });
+
+  it("deletePetPhoto envía DELETE /api/pets/{id}/photos/{photo_id}/ con token Bearer", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await deletePetPhoto(1, 22);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/photos/22/");
     expect(init.method).toBe("DELETE");
     expect(init.headers.Authorization).toBe("Bearer token-mio");
   });

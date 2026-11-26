@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import type { PetCompatibility, PetSex, PetSpecies } from "@/lib/pets/types";
+import type { PetUpdatePayload } from "@/lib/pets/api";
+import type {
+  PetCompatibility,
+  PetDetail,
+  PetSex,
+  PetSpecies,
+} from "@/lib/pets/types";
 
 export const PET_NAME_MAX_LENGTH = 100;
 export const PET_DESCRIPTION_MAX_LENGTH = 400;
@@ -242,4 +248,161 @@ export function buildCreatePetFormData(
   }
 
   return formData;
+}
+
+/**
+ * Estima `{ ageValue, ageUnit }` para precargar el formulario de edición desde `estimated_birth_date`.
+ */
+export function estimateAgeFromBirthDate(
+  birthDateIso: string,
+  referenceDate: Date = new Date(),
+): { ageValue: string; ageUnit: PetAgeUnit } {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDateIso.trim());
+  if (!match) {
+    return { ageValue: "1", ageUnit: "years" };
+  }
+
+  const birthYear = Number.parseInt(match[1], 10);
+  const birthMonth = Number.parseInt(match[2], 10) - 1;
+  const birthDay = Number.parseInt(match[3], 10);
+
+  let totalMonths =
+    (referenceDate.getFullYear() - birthYear) * 12 +
+    (referenceDate.getMonth() - birthMonth);
+  if (referenceDate.getDate() < birthDay) {
+    totalMonths -= 1;
+  }
+
+  if (totalMonths < 12) {
+    const months = Math.min(11, Math.max(PET_AGE_MIN, totalMonths));
+    return { ageValue: String(months), ageUnit: "months" };
+  }
+
+  const years = Math.min(
+    PET_AGE_MAX,
+    Math.max(PET_AGE_MIN, Math.floor(totalMonths / 12)),
+  );
+  return { ageValue: String(years), ageUnit: "years" };
+}
+
+/**
+ * Convierte una mascota de la API (`PetDetail`) en los valores iniciales de `PetForm`.
+ */
+export function petToFormValues(
+  pet: PetDetail,
+  referenceDate: Date = new Date(),
+): PetFormValues {
+  const { ageValue, ageUnit } = estimateAgeFromBirthDate(
+    pet.estimated_birth_date,
+    referenceDate,
+  );
+  const specialCare = pet.special_care?.trim() ?? "";
+
+  return {
+    name: pet.name,
+    species: pet.species,
+    sex: pet.sex,
+    ageValue,
+    ageUnit,
+    isNeutered: pet.is_neutered ? "true" : "false",
+    isSociable: pet.is_sociable ? "true" : "false",
+    goodWithChildren: pet.good_with_children,
+    goodWithAnimals: pet.good_with_animals,
+    isUrgentRequested: Boolean(pet.is_urgent_requested ?? pet.is_urgent),
+    hasSpecialCare: specialCare.length > 0,
+    specialCare,
+    contactPhone: pet.contact_phone ?? "",
+    description: pet.description,
+  };
+}
+
+/**
+ * Construye el payload JSON para `PATCH /api/pets/{id}/` incluyendo únicamente
+ * los campos que cambiaron respecto de `initialPet`.
+ * Si no hubo cambios, devuelve `{}` para evitar enviar un pedido innecesario.
+ */
+export function buildUpdatePetPayload(
+  values: PetFormValues,
+  initialPet: PetDetail,
+  referenceDate: Date = new Date(),
+): PetUpdatePayload {
+  const payload: PetUpdatePayload = {};
+
+  const initialAge = estimateAgeFromBirthDate(
+    initialPet.estimated_birth_date,
+    referenceDate,
+  );
+  const ageChanged =
+    values.ageValue.trim() !== initialAge.ageValue ||
+    values.ageUnit !== initialAge.ageUnit;
+
+  const nextName = values.name.trim();
+  if (nextName !== initialPet.name.trim()) {
+    payload.name = nextName;
+  }
+
+  if (values.species !== initialPet.species) {
+    payload.species = values.species;
+  }
+
+  if (values.sex !== initialPet.sex) {
+    payload.sex = values.sex;
+  }
+
+  if (ageChanged) {
+    const nextBirthDate = computeEstimatedBirthDate(
+      Number.parseInt(values.ageValue.trim(), 10),
+      values.ageUnit,
+      referenceDate,
+    );
+    if (nextBirthDate !== initialPet.estimated_birth_date) {
+      payload.estimated_birth_date = nextBirthDate;
+    }
+  }
+
+  const nextIsNeutered = values.isNeutered === "true";
+  if (nextIsNeutered !== initialPet.is_neutered) {
+    payload.is_neutered = nextIsNeutered;
+  }
+
+  const nextIsSociable = values.isSociable === "true";
+  if (nextIsSociable !== initialPet.is_sociable) {
+    payload.is_sociable = nextIsSociable;
+  }
+
+  if (values.goodWithChildren !== initialPet.good_with_children) {
+    payload.good_with_children = values.goodWithChildren;
+  }
+
+  if (values.goodWithAnimals !== initialPet.good_with_animals) {
+    payload.good_with_animals = values.goodWithAnimals;
+  }
+
+  const initialUrgentRequested = Boolean(
+    initialPet.is_urgent_requested ?? initialPet.is_urgent,
+  );
+  if (values.isUrgentRequested !== initialUrgentRequested) {
+    payload.is_urgent_requested = values.isUrgentRequested;
+  }
+
+  const nextSpecialCare = values.hasSpecialCare
+    ? values.specialCare.trim()
+    : "";
+  const initialSpecialCare = initialPet.special_care?.trim() ?? "";
+  if (nextSpecialCare !== initialSpecialCare) {
+    payload.special_care = nextSpecialCare;
+  }
+
+  const nextContactPhone = values.contactPhone.trim();
+  const initialContactPhone = initialPet.contact_phone?.trim() ?? "";
+  if (nextContactPhone !== initialContactPhone) {
+    payload.contact_phone = nextContactPhone;
+  }
+
+  const nextDescription = values.description.trim();
+  if (nextDescription !== initialPet.description.trim()) {
+    payload.description = nextDescription;
+  }
+
+  return payload;
 }
