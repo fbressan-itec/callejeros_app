@@ -291,3 +291,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco apruebe y mergee los ajustes del PR #161 para continuar con #131 (`FR-06c`: favoritos interactivos desde la tarjeta y modal de sesión requerida).
 - **PR:** #161
 - **IA usada:** Antigravity — para implementar `CatalogFiltersModal`, integrarlo en `AdoptionCatalog`, escribir tests en Vitest y realizar la comparación visual en el navegador.
+
+
+## 2026-11-26 — Favoritos interactivos desde tarjeta y modal de sesión requerida (FR-06c)
+
+- **Tarjeta:** #131 (FR-06c, sub-tarjeta de #24 FR-06)
+- **Rama:** feature/fr06-131-favoritos-interactivos-modal-sesion
+- **Área:** front, test, adopcion, docs
+- **Qué hice:**
+  - Actualicé `develop` tras el merge del PR #161 (`FR-06b`) y creé la rama `feature/fr06-131-favoritos-interactivos-modal-sesion`.
+  - Agregué `addPetFavorite` (`POST /api/pets/{id}/favorite/`) y `removePetFavorite` (`DELETE /api/pets/{id}/favorite/`) en `frontend/src/lib/pets/api.ts` usando `requestWithAuth`, con sus tests unitarios en `frontend/src/lib/pets/api.test.ts`.
+  - Conecté el botón de favorito de `PetCard` en `AdoptionCatalog` (`frontend/src/components/pets/AdoptionCatalog.tsx`) con actualización optimista, bloqueo por tarjeta (`busyFavoriteIds`), rollback y aviso accesible (`role="alert"`) ante errores, remoción en vivo de la grilla cuando el filtro `Favoritos` está activo, y apertura de `AuthRequiredModal` (`redirectTo="/adopciones"`) si no hay sesión iniciada.
+  - Sumé 5 tests en `AdoptionCatalog.test.tsx` cubriendo modal sin sesión, alta y baja de favoritos, rollback con aviso descartable ante error de API, remoción en vivo en vista `Favoritos` y cierre automático del modal al iniciar sesión; validé `format`, `lint`, `typecheck`, los 253 tests en Vitest y `next build`.
+  - Comparé `/adopciones` en el navegador contra `contexto-ia/maquetado/adopciones.html` en 375×812 y 1280×800 (modo claro y oscuro), validando el flujo sin sesión y el flujo autenticado completo con el backend local (`POST` 201, persistencia al recargar, filtro `Favoritos` y `DELETE` 204).
+- **Decisiones tomadas:**
+  - Reutilicé el componente existente `AuthRequiredModal` pasándole `redirectTo="/adopciones"` y una descripción específica para favoritos, manteniendo consistencia visual y de accesibilidad (`role="dialog"`, foco y cierre por `Escape`/backdrop) con el resto de la app.
+  - Incluí `isAuthenticated` en `requestKey` de `AdoptionCatalog` para que el catálogo se recargue automáticamente con los `is_favorite` reales del usuario cuando cambia el estado de sesión.
+- **Problemas y cómo los resolví:**
+  - En la primera verificación en el navegador detecté que al navegar desde `AuthRequiredModal` a `/login?redirect=%2Fadopciones` y volver por redirección, la caché del router de Next.js conservaba `isAuthModalOpen=true` mostrando el modal encima de la grilla ya autenticada; lo resolví sincronizando `isAuthModalOpen` a `false` cuando `isAuthenticated` pasa a `true` (patrón de estado derivado sin `useEffect`) más el guard `!isAuthenticated && isAuthModalOpen`, y lo re-verifiqué en el navegador y con test de regresión.
+- **Pendiente:** que Franco revise y apruebe el PR para cerrar #131 y dar por completada toda la épica #24 (`[FR-06] Catálogo de adopción`).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para implementar el cliente de favoritos, conectar la interacción y el modal de sesión en `AdoptionCatalog`, escribir tests en Vitest y verificar el flujo completo en el navegador.
