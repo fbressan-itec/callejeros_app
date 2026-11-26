@@ -89,6 +89,10 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 
 **Datos de prueba (`seed`):** cada app guarda los suyos en su propio `seed.py` (por ejemplo, `apps/users/seed.py`), con una función `run()` que los crea o actualiza sin duplicar y devuelve un resumen. El comando `seed` encuentra el `seed.py` de cada app y los ejecuta en el orden de `INSTALLED_APPS`. Para sumar datos de una app nueva, creá su `seed.py`: no hace falta tocar el comando. Solo corre con `DJANGO_DEBUG=True`.
 
+**Fotos del `seed`:** son fotos reales libres de derechos (Unsplash) guardadas en el repo, en la carpeta `seed_images/` de cada app (hoy, `apps/pets/seed_images/`), así el `seed` anda sin internet. Al correrlo se copian a `backend/media/`. Para usarlas desde otra app (alertas, noticias), creá su carpeta `seed_images/` y cargalas con `load_seed_image()` de `apps/core/seed_images.py`. Las que empiezan con `extra-` son de reserva para pruebas.
+
+**Correr el `seed` de nuevo:** no duplica datos y vuelve a dejar los datos de prueba como estaban (textos, estados, favoritos). No falla ni pisa lo que se hizo desde la app con esos datos: respeta las fotos agregadas o quitadas y las solicitudes de adopción creadas desde la app. Si tu base tenía las fotos viejas de un solo color, el `seed` las cambia por las reales en la misma foto. Si le cambiaste el nombre a una mascota del `seed`, se vuelve a crear la original.
+
 #### Cuentas de prueba
 
 `python manage.py seed` carga un usuario por rol. Todos usan la contraseña de `SEED_USER_PASSWORD` de tu `.env` (en el `.env.example`, `cambiame-clave-seed-123`) y tienen el teléfono ya verificado.
