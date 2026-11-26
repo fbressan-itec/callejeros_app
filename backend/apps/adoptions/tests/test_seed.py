@@ -48,3 +48,49 @@ def test_seed_command_populates_adoption_requests_idempotently(
 
     assert "adoptions: 0 solicitudes creadas, 3 actualizadas" in second_output
     assert AdoptionRequest.objects.count() == 3
+
+
+def _clone_as_new_request(request: AdoptionRequest) -> AdoptionRequest:
+    """Simula que el mismo usuario se volvió a postular desde la app."""
+    request.pk = None
+    request.status = AdoptionRequest.Status.PENDING
+    request.rejection_reason = ""
+    request.reviewed_by = None
+    request.reviewed_at = None
+    request.save()
+    return request
+
+
+def test_seed_does_not_fail_with_requests_created_from_the_app(
+    settings: pytest.TempPathFactory,
+) -> None:
+    settings.DEBUG = True
+    settings.SEED_USER_PASSWORD = "clave-segura-seed-123"
+    call_command("seed", stdout=StringIO())
+
+    # Rocco: la del seed está desaprobada y el usuario se vuelve a postular.
+    rocco_seed = AdoptionRequest.objects.get(pet__name="Rocco")
+    rocco_new = _clone_as_new_request(AdoptionRequest.objects.get(pk=rocco_seed.pk))
+
+    # Loki: Staff aprueba la del seed (pendiente) y el usuario se vuelve a postular.
+    loki_seed = AdoptionRequest.objects.get(pet__name="Loki")
+    loki_seed.status = AdoptionRequest.Status.APPROVED
+    loki_seed.save()
+    loki_new = _clone_as_new_request(AdoptionRequest.objects.get(pk=loki_seed.pk))
+
+    out = StringIO()
+    call_command("seed", stdout=out)
+
+    assert "adoptions: 0 solicitudes creadas, 3 actualizadas" in out.getvalue()
+    assert AdoptionRequest.objects.count() == 5
+
+    rocco_seed.refresh_from_db()
+    rocco_new.refresh_from_db()
+    assert rocco_seed.status == AdoptionRequest.Status.REJECTED
+    assert rocco_new.status == AdoptionRequest.Status.PENDING
+
+    # La del seed no vuelve a pendiente: ya hay otra pendiente creada desde la app.
+    loki_seed.refresh_from_db()
+    loki_new.refresh_from_db()
+    assert loki_seed.status == AdoptionRequest.Status.APPROVED
+    assert loki_new.status == AdoptionRequest.Status.PENDING
