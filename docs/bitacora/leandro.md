@@ -246,11 +246,12 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
   - Implementé `MyPetActionModals` (`AdoptPetModal` con nota opcional ≤ 255 y `DeactivatePetModal`) con accesibilidad de diálogo (`role="dialog"`, `aria-modal`, cierre con `Escape`, foco inicial al abrir y retorno de foco al cerrar), botones deshabilitados en gerundio (`"Guardando..."` / `"Dando de baja..."`) y manejo de errores con `getActionErrorMessage`.
   - Implementé `MyPetsView` y la ruta protegida `/mis-publicaciones` (`RequireAuth`, `LoadingScreen`, pestañas por estado, paginación de a 12, manejo de error con reintento y estado vacío con CTA a `/adopciones/publicar`), y sumé el enlace `"🐾 Mis publicaciones"` en `MobileMenu.tsx` visible solo con sesión.
   - Escribí 6 tests en `MyPetsView.test.tsx` y 1 test nuevo en `MobileMenu.test.tsx` (36 archivos y 228 tests pasando, `format`, `lint`, `typecheck` y `build` en verde), y verifiqué la pantalla en navegador en 375 px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #158: moví `StaffDialog` al componente compartido `frontend/src/components/ui/ActionDialog.tsx` (`kickerTone` y `autoFocusClose`) reutilizado en `MyPetActionModals` y los 3 modales del panel de Staff, fijé el banner de feedback abajo en `MyPetsView.tsx` para que siempre se vea en 375 px, ajusté la concordancia de género según `pet.sex` y la frase neutra al dar de baja, y cambié `"pendiente de validación de Staff"` por `"pendiente de validación de un voluntario"` con sus tests.
 - **Decisiones tomadas:**
   - Como "Mis publicaciones" no existe en el maquetado (`05-pantallas-y-recorridos.md`, "Pantallas que faltan"), la diseñé siguiendo el sistema de diseño de `02-diseno.md` y reutilizando las piezas compartidas (`PetSociabilityTag`, `formatPetSummaryLine`, `getPetCoverPhotoUrl`, `LoadingScreen`, `BackButton`, `RequireAuth`).
   - Dejé el botón `"Editar"` para `FR-08c (#156)` para no introducir enlaces a una ruta aún inexistente en `develop`.
 - **Problemas y cómo los resolví:**
   - En la verificación visual en navegador detecté que al abrir los modales el foco quedaba en el botón disparador; agregué `closeButtonRef.current?.focus()` al montar `ActionDialog` para que el foco entre al diálogo al abrirlo y vuelva al disparador al cerrarlo.
-- **Pendiente:** abrir el PR de #155 hacia `develop` para revisión de Franco y continuar con #156 (FR-08c: editar publicación y gestionar fotos del carrusel).
-- **PR:** pendiente
+- **Pendiente:** que Franco revise los ajustes del PR #158 para continuar con #156 (FR-08c: editar publicación y gestionar fotos del carrusel).
+- **PR:** #158
 - **IA usada:** Antigravity — para implementar los métodos de API, la pantalla `/mis-publicaciones` con filtros y modales de confirmación, los tests con Vitest y la verificación visual en navegador.
