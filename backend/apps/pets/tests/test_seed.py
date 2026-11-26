@@ -1,11 +1,16 @@
 """Tests del comando `python manage.py seed` para los datos de `apps.pets`."""
 
-from io import StringIO
+from io import BytesIO, StringIO
+from pathlib import PurePosixPath
 
 import pytest
+from django.core.files.base import ContentFile
 from django.core.management import call_command
+from PIL import Image
 
 from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.pets.seed import SEED_IMAGES_DIR
+from apps.pets.services import add_pet_photo, remove_pet_photo
 
 pytestmark = pytest.mark.django_db
 
@@ -71,3 +76,84 @@ def test_seed_command_populates_pets_idempotently(
     assert Favorite.objects.count() == 5
     assert Favorite.objects.active().count() == 5
     assert PetStatusLog.objects.count() == initial_log_count
+
+
+def _run_seed() -> str:
+    out = StringIO()
+    call_command("seed", stdout=out)
+    return out.getvalue()
+
+
+@pytest.fixture
+def seed_settings(settings: pytest.TempPathFactory) -> None:
+    settings.DEBUG = True
+    settings.SEED_USER_PASSWORD = "clave-segura-seed-123"
+
+
+def _color_jpeg() -> ContentFile:
+    buffer = BytesIO()
+    Image.new("RGB", (60, 45), color=(234, 88, 12)).save(buffer, format="JPEG")
+    return ContentFile(buffer.getvalue())
+
+
+def test_seed_uses_real_photos_from_repo(seed_settings: None) -> None:
+    _run_seed()
+
+    loki_photos = list(Pet.objects.get(name="Loki").photos.active().order_by("position"))
+    assert [PurePosixPath(photo.image.name).stem for photo in loki_photos] == [
+        "seed-loki-1",
+        "seed-loki-2",
+    ]
+    for photo in PetPhoto.objects.all():
+        source_name = PurePosixPath(photo.image.name).name.removeprefix("seed-")
+        with photo.image.open("rb") as stored:
+            assert stored.read() == (SEED_IMAGES_DIR / source_name).read_bytes()
+
+
+def test_seed_replaces_legacy_color_photos_in_same_rows(seed_settings: None) -> None:
+    _run_seed()
+    # Simula una base cargada antes de DB-02a: fotos de color llamadas `seed_<mascota>_<n>.jpg`.
+    for photo in PetPhoto.objects.all():
+        legacy_name = PurePosixPath(photo.image.name).stem.removeprefix("seed-").replace("-", "_")
+        photo.image.save(f"seed_{legacy_name}.jpg", _color_jpeg(), save=True)
+    ids_before = set(PetPhoto.objects.values_list("id", flat=True))
+
+    _run_seed()
+
+    assert set(PetPhoto.objects.values_list("id", flat=True)) == ids_before
+    assert PetPhoto.objects.active().count() == 10
+    for photo in PetPhoto.objects.all():
+        assert PurePosixPath(photo.image.name).name.startswith("seed-")
+
+    # Una tercera corrida no vuelve a cambiar nada.
+    names = dict(PetPhoto.objects.values_list("id", "image"))
+    _run_seed()
+    assert dict(PetPhoto.objects.values_list("id", "image")) == names
+
+
+def test_seed_keeps_photos_changed_from_the_app(seed_settings: None) -> None:
+    _run_seed()
+    loki = Pet.objects.get(name="Loki")
+    publisher = loki.published_by
+    main_photo = loki.photos.active().get(position=0)
+
+    # El usuario sube una foto y quita la principal del seed (la segunda pasa a la posición 0).
+    user_photo = add_pet_photo(pet=loki, actor=publisher, image=_color_jpeg_named("mia.jpg"))
+    remove_pet_photo(pet=loki, photo=main_photo, actor=publisher)
+
+    _run_seed()
+
+    loki.refresh_from_db()
+    main_photo.refresh_from_db()
+    assert main_photo.is_active is False
+    active = list(loki.photos.active().order_by("position"))
+    assert [photo.position for photo in active] == [0, 1]
+    assert PurePosixPath(active[0].image.name).stem == "seed-loki-2"
+    assert active[1].id == user_photo.id
+    assert PetPhoto.objects.filter(pet=loki).count() == 3
+
+
+def _color_jpeg_named(name: str) -> ContentFile:
+    image = _color_jpeg()
+    image.name = name
+    return image
