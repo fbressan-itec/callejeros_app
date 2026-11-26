@@ -1,39 +1,57 @@
 "use client";
 
-import { type ReactNode, useEffect, useId } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 
 export const DIALOG_SECONDARY_BUTTON_CLASSES =
   "min-h-[44px] flex-1 rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 disabled:pointer-events-none disabled:opacity-60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:focus-visible:ring-offset-slate-900";
 
-export interface StaffDialogProps {
+const KICKER_TONE_CLASSES = {
+  orange: "text-orange-700 dark:text-orange-400",
+  violet: "text-violet-700 dark:text-violet-300",
+} as const;
+
+export type ActionDialogKickerTone = keyof typeof KICKER_TONE_CLASSES;
+
+export interface ActionDialogProps {
   kicker: string;
+  kickerTone?: ActionDialogKickerTone;
   title: string;
   /** Mientras se envía no se puede cerrar (ni con Escape). */
   isBusy: boolean;
+  /** Enfoca el botón cerrar al abrir (desactivar si un campo interno toma foco). */
+  autoFocusClose?: boolean;
   onClose: () => void;
   children: ReactNode;
 }
 
 /**
- * Modal de confirmación del panel de Staff, con el mismo estilo que el cuestionario de
- * adopción (`AdoptionQuestionnaireModal`). Bloquea el scroll y se cierra con Escape.
+ * Modal de confirmación reutilizable (panel de Staff y Mis publicaciones).
+ * Bloquea el scroll del fondo, cierra con Escape y devuelve el foco al disparador al cerrarse.
  */
-export function StaffDialog({
+export function ActionDialog({
   kicker,
+  kickerTone = "orange",
   title,
   isBusy,
+  autoFocusClose = true,
   onClose,
   children,
-}: StaffDialogProps) {
+}: ActionDialogProps) {
   const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Al cerrar, el foco vuelve al botón que abrió el modal (si sigue en la página)
+  // Al abrir enfoca el diálogo si corresponde; al cerrar devuelve el foco al disparador.
   useEffect(() => {
     const opener = document.activeElement;
+    if (autoFocusClose) {
+      closeButtonRef.current?.focus();
+    }
     return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus();
+      }
     };
-  }, []);
+  }, [autoFocusClose]);
 
   useEffect(() => {
     document.body.classList.add("overflow-hidden");
@@ -57,7 +75,9 @@ export function StaffDialog({
       <div className="max-h-[92vh] w-full max-w-md space-y-5 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-8 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
-            <span className="text-xs font-extrabold tracking-wider text-violet-700 uppercase dark:text-violet-300">
+            <span
+              className={`text-xs font-extrabold tracking-wider uppercase ${KICKER_TONE_CLASSES[kickerTone]}`}
+            >
               {kicker}
             </span>
             <h2
@@ -68,10 +88,11 @@ export function StaffDialog({
             </h2>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             disabled={isBusy}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-slate-500 hover:text-slate-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-60 dark:text-slate-400 dark:hover:text-white"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-slate-500 hover:text-slate-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 disabled:pointer-events-none disabled:opacity-60 dark:text-slate-400 dark:hover:text-white"
             aria-label="Cerrar modal"
           >
             <svg

@@ -215,4 +215,31 @@ describe("MobileMenu y AppHeader", () => {
     fireEvent.click(panelLink() as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("muestra el enlace a Mis publicaciones solo con sesión y lo resalta al estar activo", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<MobileMenu isOpen={true} onClose={onClose} />);
+
+    expect(
+      screen.queryByRole("link", { name: "🐾 Mis publicaciones" }),
+    ).not.toBeInTheDocument();
+
+    currentPathname = "/mis-publicaciones";
+    rerender(
+      <MobileMenu
+        isOpen={true}
+        onClose={onClose}
+        user={{ name: "Sofía", role: "member" }}
+      />,
+    );
+
+    const myPostsLink = screen.getByRole("link", {
+      name: "🐾 Mis publicaciones",
+    });
+    expect(myPostsLink).toHaveAttribute("href", "/mis-publicaciones");
+    expect(myPostsLink).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(myPostsLink);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

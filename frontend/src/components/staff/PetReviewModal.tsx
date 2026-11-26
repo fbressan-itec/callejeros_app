@@ -6,10 +6,10 @@ import { useForm } from "react-hook-form";
 
 import { TextAreaField } from "@/components/adoptions/QuestionnaireFields";
 import {
+  ActionDialog,
   DIALOG_SECONDARY_BUTTON_CLASSES,
   DialogError,
-  StaffDialog,
-} from "@/components/staff/StaffDialog";
+} from "@/components/ui/ActionDialog";
 import { ApiError } from "@/lib/api/client";
 import { getActionErrorMessage } from "@/lib/api/errors";
 import {
@@ -106,7 +106,9 @@ export function PetReviewModal({
   }
 
   return (
-    <StaffDialog
+    <ActionDialog
+      kickerTone="violet"
+      autoFocusClose={false}
       kicker="Publicación en revisión"
       title={texts.title}
       isBusy={isSubmitting}
@@ -166,6 +168,6 @@ export function PetReviewModal({
           </button>
         </div>
       </form>
-    </StaffDialog>
+    </ActionDialog>
   );
 }

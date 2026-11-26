@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { AUTH_SESSION_STORAGE_KEY } from "@/lib/auth/session";
 import {
+  adoptPet,
   createPet,
+  deactivatePet,
+  fetchMyPets,
   fetchPetById,
   fetchPets,
   parsePetId,
@@ -426,5 +429,77 @@ describe("createPet", () => {
     expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe(
       "Bearer token-nuevo",
     );
+  });
+});
+
+describe("fetchMyPets, adoptPet y deactivatePet", () => {
+  function storeMemberSession(access = "token-mio") {
+    window.localStorage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        access,
+        refresh: "refresh-mio",
+        user: {
+          id: 1,
+          email: "miembro@callejeros.ar",
+          first_name: "Tomás",
+          last_name: "Gómez",
+          phone: "3584123456",
+          is_phone_verified: true,
+          photo: null,
+          role: { code: "member", name: "Miembro" },
+        },
+      }),
+    );
+  }
+
+  it("fetchMyPets pide GET /api/pets/mine/ con filtros opcionales de estado y página", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [SAMPLE_PET],
+      }),
+    );
+
+    const page = await fetchMyPets({ status: "published", page: 2 });
+
+    expect(page.results).toHaveLength(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/mine/?status=published&page=2");
+    expect(init.method).toBe("GET");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+  });
+
+  it("adoptPet envía POST /api/pets/{id}/adopt/ con la nota recortada", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ...SAMPLE_PET, status: "adopted" }),
+    );
+
+    const adopted = await adoptPet(1, "  Adoptado por familia de Alberdi  ");
+
+    expect(adopted.status).toBe("adopted");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/adopt/");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
+    expect(init.body).toBe(
+      JSON.stringify({ note: "Adoptado por familia de Alberdi" }),
+    );
+  });
+
+  it("deactivatePet envía DELETE /api/pets/{id}/ con token Bearer", async () => {
+    storeMemberSession();
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await deactivatePet(1);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://api.test/api/pets/1/");
+    expect(init.method).toBe("DELETE");
+    expect(init.headers.Authorization).toBe("Bearer token-mio");
   });
 });
