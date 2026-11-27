@@ -187,6 +187,17 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `POST /api/auth/logout/` | Público (`AllowAny`) | Invalida el token `refresh` agregándolo a la lista negra (`token_blacklist`). |
 | `GET /api/auth/me/` | Sesión activa (`IsAuthenticated`) | Devuelve los datos y el rol (`member`, `verified_shelter`, `staff`, `admin`) del usuario autenticado. |
 
+#### Endpoints de administración de usuarios (`/api/admin/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `GET /api/admin/roles/` | Solo Admin (`IsAdmin`) | Lista los 4 roles del catálogo (`member`, `verified_shelter`, `staff`, `admin`) con código y nombre de insignia. |
+| `GET /api/admin/users/` | Solo Admin (`IsAdmin`) | Listado paginado de a 12 (`{ count, next, previous, results }`, `?page=2`) de usuarios activos e inactivos, ordenados de más reciente a más antiguo. Soporta filtros (`?role=`, `?is_active=true\|false`) y búsqueda (`?search=` por correo, nombre o apellido). Nunca expone `address` ni `password`. |
+| `GET /api/admin/users/{id}/` | Solo Admin (`IsAdmin`) | Devuelve el detalle de gestión de un usuario (activo o inactivo), su rol y estado, sin exponer `address` ni `password`. |
+| `POST /api/admin/users/{id}/role/` | Solo Admin (`IsAdmin`) | Cambia el rol (`role_code` y `note` opcional ≤ 255) y registra el cambio en `UserRoleLog`. Impide auto-degradación y bajar al último Admin activo; pedir el mismo rol responde `200` sin duplicar historial. |
+| `POST /api/admin/users/{id}/deactivate/` | Solo Admin (`IsAdmin`) | Aplica baja lógica (`is_active=False`), registra `UserStatusLog` (`deactivated`, `admin_action`, `note` opcional ≤ 255) e invalida los tokens de refresco vigentes en `token_blacklist`. Impide auto-desactivación y desactivar al último Admin activo; idempotente si ya estaba inactivo. |
+| `POST /api/admin/users/{id}/reactivate/` | Solo Admin (`IsAdmin`) | Reactiva una cuenta desactivada (`is_active=True`) y registra `UserStatusLog` (`reactivated`, `admin_action`, `note` opcional ≤ 255); idempotente si ya estaba activa. |
+
 #### Endpoints de mascotas (`/api/pets/`)
 
 | Método y ruta | Permiso | Qué hace |
