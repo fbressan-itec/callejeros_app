@@ -242,12 +242,46 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `DJANGO_DEBUG` | `True` | Activa el modo de desarrollo (y habilita el comando `python manage.py seed`). |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts autorizados para responder desde Django. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Orígenes que pueden consumir la API desde el navegador. |
+| `DJANGO_SECURE_HTTPS` | `False` | Solo en producción: `True` activa las protecciones de HTTPS (redirección, cookies seguras y HSTS). |
+| `CSRF_TRUSTED_ORIGINS` | *(vacía)* | Opcional: orígenes extra en los que confía el admin para sus formularios. |
+| `DJANGO_SEED_ON_START` | `False` | Solo en producción: `True` corre el `seed` cada vez que arranca el back publicado. |
+| `DATABASE_URL` | *(sin definir: SQLite)* | Base de datos. En producción, la dirección de PostgreSQL que da Render. |
+| `RENDER_EXTERNAL_HOSTNAME` | *(la define Render)* | Dirección del servicio en Render; se suma sola a `DJANGO_ALLOWED_HOSTS`. |
 | `SEED_USER_PASSWORD` | `cambiame-clave-seed-123` | Contraseña de los usuarios de prueba que carga `python manage.py seed` (mínimo 6 caracteres). |
 | `JWT_ACCESS_LIFETIME_MINUTES` | `60` | Duración en minutos del token de acceso (`access`). |
 | `JWT_REFRESH_LIFETIME_DAYS` | `1` | Duración en días del token de refresco sin `"Recordarme"`. |
 | `JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS` | `30` | Duración en días del token de refresco con `"Recordarme"`. |
 | `MOCK_VERIFICATION_CODE` | `8596` | Código único de 4 dígitos para la verificación de teléfono y el recupero de contraseña maquetados. |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | URL base de la API que consume el cliente del frontend. |
+
+### Deploy del back (Render)
+
+El back se publica en [Render](https://render.com) con la imagen de producción `backend/Dockerfile.prod`, distinta de la de desarrollo:
+
+- **gunicorn** en lugar de `runserver`, sin las herramientas de test.
+- **WhiteNoise** sirve los estilos del admin y de Swagger; `collectstatic` se corre al armar la imagen.
+- **`backend/start.sh`**, al arrancar, aplica las migraciones, corre el `seed` si `DJANGO_SEED_ON_START=True` (con `--allow-production`, para tener los usuarios de prueba en la demo) y levanta gunicorn en el puerto que indica Render (`$PORT`).
+- **PostgreSQL** de Render, por `DATABASE_URL`. En local sigue SQLite: si la variable no está, no cambia nada.
+
+Configuración del servicio en Render (*New → Web Service*, desde este repo):
+
+| Campo | Valor |
+| :--- | :--- |
+| Language | Docker |
+| Branch | `develop` |
+| Root Directory | `backend` |
+| Dockerfile Path | `./Dockerfile.prod` |
+
+Variables del servicio: `DJANGO_SECRET_KEY` (una nueva, larga y aleatoria), `DJANGO_DEBUG=False`, `DJANGO_SECURE_HTTPS=True`, `DATABASE_URL` (la *Internal Database URL* de la base de Render), `CORS_ALLOWED_ORIGINS` (la dirección del front en Vercel), `SEED_USER_PASSWORD` y `DJANGO_SEED_ON_START=True`. `DJANGO_ALLOWED_HOSTS` puede quedar vacía: Render agrega su dirección sola.
+
+> **Limitaciones del plan gratis:** el back se apaga tras 15 minutos sin uso y la primera visita después tarda alrededor de un minuto. Render borra los archivos del servidor en cada reinicio: por eso la base es PostgreSQL (aparte) y las fotos van a Cloudinary (CR-04b). La base gratis de Render vence a los 30 días.
+
+Para probar la imagen de producción en tu compu (desde `backend/`, con Docker Desktop abierto):
+
+```bash
+docker build -f Dockerfile.prod -t callejeros-back-prod .
+docker run --rm -p 8000:8000 --env-file ../.env -e DJANGO_DEBUG=False callejeros-back-prod
+```
 
 ## Base de datos
 
