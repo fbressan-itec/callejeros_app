@@ -1,5 +1,7 @@
 """Datos de prueba de notificaciones (`python manage.py seed`)."""
 
+from datetime import timedelta
+
 from django.core.management.base import CommandError
 from django.utils import timezone
 
@@ -16,6 +18,7 @@ SEED_NOTIFICATIONS = [
         "tag": Notification.Tag.URGENT,
         "link": "/alertas",
         "is_read": False,
+        "minutes_ago": 15,
     },
     {
         "recipient_email": "miembro@callejeros.ar",
@@ -24,6 +27,7 @@ SEED_NOTIFICATIONS = [
         "tag": Notification.Tag.COMMUNITY,
         "link": "/noticias",
         "is_read": False,
+        "minutes_ago": 120,
     },
     {
         "recipient_email": "miembro@callejeros.ar",
@@ -32,6 +36,7 @@ SEED_NOTIFICATIONS = [
         "tag": Notification.Tag.URGENT,
         "link": "/alertas",
         "is_read": False,
+        "minutes_ago": 240,
     },
     {
         "recipient_email": "miembro@callejeros.ar",
@@ -41,6 +46,7 @@ SEED_NOTIFICATIONS = [
         "pet_link_name": "Pancho",
         "link": "/adopciones",
         "is_read": True,
+        "minutes_ago": 1440,
     },
     {
         "recipient_email": "miembro@callejeros.ar",
@@ -49,6 +55,7 @@ SEED_NOTIFICATIONS = [
         "tag": Notification.Tag.FUNDRAISING,
         "link": "/donaciones",
         "is_read": True,
+        "minutes_ago": 2880,
     },
     # Ejemplos para refugio, staff y admin.
     {
@@ -59,6 +66,7 @@ SEED_NOTIFICATIONS = [
         "pet_link_name": "Loki",
         "link": "/adopciones",
         "is_read": False,
+        "minutes_ago": 45,
     },
     {
         "recipient_email": "refugio@callejeros.ar",
@@ -68,6 +76,7 @@ SEED_NOTIFICATIONS = [
         "pet_link_name": "Rocco",
         "link": "/donaciones",
         "is_read": True,
+        "minutes_ago": 1800,
     },
     {
         "recipient_email": "staff@callejeros.ar",
@@ -78,6 +87,7 @@ SEED_NOTIFICATIONS = [
         "tag": Notification.Tag.COMMUNITY,
         "link": "/noticias",
         "is_read": False,
+        "minutes_ago": 60,
     },
     {
         "recipient_email": "admin@callejeros.ar",
@@ -86,6 +96,7 @@ SEED_NOTIFICATIONS = [
         "tag": Notification.Tag.FUNDRAISING,
         "link": "/donaciones",
         "is_read": True,
+        "minutes_ago": 2880,
     },
 ]
 
@@ -114,32 +125,46 @@ def run() -> str:
                 "en INSTALLED_APPS."
             )
 
-        fields = {
-            "text": item["text"],
-            "tag": item["tag"],
-            "link": _resolve_link(item),
-            "is_read": item["is_read"],
-            "read_at": now if item["is_read"] else None,
-            "is_active": True,
-        }
-
+        target_created_at = now - timedelta(minutes=item["minutes_ago"])
         existing = (
             Notification.objects.filter(recipient=recipient, title=item["title"])
             .order_by("created_at", "id")
             .first()
         )
+
+        if item["is_read"]:
+            if existing is not None and existing.is_read and existing.read_at is not None:
+                read_at = existing.read_at
+            else:
+                read_at = now
+        else:
+            read_at = None
+
+        fields = {
+            "text": item["text"],
+            "tag": item["tag"],
+            "link": _resolve_link(item),
+            "is_read": item["is_read"],
+            "read_at": read_at,
+            "is_active": True,
+        }
+
         if existing is None:
-            Notification.objects.create(
+            notification = Notification.objects.create(
                 recipient=recipient,
                 title=item["title"],
                 **fields,
             )
             created_count += 1
-            continue
+        else:
+            for field_name, value in fields.items():
+                setattr(existing, field_name, value)
+            existing.save()
+            notification = existing
+            updated_count += 1
 
-        for field_name, value in fields.items():
-            setattr(existing, field_name, value)
-        existing.save()
-        updated_count += 1
+        # `created_at` tiene `auto_now_add=True`, por eso se ajusta con `.update(...)`
+        # para respetar las antigüedades y el orden del maquetado.
+        Notification.objects.filter(pk=notification.pk).update(created_at=target_created_at)
 
     return f"{created_count} notificaciones creadas, {updated_count} actualizadas"
