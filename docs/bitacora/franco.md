@@ -527,3 +527,22 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de #176; crear la cuenta de Cloudinary y hacer #177; publicar y probar en línea (#178).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para la prueba de punta a punta en el navegador, proponer la división de la épica, escribir la configuración de producción, los tests y la documentación.
+
+## 2026-11-27 — Fotos en Cloudinary (CR-04b)
+
+- **Tarjeta:** #177 (CR-04b, sub-tarjeta de la épica #42, CR-04)
+- **Rama:** feature/cr04-177-fotos-cloudinary
+- **Área:** devops, back, test, docs
+- **Qué hice:**
+  - Con `CLOUDINARY_URL`, las fotos subidas y las del seed se guardan en Cloudinary con `django-cloudinary-storage`; sin la variable siguen en `backend/media/`. La API devuelve la dirección de Cloudinary y el front no necesitó cambios (ya muestra fotos de cualquier dirección).
+  - Los tests nunca suben a Cloudinary, aunque el `.env` tenga la variable.
+  - Tests: la configuración elige Cloudinary solo con la variable, y el seed no vuelve a subir fotos al correr de nuevo (Cloudinary las guarda sin extensión y con un sufijo al azar).
+  - Probé la imagen de producción de CR-04a con Docker y PostgreSQL: migraciones, seed, gunicorn, admin con estilos, login y redirección a https. Después, con mi cuenta de Cloudinary: el seed subió las 10 fotos, al reiniciar no las volvió a subir, las direcciones abren y una foto subida desde la API también fue a Cloudinary.
+  - `.env.example` y README al día.
+- **Decisiones tomadas:**
+  - `django-cloudinary-storage` en lugar de un almacenamiento propio: es el paquete de uso común y alcanzó sin cambios.
+  - La clave de Cloudinary nunca pasa por el chat: la cargué en el `.env` con un comando que la pide en la terminal.
+- **Problemas y cómo los resolví:** la primera vez la línea de `CLOUDINARY_URL` quedó con un espacio antes del nombre de la nube; lo saqué y la conexión respondió bien.
+- **Pendiente:** PR de #177; publicar en Render y Vercel y probar en línea (#178).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para elegir el paquete, escribir la configuración y los tests, y probar la imagen de producción con PostgreSQL y Cloudinary.

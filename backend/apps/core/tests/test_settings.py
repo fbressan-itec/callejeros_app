@@ -21,6 +21,8 @@ def load_settings(monkeypatch):
         monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "localhost")
         monkeypatch.delenv("RENDER_EXTERNAL_HOSTNAME", raising=False)
         monkeypatch.delenv("DJANGO_SECURE_HTTPS", raising=False)
+        # Vacía y no borrada: si tu `.env` la tiene, `read_env` no la vuelve a cargar.
+        monkeypatch.setenv("CLOUDINARY_URL", "")
         for name, value in env_vars.items():
             monkeypatch.setenv(name, value)
         spec = importlib.util.spec_from_file_location("settings_under_test", SETTINGS_FILE)
@@ -65,3 +67,17 @@ def test_csrf_trusted_origins_come_from_env(load_settings):
     loaded = load_settings(CSRF_TRUSTED_ORIGINS="https://a.example.com,https://b.example.com")
 
     assert loaded.CSRF_TRUSTED_ORIGINS == ["https://a.example.com", "https://b.example.com"]
+
+
+def test_photos_go_to_cloudinary_when_its_url_is_set(load_settings):
+    loaded = load_settings(CLOUDINARY_URL="cloudinary://123:clave-falsa@nube-de-prueba")
+
+    assert loaded.STORAGES["default"]["BACKEND"] == (
+        "cloudinary_storage.storage.MediaCloudinaryStorage"
+    )
+
+
+def test_photos_stay_on_disk_without_cloudinary_url(load_settings):
+    loaded = load_settings()
+
+    assert loaded.STORAGES["default"]["BACKEND"] == "django.core.files.storage.FileSystemStorage"

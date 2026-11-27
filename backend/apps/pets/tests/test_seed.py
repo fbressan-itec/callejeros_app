@@ -157,3 +157,46 @@ def _color_jpeg_named(name: str) -> ContentFile:
     image = _color_jpeg()
     image.name = name
     return image
+
+
+@pytest.fixture
+def cloudinary_uploads(settings, monkeypatch) -> list[str]:
+    """Guarda las fotos con el almacenamiento de Cloudinary, sin subir nada de verdad.
+
+    Cloudinary guarda cada foto sin extensión y con un sufijo al azar
+    (`media/pets/seed-loki-1_x7k2pq`): el seed tiene que reconocerlas igual.
+    """
+    import cloudinary.uploader
+
+    monkeypatch.setenv("CLOUDINARY_URL", "cloudinary://123:clave-falsa@nube-de-prueba")
+    uploads: list[str] = []
+
+    def fake_upload(content, folder: str = "", **options) -> dict:
+        stem = PurePosixPath(content.name).stem
+        uploads.append(stem)
+        return {"public_id": f"{folder}/{stem}_x7k2pq"}
+
+    monkeypatch.setattr(cloudinary.uploader, "upload", fake_upload)
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+    }
+    return uploads
+
+
+def test_seed_does_not_upload_photos_again_to_cloudinary(
+    seed_settings: None, cloudinary_uploads: list[str]
+) -> None:
+    """En Render el seed corre en cada arranque: no tiene que volver a subir las fotos."""
+    _run_seed()
+    first_uploads = len(cloudinary_uploads)
+
+    _run_seed()
+
+    assert first_uploads == PetPhoto.objects.count() == 10
+    assert len(cloudinary_uploads) == first_uploads
+    loki_names = [photo.image.name for photo in Pet.objects.get(name="Loki").photos.active()]
+    assert sorted(loki_names) == [
+        "media/pets/photos/seed-loki-1_x7k2pq",
+        "media/pets/photos/seed-loki-2_x7k2pq",
+    ]
