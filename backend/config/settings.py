@@ -22,6 +22,7 @@ env = environ.Env(
     CSRF_TRUSTED_ORIGINS=(list, []),
     DJANGO_SECURE_HTTPS=(bool, False),
     RENDER_EXTERNAL_HOSTNAME=(str, ""),
+    CLOUDINARY_URL=(str, ""),
     SEED_USER_PASSWORD=(str, ""),
     JWT_ACCESS_LIFETIME_MINUTES=(int, 60),
     JWT_REFRESH_LIFETIME_DAYS=(int, 1),
@@ -150,6 +151,14 @@ STORAGES = {
     # desarrollo funcionan aunque no se haya corrido `collectstatic`.
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
+
+# Fotos subidas en Cloudinary (producción). Render borra los archivos del servidor en
+# cada reinicio: sin esto, las fotos desaparecerían. Si la variable no está (en local y
+# en el CI), las fotos siguen en `media/`. El SDK de Cloudinary lee la clave de la misma
+# variable de entorno.
+CLOUDINARY_URL = env("CLOUDINARY_URL")
+if CLOUDINARY_URL:
+    STORAGES["default"] = {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
