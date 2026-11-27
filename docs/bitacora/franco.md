@@ -502,3 +502,28 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** el resto de DB-02 sigue desde DB-02b (ejemplos del maquetado, alertas, noticias, demo completa). Al final, borrar a mano los archivos viejos de color de `media/` y dar crédito a los autores de las fotos en la Wiki.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para buscar y bajar las fotos, escribir la función, el seed y los tests, y probar el CRUD en el navegador contra el back local.
+
+## 2026-11-27 — Prueba de punta a punta y back listo para producción (CR-04a)
+
+- **Tarjeta:** #176 (CR-04a, sub-tarjeta de la épica #42, CR-04)
+- **Rama:** feature/cr04-176-back-produccion
+- **Área:** devops, back, test, docs
+- **Qué hice:**
+  - Prueba de punta a punta de `develop` como usuario (sin sesión, miembro, refugio, staff y admin) en 375px: todo anduvo. Los únicos errores de consola son 404 de páginas del menú que todavía no existen.
+  - Dividí la épica CR-04 (#42) en tres sub-tarjetas: back listo para producción (#176), fotos en Cloudinary (#177) y publicación en Render y Vercel (#178).
+  - Back listo para Render: `gunicorn`, `whitenoise` para los estilos del admin y de Swagger, PostgreSQL por `DATABASE_URL`, protecciones de HTTPS con `DJANGO_SECURE_HTTPS` y la dirección de Render sumada sola a los hosts permitidos.
+  - Imagen de producción `backend/Dockerfile.prod` y `backend/start.sh` (migraciones, seed opcional y gunicorn).
+  - Opción `--allow-production` en el seed para cargar los usuarios de prueba en la demo publicada.
+  - Tests de la configuración y del seed, `.env.example` y README (sección "Deploy del back (Render)").
+- **Decisiones tomadas:**
+  - Front en Vercel, back en Render (con Docker) y base PostgreSQL de Render: alcanza para que el profesor lo controle, aunque la base gratis vence a los 30 días.
+  - HTTPS con una variable propia y no con `DJANGO_DEBUG`, porque el CI corre con `DEBUG=False` y por http.
+  - Migraciones y seed en el arranque, porque el plan gratis de Render no tiene consola ni paso previo al deploy.
+  - Fotos en Cloudinary (#177), porque Render borra los archivos del servidor en cada reinicio.
+- **Problemas y cómo los resolví:**
+  - El seed se negaba a correr con `DEBUG=False`: agregué `--allow-production`, que solo usa `start.sh`; sin la opción sigue protegido.
+  - WhiteNoise avisaba en los tests que no existe `staticfiles/`: filtré ese aviso en pytest.
+  - No pude armar la imagen de Docker porque Docker Desktop estaba cerrado; probé con `runserver` y `DEBUG=False` que el admin, Swagger y la API responden y los estilos salen comprimidos. `check --deploy` solo deja dos avisos de HSTS que no aplican a `onrender.com`.
+- **Pendiente:** PR de #176; crear la cuenta de Cloudinary y hacer #177; publicar y probar en línea (#178).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para la prueba de punta a punta en el navegador, proponer la división de la épica, escribir la configuración de producción, los tests y la documentación.
