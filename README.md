@@ -108,6 +108,15 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 
 > ⚠️ Son datos de prueba: el `seed` solo corre con `DJANGO_DEBUG=True` y nunca se usa en producción.
 
+#### Panel de administración de Django (`/admin/`)
+
+Solo acceden usuarios activos con rol **Admin** (`http://localhost:8000/admin/`). Para el módulo de cuentas (`apps.users`) permite:
+
+- **Usuarios (`User`):** listado con búsqueda por correo, nombre o apellido y filtros por rol, estado activo y verificación de teléfono. Sin borrado físico.
+- **Alta y contraseñas:** el alta de cuentas se hace solo desde aquí (con contraseña ingresada dos veces, validada con las mismas reglas que el registro y guardada con hash, creando además `UserPreferences`). El cambio de contraseña de otro usuario usa el formulario estándar de Django; nunca se muestra ni edita en texto plano.
+- **Edición, roles y baja lógica:** permite editar datos personales, teléfono y su verificación, correo y la `dirección pública del refugio` (fechas y último ingreso son solo lectura). Cambiar el rol y activar/desactivar (tanto desde la ficha como con las acciones masivas **"Desactivar usuarios seleccionados"** y **"Reactivar usuarios seleccionados"**) pasan por los servicios de `apps/users/services.py`: registran `UserRoleLog` y `UserStatusLog` (motivo `admin_action`), invalidan los tokens de refresco en `token_blacklist` al desactivar e impiden que un Admin se quite su propio rol, se desactive a sí mismo o deje el sistema sin ningún Admin activo.
+- **Roles e historiales (`Role`, `UserRoleLog`, `UserStatusLog`):** son estrictamente de solo lectura; el historial de roles y de estados de cada usuario también se ve en su ficha.
+
 #### Frontend
 
 **Requisito:** [Node.js](https://nodejs.org/) 22 o más nuevo (trae npm). Desde `frontend/`:

@@ -276,3 +276,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #159 y cierre la épica #26 (`[FR-08] Publicar, editar y dar de baja mascota`) una vez mergeado.
 - **PR:** #159
 - **IA usada:** Antigravity — para implementar los endpoints y helpers de edición, `PetPhotosManager`, `EditPetView`, la ruta `/mis-publicaciones/[id]/editar`, los tests con Vitest y la verificación visual en navegador.
+
+## 2026-11-27 — Servicios de administración de usuarios y panel de Django Admin (BK-15a)
+
+- **Tarjeta:** #164 (BK-15a, sub-tarjeta de #18 BK-15)
+- **Rama:** feature/bk15-164-admin-usuarios-roles
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Completé la división de la épica #18 (`[BK-15] Administración de usuarios`) respetando `#164` (`BK-15a`) y creando las sub-tarjetas `#168` (`BK-15b`: API solo Admin de usuarios y roles) y `#169` (`BK-15c`: ocultar contenido de usuarios desactivados sin modificar datos), colgadas como sub-issues de `#18` en GitHub y ubicadas en el tablero.
+  - Implementé los servicios de negocio en `backend/apps/users/services.py` (`blacklist_user_refresh_tokens`, `change_user_role`, `deactivate_user` y `reactivate_user`) con control de rol `admin`, transacciones atómicas con `select_for_update()`, auditoría en `UserRoleLog` y `UserStatusLog` (`admin_action`), invalidación de refresh tokens en `token_blacklist` al desactivar y protecciones contra auto-degradación, auto-desactivación y contra bajar o desactivar al último Admin activo.
+  - Registré `User`, `Role`, `UserRoleLog` y `UserStatusLog` en `backend/apps/users/admin.py`: sin borrado físico (`NoDeleteAdminMixin`), búsqueda (`email`, `first_name`, `last_name`), filtros (`role`, `is_active`, `is_phone_verified`), acciones `"Desactivar usuarios seleccionados"` y `"Reactivar usuarios seleccionados"` delegando en los servicios, alta con contraseña doble validada con `validate_user_password` y guardada con hash (+ creación de `UserPreferences`), cambio de contraseña estándar de Django con hash, campos editables y solo lectura según `#164`, inlines de solo lectura para `UserRoleLog` y `UserStatusLog`, y `Role` / historiales estrictamente en solo lectura.
+  - Escribí 27 tests nuevos con `pytest` en `backend/apps/users/tests/test_admin_services.py` (18 casos) y `test_admin.py` (9 casos), dejando `ruff check`, `ruff format --check`, `spectacular --validate --fail-on-warn` y los 418 tests del backend en verde.
+  - Documenté qué permite el panel de administración de Django (`/admin/`) en `README.md`.
+  - Apliqué los ajustes de la revisión del PR #170: quité el campo `usable_password` de `UserAdminPasswordChangeForm` (Django 5.1+) y dejé `password1`/`password2` obligatorios para no permitir bloquear cuentas fuera de `deactivate_user`, extraje `validate_role_change_allowed` y `validate_deactivation_allowed` a `apps/users/services.py` para evitar duplicar reglas en `UserAdminChangeForm.clean()`, capturé `DRFValidationError` con `message_user` en `UserAdmin.save_model()` para evitar errores 500 ante concurrencia, y sumé los 2 tests correspondientes (420 tests pasando).
+- **Decisiones tomadas:**
+  - Centralicé las reglas de cambio de rol, baja lógica, reactivación, protecciones y blacklist en `apps/users/services.py` y delegué tanto las acciones masivas como el guardado de cambios de rol/estado de la ficha de `UserAdmin` en esos servicios, garantizando que `BK-15b` (`#168`) y `FR-18` reutilicen exactamente la misma lógica sin duplicarla.
+  - Agregué la validación de protecciones también en `UserAdminChangeForm.clean()` delegando en `validate_role_change_allowed` y `validate_deactivation_allowed` de `services.py` para que Django Admin muestre los mensajes de error directamente sobre los campos `role` e `is_active` sin duplicar lógica.
+- **Problemas y cómo los resolví:**
+  - En la revisión del PR #170 Franco detectó que Django 5.1+ agrega el campo `usable_password` en `AdminPasswordChangeForm`, permitiendo desactivar la autenticación por contraseña sin pasar por `deactivate_user`, sin `UserStatusLog` ni blacklist de tokens; lo resolví quitando el campo en `UserAdminPasswordChangeForm.__init__`, forzando `password1`/`password2` como obligatorios y cubriéndolo con tests.
+- **Pendiente:** que Franco revise los ajustes del PR #170 para continuar con `#168` (`BK-15b`: API solo Admin de usuarios y roles).
+- **PR:** #170
+- **IA usada:** Antigravity — para completar la división de la épica, implementar los servicios de administración y el panel de Django Admin, escribir los tests con `pytest` y actualizar `README.md`.

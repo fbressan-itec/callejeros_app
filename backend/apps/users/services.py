@@ -1,6 +1,7 @@
-"""Servicios de negocio para registro, inicio y cierre de sesión con JWT."""
+"""Servicios de negocio para autenticación JWT y administración de usuarios y roles."""
 
 from datetime import timedelta
+from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -8,18 +9,27 @@ from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from apps.users.models import User
+from apps.users.models import Role, RoleCode, User, UserRoleLog, UserStatusLog
+from apps.users.permissions import FORBIDDEN_ERROR_MESSAGE, user_has_role
 
 MIN_PASSWORD_LENGTH = 6
+MAX_ADMIN_NOTE_LENGTH = 255
 PASSWORD_MIN_LENGTH_ERROR = "La contraseña debe tener al menos 6 caracteres"
 DUPLICATE_EMAIL_ERROR = "Ya existe una cuenta con este correo electrónico."
 INVALID_CREDENTIALS_ERROR = "Correo electrónico o contraseña incorrectos."
 INVALID_REFRESH_TOKEN_ERROR = "El token de refresco es inválido o ya expiró."
 INVALID_VERIFICATION_CODE_ERROR = "El código de verificación es incorrecto."
+ADMIN_NOTE_TOO_LONG_ERROR = f"La nota no puede superar los {MAX_ADMIN_NOTE_LENGTH} caracteres."
+INVALID_ROLE_ERROR = "El rol indicado no existe o no está disponible."
+CANNOT_DEMOTE_SELF_ERROR = "No podés quitarte tu propio rol de Admin."
+LAST_ADMIN_ROLE_ERROR = "No se puede cambiar el rol del último Admin activo del sistema."
+CANNOT_DEACTIVATE_SELF_ERROR = "No podés desactivar tu propia cuenta."
+LAST_ADMIN_DEACTIVATE_ERROR = "No se puede desactivar al último Admin activo del sistema."
 
 
 class ConfigurableAccessToken(AccessToken):
@@ -144,3 +154,207 @@ def logout_user(*, refresh_token: str) -> None:
         token.blacklist()
     except TokenError as exc:
         raise ValidationError({"refresh": [INVALID_REFRESH_TOKEN_ERROR]}) from exc
+
+
+def _ensure_admin_actor(actor: Any) -> None:
+    """Exige que quien ejecuta la acción sea un usuario activo con rol `admin`."""
+    if not user_has_role(actor, (RoleCode.ADMIN,)):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+
+def _clean_admin_note(note: str) -> str:
+    """Normaliza la nota opcional de auditoría y controla su longitud máxima."""
+    cleaned = note.strip() if isinstance(note, str) else ""
+    if len(cleaned) > MAX_ADMIN_NOTE_LENGTH:
+        raise ValidationError({"note": [ADMIN_NOTE_TOO_LONG_ERROR]})
+    return cleaned
+
+
+def _has_other_active_admin(excluded_user_id: int, *, lock: bool = False) -> bool:
+    """Indica si existe al menos otro usuario activo con rol `admin` además del excluido."""
+    queryset = User.objects.all()
+    if lock:
+        queryset = queryset.select_for_update()
+    return (
+        queryset.filter(is_active=True, role__code=RoleCode.ADMIN)
+        .exclude(pk=excluded_user_id)
+        .exists()
+    )
+
+
+def validate_role_change_allowed(
+    *,
+    target_user: User,
+    new_role_code: str,
+    actor: Any,
+    lock: bool = False,
+) -> None:
+    """Valida las protecciones de cambio de rol (reutilizada por el servicio y el admin)."""
+    if target_user.role.code != RoleCode.ADMIN or new_role_code == RoleCode.ADMIN:
+        return
+    if actor is not None and actor.pk == target_user.pk:
+        raise ValidationError({"role": [CANNOT_DEMOTE_SELF_ERROR]})
+    if target_user.is_active and not _has_other_active_admin(target_user.pk, lock=lock):
+        raise ValidationError({"role": [LAST_ADMIN_ROLE_ERROR]})
+
+
+def validate_deactivation_allowed(
+    *,
+    target_user: User,
+    actor: Any,
+    reason: str = UserStatusLog.Reason.ADMIN_ACTION,
+    lock: bool = False,
+) -> None:
+    """Valida las protecciones de desactivación (reutilizada por el servicio y el admin)."""
+    if (
+        reason == UserStatusLog.Reason.ADMIN_ACTION
+        and actor is not None
+        and actor.pk == target_user.pk
+    ):
+        raise ValidationError({"is_active": [CANNOT_DEACTIVATE_SELF_ERROR]})
+    if (
+        target_user.is_active
+        and target_user.role.code == RoleCode.ADMIN
+        and not _has_other_active_admin(target_user.pk, lock=lock)
+    ):
+        raise ValidationError({"is_active": [LAST_ADMIN_DEACTIVATE_ERROR]})
+
+
+def blacklist_user_refresh_tokens(user: User) -> int:
+    """Agrega a la lista negra todos los tokens de refresco emitidos para el usuario."""
+    blacklisted_count = 0
+    for outstanding in OutstandingToken.objects.filter(user=user):
+        _, created = BlacklistedToken.objects.get_or_create(token=outstanding)
+        if created:
+            blacklisted_count += 1
+    return blacklisted_count
+
+
+@transaction.atomic
+def change_user_role(
+    *,
+    target_user: User,
+    new_role_code: str,
+    actor: Any,
+    note: str = "",
+) -> User:
+    """Cambia el rol de un usuario registrando el cambio en `UserRoleLog` (solo Admin).
+
+    Protecciones:
+    - Un Admin no puede quitarse su propio rol de Admin.
+    - No se puede bajar de rol al último Admin activo del sistema.
+    - Un Admin sí puede cambiar el rol de otro Admin mientras quede al menos uno activo.
+    - Pedir el mismo rol que ya tiene no modifica ni duplica el historial.
+    """
+    _ensure_admin_actor(actor)
+    cleaned_note = _clean_admin_note(note)
+
+    normalized_code = new_role_code.strip() if isinstance(new_role_code, str) else ""
+    new_role = Role.objects.active().filter(code=normalized_code).first()
+    if new_role is None:
+        raise ValidationError({"role": [INVALID_ROLE_ERROR]})
+
+    locked = User.objects.select_for_update().select_related("role").get(pk=target_user.pk)
+
+    if locked.role_id == new_role.id:
+        return locked
+
+    validate_role_change_allowed(
+        target_user=locked,
+        new_role_code=new_role.code,
+        actor=actor,
+        lock=True,
+    )
+
+    previous_role = locked.role
+    locked.role = new_role
+    locked.save(update_fields=["role", "updated_at"])
+
+    UserRoleLog.objects.create(
+        user=locked,
+        previous_role=previous_role,
+        new_role=new_role,
+        performed_by=actor,
+        note=cleaned_note,
+    )
+    return locked
+
+
+@transaction.atomic
+def deactivate_user(
+    *,
+    target_user: User,
+    actor: Any,
+    note: str = "",
+    reason: str = UserStatusLog.Reason.ADMIN_ACTION,
+) -> User:
+    """Desactiva una cuenta (baja lógica), registra `UserStatusLog` e invalida sus sesiones.
+
+    Por defecto (`admin_action`) exige rol `admin` e impide que un Admin se desactive a sí
+    mismo. En todos los casos impide desactivar al último Admin activo del sistema.
+    """
+    if reason == UserStatusLog.Reason.ADMIN_ACTION:
+        _ensure_admin_actor(actor)
+    elif (
+        not actor
+        or not getattr(actor, "is_authenticated", False)
+        or not getattr(actor, "is_active", False)
+        or actor.pk != target_user.pk
+    ):
+        raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
+
+    cleaned_note = _clean_admin_note(note)
+
+    locked = User.objects.select_for_update().select_related("role").get(pk=target_user.pk)
+
+    if not locked.is_active:
+        validate_deactivation_allowed(target_user=locked, actor=actor, reason=reason, lock=True)
+        blacklist_user_refresh_tokens(locked)
+        return locked
+
+    validate_deactivation_allowed(target_user=locked, actor=actor, reason=reason, lock=True)
+
+    locked.is_active = False
+    locked.save(update_fields=["is_active", "updated_at"])
+
+    UserStatusLog.objects.create(
+        user=locked,
+        action=UserStatusLog.Action.DEACTIVATED,
+        reason=reason,
+        performed_by=actor,
+        note=cleaned_note,
+    )
+    blacklist_user_refresh_tokens(locked)
+    return locked
+
+
+@transaction.atomic
+def reactivate_user(
+    *,
+    target_user: User,
+    actor: Any,
+    note: str = "",
+) -> User:
+    """Reactiva una cuenta desactivada y registra `UserStatusLog` (solo Admin).
+
+    Si la cuenta ya está activa, responde sin modificar ni duplicar el historial.
+    """
+    _ensure_admin_actor(actor)
+    cleaned_note = _clean_admin_note(note)
+
+    locked = User.objects.select_for_update().select_related("role").get(pk=target_user.pk)
+
+    if locked.is_active:
+        return locked
+
+    locked.is_active = True
+    locked.save(update_fields=["is_active", "updated_at"])
+
+    UserStatusLog.objects.create(
+        user=locked,
+        action=UserStatusLog.Action.REACTIVATED,
+        reason=UserStatusLog.Reason.ADMIN_ACTION,
+        performed_by=actor,
+        note=cleaned_note,
+    )
+    return locked
