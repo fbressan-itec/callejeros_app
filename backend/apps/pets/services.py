@@ -103,13 +103,19 @@ def _base_active_pets_queryset() -> QuerySet[Pet]:
     )
 
 
+def _active_owner_pets_queryset() -> QuerySet[Pet]:
+    """Mascotas activas cuyo autor sigue activo (oculta contenido de cuentas desactivadas)."""
+    return _base_active_pets_queryset().filter(published_by__is_active=True)
+
+
+def _public_pets_queryset() -> QuerySet[Pet]:
+    """Mascotas activas de usuarios activos en estado público (`published` o `adopted`)."""
+    return _active_owner_pets_queryset().filter(status__in=PUBLIC_PET_STATUSES)
+
+
 def get_catalog_pets_queryset(*, actor: Any = None) -> QuerySet[Pet]:
     """Devuelve mascotas activas de usuarios activos para el catálogo (`published` o `adopted`)."""
-    queryset = _base_active_pets_queryset().filter(
-        status__in=PUBLIC_PET_STATUSES,
-        published_by__is_active=True,
-    )
-    return _annotate_is_favorite(queryset, actor).order_by("-created_at", "-id")
+    return _annotate_is_favorite(_public_pets_queryset(), actor).order_by("-created_at", "-id")
 
 
 def get_my_pets_queryset(*, actor: User, status_filter: str | None = None) -> QuerySet[Pet]:
@@ -137,10 +143,8 @@ def get_favorite_pets_queryset(*, actor: User) -> QuerySet[Pet]:
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
     return (
-        _base_active_pets_queryset()
+        _public_pets_queryset()
         .filter(
-            status__in=PUBLIC_PET_STATUSES,
-            published_by__is_active=True,
             favorites__user=actor,
             favorites__is_active=True,
         )
@@ -155,13 +159,7 @@ def add_favorite(*, pet_id: int, actor: User) -> tuple[Favorite, bool]:
     if not is_authenticated_active_user(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-    pet = get_object_or_404(
-        Pet.objects.active().filter(
-            status__in=PUBLIC_PET_STATUSES,
-            published_by__is_active=True,
-        ),
-        pk=pet_id,
-    )
+    pet = get_object_or_404(_public_pets_queryset(), pk=pet_id)
     favorite, created = Favorite.objects.get_or_create(
         user=actor,
         pet=pet,
@@ -606,10 +604,7 @@ def get_review_queue_queryset(*, actor: User) -> QuerySet[Pet]:
     if not pet_review_workflow.can_review(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-    queryset = _base_active_pets_queryset().filter(
-        status=Pet.Status.IN_REVIEW,
-        published_by__is_active=True,
-    )
+    queryset = _active_owner_pets_queryset().filter(status=Pet.Status.IN_REVIEW)
     return _annotate_is_favorite(queryset, actor).order_by(
         "-is_urgent_requested", "created_at", "id"
     )
