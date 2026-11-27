@@ -317,3 +317,21 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** abrir el PR hacia `develop` con `Closes #168` para revisión de Franco y continuar con `#169` (`BK-15c`: ocultar contenido de usuarios desactivados sin modificar datos).
 - **PR:** pendiente de apertura
 - **IA usada:** Antigravity — para implementar los servicios de consulta, serializers, vistas/rutas `/api/admin/`, Swagger, tests de integración con `pytest` y actualizar `README.md`.
+
+## 2026-11-27 — Ocultar contenido de usuarios desactivados sin modificar datos (BK-15c)
+
+- **Tarjeta:** #169 (BK-15c, sub-tarjeta de #18 BK-15)
+- **Rama:** feature/bk15-169-ocultar-contenido-desactivados
+- **Área:** back, test, docs
+- **Qué hice:**
+  - En `backend/apps/pets/permissions.py` y `backend/apps/pets/services.py`, filtré `published_by__is_active=True` en el catálogo (`GET /api/pets/`, incluyendo `?adopted=true`), favoritos (`GET /api/pets/favorites/` y `POST /api/pets/{id}/favorite/`), cola de revisión de Staff (`GET /api/pets/review-queue/`) y ficha pública (`can_view_pet` devuelve `404` para anónimos y usuarios comunes cuando el autor está inactivo, manteniendo acceso por ID para Staff/Admin), sin modificar ni dar de baja ninguna fila de `Pet` ni `Favorite`.
+  - En `backend/apps/adoptions/services.py`, filtré `applicant__is_active=True` y `pet__published_by__is_active=True` en `get_adoption_review_queue_queryset`, bloqueé postulaciones a mascotas de autores inactivos en `create_adoption_request`, y validé que tanto `pet.published_by.is_active` como `applicant.is_active` sigan activos al aprobar en `AdoptionRequestReviewWorkflow._apply_review` (manteniendo habilitado el rechazo).
+  - Escribí 5 tests integrales en `backend/apps/pets/tests/test_inactive_owner_visibility.py` y `backend/apps/adoptions/tests/test_inactive_users_visibility.py` cubriendo el ciclo completo (desactivar por `admin_action` o `self_deleted` → contenido oculto sin modificar filas en BD → reactivar → todo reaparece intacto), con `ruff`, `spectacular --validate --fail-on-warn` y los 436 tests de `pytest` en verde.
+  - Apliqué las sugerencias de la revisión del PR #172: centralicé el filtro `published_by__is_active=True` en `_active_owner_pets_queryset()` y `_public_pets_queryset()` en `backend/apps/pets/services.py` para evitar repetir la condición en cuatro consultas, y quité los backticks de `INVALID_IS_ACTIVE_FILTER_ERROR` en `backend/apps/users/services.py`.
+- **Decisiones tomadas:**
+  - En `can_view_pet`, oculté las mascotas de usuarios inactivos de la ficha pública y de otros miembros (`404`), pero dejé visible la consulta directa por ID para Staff/Admin por si necesitan auditar un caso puntual, mientras el catálogo, favoritos y colas de revisión las excluyen por completo.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; todos los tests existentes y los 5 tests nuevos pasaron en verde sin afectar datos persistidos.
+- **Pendiente:** que Franco revise los ajustes del PR #172 para cerrar `#169` y la épica `#18` (`[BK-15] Administración de usuarios`).
+- **PR:** #172
+- **IA usada:** Antigravity — para implementar los filtros de visibilidad en `pets` y `adoptions`, escribir los tests con `pytest` y registrar la bitácora.

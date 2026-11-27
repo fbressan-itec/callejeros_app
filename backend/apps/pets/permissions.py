@@ -38,9 +38,15 @@ def can_manage_pet(user, pet: Pet) -> bool:
 
 
 def can_view_pet(user, pet: Pet) -> bool:
-    """Devuelve True si la ficha de la mascota es visible para el usuario dado."""
+    """Devuelve True si la ficha de la mascota es visible para el usuario dado.
+
+    Las mascotas de un usuario desactivado se ocultan de la ficha pública sin tocar
+    sus datos (BK-15c): al reactivar la cuenta vuelven a mostrarse solas.
+    """
     if not pet.is_active:
         return False
+    if not pet.published_by.is_active:
+        return is_staff_or_admin(user)
     if pet.status in PUBLIC_PET_STATUSES:
         return True
     return can_manage_pet(user, pet)
