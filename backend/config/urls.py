@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/admin/", include("apps.users.admin_urls")),
     path("api/pets/", include("apps.pets.urls")),
     path("api/adoption-requests/", include("apps.adoptions.urls")),
+    path("api/notifications/", include("apps.notifications.urls")),
 ]
 
 # Solo en desarrollo: Django sirve las fotos subidas (`/media/...`) para que el front

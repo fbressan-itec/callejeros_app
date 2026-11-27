@@ -171,6 +171,7 @@ SPECTACULAR_SETTINGS = {
         "PetCompatibilityEnum": "apps.pets.serializers.PET_COMPATIBILITY_CHOICES",
         "PetStatusEnum": "apps.pets.serializers.PET_STATUS_CHOICES",
         "AdoptionRequestStatusEnum": ("apps.adoptions.serializers.ADOPTION_REQUEST_STATUS_CHOICES"),
+        "NotificationTagEnum": "apps.notifications.serializers.NOTIFICATION_TAG_CHOICES",
     },
 }
 
