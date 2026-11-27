@@ -317,3 +317,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** abrir el PR hacia `develop` con `Closes #168` para revisión de Franco y continuar con `#169` (`BK-15c`: ocultar contenido de usuarios desactivados sin modificar datos).
 - **PR:** pendiente de apertura
 - **IA usada:** Antigravity — para implementar los servicios de consulta, serializers, vistas/rutas `/api/admin/`, Swagger, tests de integración con `pytest` y actualizar `README.md`.
+
+## 2026-11-27 — Centro de notificaciones: modelo, API, preferencias y seed (BK-08a)
+
+- **Tarjeta:** #173 (BK-08a, sub-tarjeta de #11 BK-08)
+- **Rama:** feature/bk08-173-centro-notificaciones-api
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Dividí la épica #11 (`[BK-08] Notificaciones`) en dos sub-tarjetas por funcionalidad (`#173` BK-08a y `#174` BK-08b), las colgué como sub-issues de `#11` en GitHub, me asigné la épica y sus sub-tarjetas, y moví `#11` y `#173` a "En curso" (`#174` a "Para hacer") en el tablero.
+  - Creé la app `backend/apps/notifications/` (registrada en `LOCAL_APPS` y montada en `/api/notifications/`) con el modelo `Notification(BaseModel)` fiel al diseño de DB-01 en `README.md` (`recipient`, `title`, `text`, `tag` con los 6 `TextChoices`, `link`, `is_read`, `read_at` e índice compuesto `(recipient, is_read, created_at)`), su migración inicial `0001_initial.py` y su registro en Django Admin con `SoftDeleteAdminMixin` (sin borrado físico).
+  - Implementé los servicios de negocio en `backend/apps/notifications/services.py`: `create_notification` en transacción atómica respetando `UserPreferences` (según `TAG_PREFERENCE_MAP` u override `preference_field`) y descartando destinatarios inactivos, `get_user_notifications_queryset` (filtros `is_read` y `tag`, orden más reciente primero), `get_unread_notifications_count`, `mark_notification_as_read` (privacidad `404` ante ajenas/inexistentes/bajas lógicas e idempotencia sin pisar `read_at`) y `mark_all_notifications_as_read`.
+  - Implementé los 4 endpoints autenticados con `@extend_schema` validado con 0 warnings (`NotificationTagEnum` registrado en `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]`): `GET /api/notifications/` (paginado de a 12), `GET /api/notifications/unread-count/`, `POST /api/notifications/{notification_id}/read/` y `POST /api/notifications/read-all/`.
+  - Agregué `backend/apps/notifications/seed.py` idempotente basado en `initialNotifications` del maquetado para los usuarios de prueba, autodescubierto por `python manage.py seed`.
+  - Escribí 26 tests nuevos con `pytest` en `backend/apps/notifications/tests/` (`test_models.py`, `test_admin.py`, `test_services.py`, `test_api.py` y `test_seed.py`) y documenté los endpoints en `README.md`.
+- **Decisiones tomadas:**
+  - Centralicé la verificación de `UserPreferences` en `create_notification` mediante `TAG_PREFERENCE_MAP` (con opción `preference_field` para overrides puntuales) para que todos los eventos futuros de BK-08b, alertas, apadrinamientos y noticias respeten las preferencias del usuario desde un único lugar.
+  - Exposé `GET /api/notifications/unread-count/` separado del listado paginado para que el polling cada 30–60 s de la campanita en `FR-11` ejecute solo un `COUNT` cubierto por el índice compuesto `(recipient, is_read, created_at)`.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; `ruff check`, `ruff format --check`, `spectacular --validate --fail-on-warn` y la suite completa de `pytest` pasaron en verde.
+- **Pendiente:** abrir el PR hacia `develop` con `Closes #173` para revisión de Franco y continuar con `#174` (`BK-08b`: notificaciones automáticas por eventos de publicaciones y solicitudes de adopción).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para dividir la épica, crear la app `notifications`, implementar el modelo, admin, servicios, endpoints con Swagger, `seed.py`, tests con `pytest` y documentación.
