@@ -234,6 +234,15 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `POST /api/adoption-requests/{id}/approve/` | Staff o Admin (`IsStaffOrAdmin`) | Aprueba una solicitud en `pending` siempre que la mascota siga activa y `published`: no lleva cuerpo (no hay punto de encuentro que fije Staff), pasa a `approved`, registra `reviewed_by` y `reviewed_at` y devuelve la respuesta con `foster_contact` (sin la dirección de la cuenta). Si no está `pending` o la mascota ya no está disponible, devuelve `400`. |
 | `POST /api/adoption-requests/{id}/reject/` | Staff o Admin (`IsStaffOrAdmin`) | Desaprueba una solicitud en `pending` (permitido incluso si la mascota ya fue adoptada o dada de baja, para no dejar solicitudes colgadas): requiere `rejection_reason` (motivo para el solicitante, hasta 400 caracteres), pasa a `rejected`, registra `reviewed_by` y `reviewed_at` y mantiene `foster_contact` en `null`. Si no está `pending`, devuelve `400`. |
 
+#### Endpoints de notificaciones (`/api/notifications/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `GET /api/notifications/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las notificaciones activas del usuario autenticado, ordenadas de la más reciente a la más antigua. Soporta filtros opcionales (`?is_read=true\|false` y `?tag=urgent\|community\|adoption\|fundraising\|post\|sponsorship`). |
+| `GET /api/notifications/unread-count/` | Sesión activa (`IsAuthenticated`) | Devuelve `{ unread_count }` con la cantidad de notificaciones activas sin leer del usuario autenticado (consulta liviana pensada para el polling de la campanita cada 30–60 s). |
+| `POST /api/notifications/{id}/read/` | Sesión activa (`IsAuthenticated`) | Marca como leída una notificación propia activa y guarda `read_at` (idempotente: no sobrescribe `read_at` si ya estaba leída). Ante notificaciones ajenas, dadas de baja o inexistentes responde `404`. |
+| `POST /api/notifications/read-all/` | Sesión activa (`IsAuthenticated`) | Marca como leídas todas las notificaciones activas sin leer del usuario autenticado en una transacción atómica y devuelve `{ updated_count }`. |
+
 #### Variables de entorno (`.env` / `.env.example`)
 
 | Variable | Ejemplo / por defecto | Para qué sirve |
