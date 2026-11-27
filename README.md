@@ -246,6 +246,7 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `CSRF_TRUSTED_ORIGINS` | *(vacía)* | Opcional: orígenes extra en los que confía el admin para sus formularios. |
 | `DJANGO_SEED_ON_START` | `False` | Solo en producción: `True` corre el `seed` cada vez que arranca el back publicado. |
 | `DATABASE_URL` | *(sin definir: SQLite)* | Base de datos. En producción, la dirección de PostgreSQL que da Render. |
+| `CLOUDINARY_URL` | *(vacía: fotos en `backend/media/`)* | Solo en producción: guarda las fotos subidas en [Cloudinary](https://cloudinary.com). Es la *API environment variable* de su panel (`cloudinary://...`). Los tests nunca suben fotos, aunque esté definida. |
 | `RENDER_EXTERNAL_HOSTNAME` | *(la define Render)* | Dirección del servicio en Render; se suma sola a `DJANGO_ALLOWED_HOSTS`. |
 | `SEED_USER_PASSWORD` | `cambiame-clave-seed-123` | Contraseña de los usuarios de prueba que carga `python manage.py seed` (mínimo 6 caracteres). |
 | `JWT_ACCESS_LIFETIME_MINUTES` | `60` | Duración en minutos del token de acceso (`access`). |
@@ -262,6 +263,7 @@ El back se publica en [Render](https://render.com) con la imagen de producción 
 - **WhiteNoise** sirve los estilos del admin y de Swagger; `collectstatic` se corre al armar la imagen.
 - **`backend/start.sh`**, al arrancar, aplica las migraciones, corre el `seed` si `DJANGO_SEED_ON_START=True` (con `--allow-production`, para tener los usuarios de prueba en la demo) y levanta gunicorn en el puerto que indica Render (`$PORT`).
 - **PostgreSQL** de Render, por `DATABASE_URL`. En local sigue SQLite: si la variable no está, no cambia nada.
+- **Cloudinary** guarda las fotos subidas (y las del `seed`), por `CLOUDINARY_URL`, con `django-cloudinary-storage`. La API devuelve la dirección de Cloudinary de cada foto y el front la muestra sin cambios. El `seed` reconoce las fotos que ya subió: al arrancar de nuevo no las vuelve a subir. En local, sin la variable, siguen en `backend/media/`.
 
 Configuración del servicio en Render (*New → Web Service*, desde este repo):
 
@@ -272,9 +274,9 @@ Configuración del servicio en Render (*New → Web Service*, desde este repo):
 | Root Directory | `backend` |
 | Dockerfile Path | `./Dockerfile.prod` |
 
-Variables del servicio: `DJANGO_SECRET_KEY` (una nueva, larga y aleatoria), `DJANGO_DEBUG=False`, `DJANGO_SECURE_HTTPS=True`, `DATABASE_URL` (la *Internal Database URL* de la base de Render), `CORS_ALLOWED_ORIGINS` (la dirección del front en Vercel), `SEED_USER_PASSWORD` y `DJANGO_SEED_ON_START=True`. `DJANGO_ALLOWED_HOSTS` puede quedar vacía: Render agrega su dirección sola.
+Variables del servicio: `DJANGO_SECRET_KEY` (una nueva, larga y aleatoria), `DJANGO_DEBUG=False`, `DJANGO_SECURE_HTTPS=True`, `DATABASE_URL` (la *Internal Database URL* de la base de Render), `CORS_ALLOWED_ORIGINS` (la dirección del front en Vercel), `SEED_USER_PASSWORD`, `DJANGO_SEED_ON_START=True` y `CLOUDINARY_URL`. `DJANGO_ALLOWED_HOSTS` puede quedar vacía: Render agrega su dirección sola.
 
-> **Limitaciones del plan gratis:** el back se apaga tras 15 minutos sin uso y la primera visita después tarda alrededor de un minuto. Render borra los archivos del servidor en cada reinicio: por eso la base es PostgreSQL (aparte) y las fotos van a Cloudinary (CR-04b). La base gratis de Render vence a los 30 días.
+> **Limitaciones del plan gratis:** el back se apaga tras 15 minutos sin uso y la primera visita después tarda alrededor de un minuto. Render borra los archivos del servidor en cada reinicio: por eso la base es PostgreSQL (aparte) y las fotos van a Cloudinary. La base gratis de Render vence a los 30 días.
 
 Para probar la imagen de producción en tu compu (desde `backend/`, con Docker Desktop abierto):
 
