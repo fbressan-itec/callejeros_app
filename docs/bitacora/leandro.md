@@ -297,3 +297,23 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #170 para continuar con `#168` (`BK-15b`: API solo Admin de usuarios y roles).
 - **PR:** #170
 - **IA usada:** Antigravity — para completar la división de la épica, implementar los servicios de administración y el panel de Django Admin, escribir los tests con `pytest` y actualizar `README.md`.
+
+## 2026-11-27 — API solo Admin de usuarios y roles con Swagger y tests (BK-15b)
+
+- **Tarjeta:** #168 (BK-15b, sub-tarjeta de #18 BK-15)
+- **Rama:** feature/bk15-168-api-admin-usuarios-roles
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Agregué en `backend/apps/users/services.py` las consultas y filtros `get_admin_roles_queryset`, `get_admin_users_queryset` (filtros `role`, `is_active` y búsqueda por palabras en correo, nombre y apellido) y `get_admin_user_or_404` con control de rol `admin` en el servicio.
+  - Creé los serializers `AdminUserSerializer` (sin exponer `address` ni `password`), `PaginatedAdminUserSerializer`, `AdminRoleChangeSerializer` y `AdminUserStatusActionSerializer` en `backend/apps/users/serializers.py`.
+  - Implementé en `backend/apps/users/admin_views.py` y `backend/apps/users/admin_urls.py` (montados bajo `/api/admin/` en `backend/config/urls.py`) los 6 endpoints exclusivos para Admin (`IsAuthenticated`, `IsAdmin`) reutilizando los servicios de BK-15a: `GET /api/admin/roles/`, `GET /api/admin/users/` (paginado de a 12 con `StandardPageNumberPagination`), `GET /api/admin/users/{user_id}/`, `POST /api/admin/users/{user_id}/role/`, `POST /api/admin/users/{user_id}/deactivate/` y `POST /api/admin/users/{user_id}/reactivate/`, todos con `@extend_schema` validado con 0 warnings (`RoleCodeEnum` registrado en `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]`).
+  - Escribí 11 tests de integración en `backend/apps/users/tests/test_admin_api.py` cubriendo la matriz de permisos (`401`/`403`/`200`), paginación, filtros, búsqueda, privacidad (sin `address` ni `password`), auditoría, blacklist de refresh tokens, idempotencia, protecciones y esquema `/api/schema/` (431 tests pasando, `ruff` y `spectacular --validate --fail-on-warn` en verde).
+  - Documenté los 6 endpoints en `README.md`.
+- **Decisiones tomadas:**
+  - Separé las vistas y URLs administrativas en `admin_views.py` y `admin_urls.py` bajo `/api/admin/` para mantener `/api/auth/` enfocado en autenticación y evitar colisiones con `BK-14` (Mi Cuenta).
+  - Dividí el término de búsqueda `?search=` por palabras (`AND` entre palabras sobre correo, nombre y apellido) para que buscar nombre y apellido juntos (ej. `"Valentina López"`) encuentre coincidencias exactas en el panel de `FR-18`.
+- **Problemas y cómo los resolví:**
+  - Al validar OpenAPI con `spectacular --validate --fail-on-warn`, `drf-spectacular` advirtió colisión de nombre de enum (`CodeEnum`) entre `Role.code` y `AdminRoleChangeSerializer.role_code`; la resolví registrando `RoleCodeEnum` en `ENUM_NAME_OVERRIDES` de `settings.py` y el esquema quedó con 0 warnings.
+- **Pendiente:** abrir el PR hacia `develop` con `Closes #168` para revisión de Franco y continuar con `#169` (`BK-15c`: ocultar contenido de usuarios desactivados sin modificar datos).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para implementar los servicios de consulta, serializers, vistas/rutas `/api/admin/`, Swagger, tests de integración con `pytest` y actualizar `README.md`.
