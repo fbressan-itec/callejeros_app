@@ -34,11 +34,22 @@ def get_seed_modules() -> list[tuple[str, ModuleType]]:
 class Command(BaseCommand):
     help = "Carga datos de prueba para desarrollo (idempotente: se puede correr varias veces)."
 
+    def add_arguments(self, parser) -> None:
+        parser.add_argument(
+            "--allow-production",
+            action="store_true",
+            help=(
+                "Permite correrlo con DJANGO_DEBUG=False. Solo para la demo publicada, "
+                "que necesita los usuarios de prueba para revisar cada rol."
+            ),
+        )
+
     @transaction.atomic
     def handle(self, *args: object, **options: object) -> None:
-        if not settings.DEBUG:
+        if not settings.DEBUG and not options["allow_production"]:
             raise CommandError(
-                "El comando `seed` solo puede ejecutarse en desarrollo (DJANGO_DEBUG=True)."
+                "El comando `seed` solo puede ejecutarse en desarrollo (DJANGO_DEBUG=True). "
+                "Para la demo publicada, usá --allow-production."
             )
 
         for app_label, module in get_seed_modules():

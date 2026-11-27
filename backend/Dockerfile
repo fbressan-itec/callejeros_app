@@ -1,5 +1,5 @@
 # Imagen de desarrollo del back (Django + DRF).
-# Para producción (deploy), CR-04 agrega una versión sin runserver ni herramientas de test.
+# Para producción (Render) está `Dockerfile.prod`: sin runserver ni herramientas de test.
 FROM python:3.13-slim
 
 # uv con versión fija (misma herramienta que en las compus y en el CI)

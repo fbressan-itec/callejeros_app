@@ -11,7 +11,10 @@ dependencies = [
     "djangorestframework>=3.18.3",
     "djangorestframework-simplejwt>=5.5.1",
     "drf-spectacular>=0.30.0",
+    "gunicorn>=27.0.1",
     "pillow>=13.0.0",
+    "psycopg[binary]>=3.3.9",
+    "whitenoise>=6.12.0",
 ]
 
 [dependency-groups]
@@ -36,3 +39,7 @@ select = ["E", "F", "I", "B", "UP", "DJ"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "tests.py"]
 addopts = "--strict-markers"
+filterwarnings = [
+    # WhiteNoise avisa que no existe staticfiles/: en los tests no se corre collectstatic.
+    "ignore:No directory at:UserWarning",
+]
