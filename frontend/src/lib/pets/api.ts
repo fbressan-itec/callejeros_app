@@ -234,3 +234,40 @@ export function deletePetPhoto(
     }),
   );
 }
+
+export interface FavoriteStatusResponse {
+  pet_id: number;
+  is_favorite: boolean;
+}
+
+/**
+ * Marca una mascota visible como favorita (`POST /api/pets/{id}/favorite/`).
+ * Requiere sesión activa (renueva el token Bearer una vez ante `401`).
+ */
+export function addPetFavorite(
+  petId: number,
+  options: FetchPetOptions = {},
+): Promise<FavoriteStatusResponse> {
+  return requestWithAuth((headers) =>
+    api.post<FavoriteStatusResponse>(`pets/${petId}/favorite/`, undefined, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}
+
+/**
+ * Quita una mascota de los favoritos del usuario (`DELETE /api/pets/{id}/favorite/`).
+ * Requiere sesión activa (renueva el token Bearer una vez ante `401`).
+ */
+export function removePetFavorite(
+  petId: number,
+  options: FetchPetOptions = {},
+): Promise<void> {
+  return requestWithAuth((headers) =>
+    api.delete<void>(`pets/${petId}/favorite/`, {
+      headers,
+      signal: options.signal,
+    }),
+  );
+}

@@ -10,10 +10,22 @@ import type { PetListItem } from "@/lib/pets/types";
 
 const mockBack = vi.fn();
 const mockPush = vi.fn();
+const mockAuthState = {
+  isAuthenticated: false,
+  isLoading: false,
+  user: null,
+  login: vi.fn(),
+  logout: vi.fn(),
+  setSession: vi.fn(),
+};
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ back: mockBack, push: mockPush }),
   usePathname: () => "/adopciones",
+}));
+
+vi.mock("@/components/auth/AuthProvider", () => ({
+  useAuth: () => mockAuthState,
 }));
 
 function makePage(
@@ -31,9 +43,14 @@ function makePage(
 
 describe("AdoptionCatalog", () => {
   const fetchPetsSpy = vi.spyOn(petsApi, "fetchPets");
+  const addFavoriteSpy = vi.spyOn(petsApi, "addPetFavorite");
+  const removeFavoriteSpy = vi.spyOn(petsApi, "removePetFavorite");
 
   beforeEach(() => {
+    mockAuthState.isAuthenticated = false;
     fetchPetsSpy.mockReset();
+    addFavoriteSpy.mockReset();
+    removeFavoriteSpy.mockReset();
     mockBack.mockReset();
     mockPush.mockReset();
   });
@@ -268,5 +285,240 @@ describe("AdoptionCatalog", () => {
       expect.objectContaining({ favorites: undefined, page: 1 }),
       expect.anything(),
     );
+  });
+
+  it("abre AuthRequiredModal al tocar favorito sin sesión sin llamar a la API", async () => {
+    mockAuthState.isAuthenticated = false;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+    );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Loki en favoritos" }),
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByText("Iniciá sesión para continuar"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Iniciar Sesión" }),
+    ).toHaveAttribute("href", "/login?redirect=%2Fadopciones");
+    expect(addFavoriteSpy).not.toHaveBeenCalled();
+  });
+
+  it("marca y desmarca favoritos con sesión activa llamando a la API", async () => {
+    mockAuthState.isAuthenticated = true;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+    );
+    addFavoriteSpy.mockResolvedValueOnce({ pet_id: 1, is_favorite: true });
+    removeFavoriteSpy.mockResolvedValueOnce(undefined);
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Loki en favoritos" }),
+    );
+
+    await waitFor(() => {
+      expect(addFavoriteSpy).toHaveBeenCalledWith(1);
+    });
+    const removeBtn = await screen.findByRole("button", {
+      name: "Quitar a Loki de favoritos",
+    });
+    expect(removeBtn).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => {
+      expect(removeFavoriteSpy).toHaveBeenCalledWith(1);
+    });
+    const addBtn = await screen.findByRole("button", {
+      name: "Guardar a Loki en favoritos",
+    });
+    expect(addBtn).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("revierte el estado de favorito y muestra un aviso si la API falla", async () => {
+    mockAuthState.isAuthenticated = true;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+    );
+    addFavoriteSpy.mockRejectedValueOnce(
+      new ApiError(500, "No pudimos actualizar tu favorito."),
+    );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Loki en favoritos" }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("No pudimos actualizar tu favorito.");
+    expect(
+      screen.getByRole("button", { name: "Guardar a Loki en favoritos" }),
+    ).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cerrar aviso de error" }),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("quita la mascota en el acto cuando se desmarca con el filtro Favoritos activo", async () => {
+    mockAuthState.isAuthenticated = true;
+    fetchPetsSpy
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: true })]),
+      )
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: true })]),
+      );
+    removeFavoriteSpy.mockResolvedValueOnce(undefined);
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir filtros avanzados" }),
+    );
+    fireEvent.click(screen.getByLabelText("Favoritos"));
+    fireEvent.click(screen.getByRole("button", { name: "VER RESULTADOS" }));
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Quitar a Loki de favoritos" }),
+    );
+
+    expect(
+      await screen.findByText("Todavía no tenés favoritos"),
+    ).toBeInTheDocument();
+    expect(removeFavoriteSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("cierra AuthRequiredModal automáticamente cuando el usuario inicia sesión y no lo reabre al cerrar sesión", async () => {
+    mockAuthState.isAuthenticated = false;
+    fetchPetsSpy
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+      )
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: true })]),
+      )
+      .mockResolvedValueOnce(
+        makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+      );
+
+    const { rerender } = render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Loki en favoritos" }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    mockAuthState.isAuthenticated = true;
+    rerender(<AdoptionCatalog />);
+    await screen.findByRole("button", { name: "Quitar a Loki de favoritos" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    mockAuthState.isAuthenticated = false;
+    rerender(<AdoptionCatalog />);
+    await screen.findByRole("button", { name: "Guardar a Loki en favoritos" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("abre AuthRequiredModal con texto y redirect de publicación al tocar + Publicar sin sesión", async () => {
+    mockAuthState.isAuthenticated = false;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+    );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    const publishLink = screen.getByRole("link", {
+      name: "Publicar mascota para adopción",
+    });
+    const clickEvent = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(publishLink, clickEvent);
+
+    expect(clickEvent.defaultPrevented).toBe(true);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Para publicar una mascota en adopción es obligatorio ingresar con tu cuenta. Así el equipo puede contactarte para revisar la publicación.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Iniciar Sesión" }),
+    ).toHaveAttribute("href", "/login?redirect=%2Fadopciones%2Fpublicar");
+    expect(
+      screen.getByRole("link", { name: "Crear Cuenta / Registrarme" }),
+    ).toHaveAttribute("href", "/registro?redirect=%2Fadopciones%2Fpublicar");
+  });
+
+  it("revierte solo la mascota que falló cuando dos favoritos corren en paralelo y muestra el mensaje puntual del back", async () => {
+    mockAuthState.isAuthenticated = true;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([
+        buildPet({ id: 1, name: "Thor", is_favorite: false }),
+        buildPet({ id: 2, name: "Misa", is_favorite: false }),
+      ]),
+    );
+
+    let rejectThor!: (reason?: unknown) => void;
+    let resolveMisa!: (value: { pet_id: number; is_favorite: boolean }) => void;
+    addFavoriteSpy
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectThor = reject;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveMisa = resolve;
+          }),
+      );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Thor" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Thor en favoritos" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Misa en favoritos" }),
+    );
+
+    resolveMisa({ pet_id: 2, is_favorite: true });
+    rejectThor(
+      new ApiError(400, "Revisá los datos marcados.", {
+        pet: ["Esta mascota ya no está disponible para favoritos."],
+      }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Esta mascota ya no está disponible para favoritos.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Guardar a Thor en favoritos" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "Quitar a Misa de favoritos" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });

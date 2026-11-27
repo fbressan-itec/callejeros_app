@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useAuth } from "@/components/auth/AuthProvider";
+import { AuthRequiredModal } from "@/components/auth/AuthRequiredModal";
 import { BackButton } from "@/components/layout/BackButton";
 import {
   CatalogFiltersModal,
@@ -13,9 +15,14 @@ import {
 import { PetCard } from "@/components/pets/PetCard";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { ApiError } from "@/lib/api/client";
-import { ERROR_MESSAGES } from "@/lib/api/errors";
+import { ERROR_MESSAGES, getActionErrorMessage } from "@/lib/api/errors";
 import type { PaginatedResponse } from "@/lib/api/pagination";
-import { fetchPets, type PetListParams } from "@/lib/pets/api";
+import {
+  addPetFavorite,
+  fetchPets,
+  removePetFavorite,
+  type PetListParams,
+} from "@/lib/pets/api";
 import type { PetListItem, PetSpecies } from "@/lib/pets/types";
 
 const PAGE_SIZE = 12;
@@ -59,12 +66,43 @@ function buildCatalogQueryParams(
   };
 }
 
+type AuthModalReason = "favorite" | "publish";
+
+const AUTH_MODAL_COPY: Record<
+  AuthModalReason,
+  { description: string; redirectTo: string }
+> = {
+  favorite: {
+    description:
+      "Para guardar mascotas en tus favoritos necesitás ingresar con tu cuenta. Así vas a poder encontrarlas rápido cuando vuelvas.",
+    redirectTo: "/adopciones",
+  },
+  publish: {
+    description:
+      "Para publicar una mascota en adopción es obligatorio ingresar con tu cuenta. Así el equipo puede contactarte para revisar la publicación.",
+    redirectTo: "/adopciones/publicar",
+  },
+};
+
 export function AdoptionCatalog() {
+  const { isAuthenticated } = useAuth();
   const [species, setSpecies] = useState<SpeciesFilter>("all");
   const [filters, setFilters] = useState<CatalogFilters>(
     DEFAULT_CATALOG_FILTERS,
   );
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [authModalReason, setAuthModalReason] =
+    useState<AuthModalReason | null>(null);
+  const [prevIsAuthenticated, setPrevIsAuthenticated] =
+    useState(isAuthenticated);
+  if (prevIsAuthenticated !== isAuthenticated) {
+    setPrevIsAuthenticated(isAuthenticated);
+    if (isAuthenticated && authModalReason !== null) {
+      setAuthModalReason(null);
+    }
+  }
+  const [busyFavoriteIds, setBusyFavoriteIds] = useState<number[]>([]);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [reloadCount, setReloadCount] = useState(0);
   const [fetched, setFetched] = useState<{
@@ -77,7 +115,7 @@ export function AdoptionCatalog() {
     () => buildCatalogQueryParams(species, filters, page),
     [species, filters, page],
   );
-  const requestKey = `${JSON.stringify(queryParams)}:${reloadCount}`;
+  const requestKey = `${JSON.stringify(queryParams)}:${isAuthenticated ? "auth" : "anon"}:${reloadCount}`;
   const activeFiltersCount = countActiveCatalogFilters(filters);
   const hasAnyFilter = species !== "all" || activeFiltersCount > 0;
   const isOnlyFavoritesEmpty =
@@ -111,6 +149,126 @@ export function AdoptionCatalog() {
   const handleRetry = useCallback(() => {
     setReloadCount((prev) => prev + 1);
   }, []);
+
+  const handleToggleFavorite = useCallback(
+    async (pet: PetListItem) => {
+      if (!isAuthenticated) {
+        setAuthModalReason("favorite");
+        return;
+      }
+      if (busyFavoriteIds.includes(pet.id)) return;
+
+      const previousFavorite = Boolean(pet.is_favorite);
+      const nextFavorite = !previousFavorite;
+      const removedFromFavoritesView = filters.onlyFavorites && !nextFavorite;
+      const snapshotKey = requestKey;
+      let removedIndex = -1;
+
+      setFavoriteError(null);
+      setBusyFavoriteIds((prev) => [...prev, pet.id]);
+
+      setFetched((prev) => {
+        if (
+          !prev ||
+          prev.key !== snapshotKey ||
+          prev.result.status !== "success"
+        ) {
+          return prev;
+        }
+        if (removedFromFavoritesView) {
+          removedIndex = prev.result.data.results.findIndex(
+            (item) => item.id === pet.id,
+          );
+        }
+        const nextResults = removedFromFavoritesView
+          ? prev.result.data.results.filter((item) => item.id !== pet.id)
+          : prev.result.data.results.map((item) =>
+              item.id === pet.id
+                ? { ...item, is_favorite: nextFavorite }
+                : item,
+            );
+        const nextCount = removedFromFavoritesView
+          ? Math.max(0, prev.result.data.count - 1)
+          : prev.result.data.count;
+        return {
+          key: prev.key,
+          result: {
+            status: "success",
+            data: {
+              ...prev.result.data,
+              count: nextCount,
+              results: nextResults,
+            },
+          },
+        };
+      });
+
+      try {
+        if (nextFavorite) {
+          await addPetFavorite(pet.id);
+        } else {
+          await removePetFavorite(pet.id);
+        }
+      } catch (error: unknown) {
+        setFetched((prev) => {
+          if (
+            !prev ||
+            prev.key !== snapshotKey ||
+            prev.result.status !== "success"
+          ) {
+            return prev;
+          }
+          if (removedFromFavoritesView) {
+            if (prev.result.data.results.some((item) => item.id === pet.id)) {
+              return prev;
+            }
+            const restoredResults = [...prev.result.data.results];
+            const insertAt =
+              removedIndex >= 0
+                ? Math.min(removedIndex, restoredResults.length)
+                : restoredResults.length;
+            restoredResults.splice(insertAt, 0, {
+              ...pet,
+              is_favorite: previousFavorite,
+            });
+            return {
+              key: prev.key,
+              result: {
+                status: "success",
+                data: {
+                  ...prev.result.data,
+                  count: prev.result.data.count + 1,
+                  results: restoredResults,
+                },
+              },
+            };
+          }
+          return {
+            key: prev.key,
+            result: {
+              status: "success",
+              data: {
+                ...prev.result.data,
+                results: prev.result.data.results.map((item) =>
+                  item.id === pet.id
+                    ? { ...item, is_favorite: previousFavorite }
+                    : item,
+                ),
+              },
+            },
+          };
+        });
+        if (error instanceof ApiError && error.status === 401) {
+          setAuthModalReason("favorite");
+        } else {
+          setFavoriteError(getActionErrorMessage(error));
+        }
+      } finally {
+        setBusyFavoriteIds((prev) => prev.filter((id) => id !== pet.id));
+      }
+    },
+    [isAuthenticated, busyFavoriteIds, requestKey, filters.onlyFavorites],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -252,6 +410,12 @@ export function AdoptionCatalog() {
                 href="/adopciones/publicar"
                 id="btn-open-publish-pet"
                 aria-label="Publicar mascota para adopción"
+                onClick={(event) => {
+                  if (!isAuthenticated) {
+                    event.preventDefault();
+                    setAuthModalReason("publish");
+                  }
+                }}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:focus-visible:ring-offset-slate-900"
               >
                 <span className="text-sm font-extrabold" aria-hidden="true">
@@ -263,6 +427,24 @@ export function AdoptionCatalog() {
           </div>
         </div>
       </div>
+
+      {/* Aviso accesible si falla marcar/desmarcar favorito */}
+      {favoriteError ? (
+        <div
+          role="alert"
+          className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-xs font-medium text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+        >
+          <span>{favoriteError}</span>
+          <button
+            type="button"
+            onClick={() => setFavoriteError(null)}
+            aria-label="Cerrar aviso de error"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-red-700 hover:bg-red-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 dark:text-red-300 dark:hover:bg-red-950/60"
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
 
       {/* Contenido principal: Cargando / Error / Vacío / Grilla + Paginación */}
       {state.status === "loading" ? (
@@ -339,7 +521,12 @@ export function AdoptionCatalog() {
             className="grid grid-cols-1 gap-6 pt-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-8"
           >
             {state.data.results.map((pet) => (
-              <PetCard key={pet.id} pet={pet} />
+              <PetCard
+                key={pet.id}
+                pet={pet}
+                onToggleFavorite={handleToggleFavorite}
+                isFavoriteBusy={busyFavoriteIds.includes(pet.id)}
+              />
             ))}
           </div>
 
@@ -378,6 +565,13 @@ export function AdoptionCatalog() {
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
         onClose={handleCloseFilters}
+      />
+
+      <AuthRequiredModal
+        isOpen={!isAuthenticated && authModalReason !== null}
+        onClose={() => setAuthModalReason(null)}
+        redirectTo={AUTH_MODAL_COPY[authModalReason ?? "favorite"].redirectTo}
+        description={AUTH_MODAL_COPY[authModalReason ?? "favorite"].description}
       />
     </main>
   );
