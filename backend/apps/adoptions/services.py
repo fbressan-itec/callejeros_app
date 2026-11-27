@@ -51,6 +51,7 @@ INVALID_STATUS_FILTER_ERROR = "Estado de solicitud inválido."
 ONLY_PENDING_REQUEST_ERROR = "Solo se puede revisar una solicitud que esté pendiente."
 INACTIVE_REQUEST_ERROR = "La solicitud de adopción no está activa."
 PET_UNAVAILABLE_ON_APPROVE_ERROR = "Esta mascota ya no está disponible para adopción."
+APPLICANT_INACTIVE_ON_APPROVE_ERROR = "La cuenta del solicitante no está activa."
 REJECTION_REASON_REQUIRED_ERROR = "Indicá el motivo de desaprobación para responder al solicitante."
 REJECTION_REASON_TOO_LONG_ERROR = (
     f"El motivo de desaprobación no puede superar los {MAX_REJECTION_REASON_LENGTH} caracteres."
@@ -277,7 +278,12 @@ def create_adoption_request(
     ):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-    pet = Pet.objects.active().select_related("published_by__role").filter(pk=pet_id).first()
+    pet = (
+        Pet.objects.active()
+        .select_related("published_by__role")
+        .filter(pk=pet_id, published_by__is_active=True)
+        .first()
+    )
     cleaned = _validate_questionnaire_data(
         data,
         requires_neutering=pet is not None and not pet.is_neutered,
@@ -315,10 +321,14 @@ def create_adoption_request(
 
 
 def get_adoption_review_queue_queryset() -> QuerySet[AdoptionRequest]:
-    """Cola de revisión de Staff: solicitudes `pending` activas, de más vieja a más nueva."""
+    """Cola de revisión de Staff: solicitudes `pending` activas de usuarios activos."""
     return (
         _base_active_adoption_requests_queryset()
-        .filter(status=AdoptionRequest.Status.PENDING)
+        .filter(
+            status=AdoptionRequest.Status.PENDING,
+            applicant__is_active=True,
+            pet__published_by__is_active=True,
+        )
         .order_by("created_at", "id")
     )
 
@@ -402,17 +412,22 @@ class AdoptionRequestReviewWorkflow:
 
         locked = (
             AdoptionRequest.objects.select_for_update()
-            .select_related("pet")
+            .select_related("pet__published_by", "applicant")
             .get(pk=adoption_request.pk)
         )
         if not locked.is_active:
             raise ValidationError({"detail": [INACTIVE_REQUEST_ERROR]})
         if locked.status != AdoptionRequest.Status.PENDING:
             raise ValidationError({"status": [ONLY_PENDING_REQUEST_ERROR]})
-        if require_available_pet and (
-            not locked.pet.is_active or locked.pet.status != Pet.Status.PUBLISHED
-        ):
-            raise ValidationError({"pet": [PET_UNAVAILABLE_ON_APPROVE_ERROR]})
+        if require_available_pet:
+            if (
+                not locked.pet.is_active
+                or not locked.pet.published_by.is_active
+                or locked.pet.status != Pet.Status.PUBLISHED
+            ):
+                raise ValidationError({"pet": [PET_UNAVAILABLE_ON_APPROVE_ERROR]})
+            if not locked.applicant.is_active:
+                raise ValidationError({"applicant": [APPLICANT_INACTIVE_ON_APPROVE_ERROR]})
 
         locked.status = new_status
         locked.rejection_reason = rejection_reason
