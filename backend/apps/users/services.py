@@ -9,6 +9,8 @@ from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.db.models import Q, QuerySet
+from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -26,6 +28,7 @@ INVALID_REFRESH_TOKEN_ERROR = "El token de refresco es inválido o ya expiró."
 INVALID_VERIFICATION_CODE_ERROR = "El código de verificación es incorrecto."
 ADMIN_NOTE_TOO_LONG_ERROR = f"La nota no puede superar los {MAX_ADMIN_NOTE_LENGTH} caracteres."
 INVALID_ROLE_ERROR = "El rol indicado no existe o no está disponible."
+INVALID_IS_ACTIVE_FILTER_ERROR = "Indicá `true` o `false` para filtrar por estado activo."
 CANNOT_DEMOTE_SELF_ERROR = "No podés quitarte tu propio rol de Admin."
 LAST_ADMIN_ROLE_ERROR = "No se puede cambiar el rol del último Admin activo del sistema."
 CANNOT_DEACTIVATE_SELF_ERROR = "No podés desactivar tu propia cuenta."
@@ -358,3 +361,62 @@ def reactivate_user(
         note=cleaned_note,
     )
     return locked
+
+
+def _parse_bool_filter(raw_value: bool | str | None) -> bool | None:
+    """Normaliza un filtro booleano opcional desde query params (`true`/`false`/`1`/`0`)."""
+    if raw_value is None or isinstance(raw_value, bool):
+        return raw_value
+    normalized = raw_value.strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"true", "1"}:
+        return True
+    if normalized in {"false", "0"}:
+        return False
+    raise ValidationError({"is_active": [INVALID_IS_ACTIVE_FILTER_ERROR]})
+
+
+def get_admin_roles_queryset(*, actor: Any) -> QuerySet[Role]:
+    """Devuelve los roles activos del catálogo ordenados por `id` (solo Admin)."""
+    _ensure_admin_actor(actor)
+    return Role.objects.active().order_by("id")
+
+
+def get_admin_users_queryset(
+    *,
+    actor: Any,
+    role_code: str | None = None,
+    is_active: bool | str | None = None,
+    search: str | None = None,
+) -> QuerySet[User]:
+    """Listado de usuarios para el panel de Admin con filtros por rol, estado y búsqueda."""
+    _ensure_admin_actor(actor)
+
+    queryset = User.objects.select_related("role").order_by("-created_at", "-id")
+
+    if role_code is not None and role_code.strip():
+        normalized_role = role_code.strip()
+        if normalized_role not in RoleCode.values:
+            raise ValidationError({"role": [INVALID_ROLE_ERROR]})
+        queryset = queryset.filter(role__code=normalized_role)
+
+    parsed_active = _parse_bool_filter(is_active)
+    if parsed_active is not None:
+        queryset = queryset.filter(is_active=parsed_active)
+
+    if search is not None and search.strip():
+        for term in search.strip().split():
+            queryset = queryset.filter(
+                Q(email__icontains=term)
+                | Q(first_name__icontains=term)
+                | Q(last_name__icontains=term)
+            )
+
+    return queryset
+
+
+def get_admin_user_or_404(*, user_id: int, actor: Any) -> User:
+    """Obtiene un usuario (activo o inactivo) para gestión de Admin o devuelve 404."""
+    _ensure_admin_actor(actor)
+    return get_object_or_404(User.objects.select_related("role"), pk=user_id)
