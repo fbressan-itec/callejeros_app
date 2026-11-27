@@ -19,6 +19,9 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_ALLOWED_HOSTS=(list, []),
     CORS_ALLOWED_ORIGINS=(list, []),
+    CSRF_TRUSTED_ORIGINS=(list, []),
+    DJANGO_SECURE_HTTPS=(bool, False),
+    RENDER_EXTERNAL_HOSTNAME=(str, ""),
     SEED_USER_PASSWORD=(str, ""),
     JWT_ACCESS_LIFETIME_MINUTES=(int, 60),
     JWT_REFRESH_LIFETIME_DAYS=(int, 1),
@@ -32,6 +35,11 @@ environ.Env.read_env(REPO_DIR / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
+# Render publica la dirección del servicio en esta variable: se suma sola a los hosts
+# permitidos y no hay que conocerla antes de crear el servicio.
+RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 
 # Aplicaciones
@@ -67,6 +75,9 @@ AUTH_USER_MODEL = "users.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise sirve los estilos del admin y de Swagger sin un servidor web aparte.
+    # Va justo después de SecurityMiddleware.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # CORS tiene que ir antes de CommonMiddleware.
     "corsheaders.middleware.CorsMiddleware",
@@ -133,12 +144,36 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Comprime los estáticos al correr `collectstatic`. Sin "Manifest": los tests y el
+    # desarrollo funcionan aunque no se haya corrido `collectstatic`.
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # CORS: solo el front puede llamar a la API desde el navegador.
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+# Orígenes extra en los que se confía para formularios con CSRF (el admin). Con
+# DJANGO_SECURE_HTTPS el admin funciona sin esto; sirve si se entra por otro dominio.
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+
+
+# HTTPS en producción (Render). Apagado en local y en el CI, que usan http.
+
+DJANGO_SECURE_HTTPS = env("DJANGO_SECURE_HTTPS")
+if DJANGO_SECURE_HTTPS:
+    # Render atiende el HTTPS y le pasa el pedido a Django por http: esta cabecera le
+    # avisa a Django que el pedido original era seguro.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Una hora: alcanza para el control de Django y no deja el dominio atado si cambia.
+    SECURE_HSTS_SECONDS = 3600
 
 # Datos semilla de desarrollo (`python manage.py seed`)
 

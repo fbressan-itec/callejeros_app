@@ -39,3 +39,7 @@ select = ["E", "F", "I", "B", "UP", "DJ"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "tests.py"]
 addopts = "--strict-markers"
+filterwarnings = [
+    # WhiteNoise avisa que no existe staticfiles/: en los tests no se corre collectstatic.
+    "ignore:No directory at:UserWarning",
+]
