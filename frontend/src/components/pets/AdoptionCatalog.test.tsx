@@ -434,4 +434,91 @@ describe("AdoptionCatalog", () => {
     await screen.findByRole("button", { name: "Guardar a Loki en favoritos" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("abre AuthRequiredModal con texto y redirect de publicación al tocar + Publicar sin sesión", async () => {
+    mockAuthState.isAuthenticated = false;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([buildPet({ id: 1, name: "Loki", is_favorite: false })]),
+    );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Loki" });
+
+    const publishLink = screen.getByRole("link", {
+      name: "Publicar mascota para adopción",
+    });
+    const clickEvent = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(publishLink, clickEvent);
+
+    expect(clickEvent.defaultPrevented).toBe(true);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Para publicar una mascota en adopción es obligatorio ingresar con tu cuenta. Así el equipo puede contactarte para revisar la publicación.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Iniciar Sesión" }),
+    ).toHaveAttribute("href", "/login?redirect=%2Fadopciones%2Fpublicar");
+    expect(
+      screen.getByRole("link", { name: "Crear Cuenta / Registrarme" }),
+    ).toHaveAttribute("href", "/registro?redirect=%2Fadopciones%2Fpublicar");
+  });
+
+  it("revierte solo la mascota que falló cuando dos favoritos corren en paralelo y muestra el mensaje puntual del back", async () => {
+    mockAuthState.isAuthenticated = true;
+    fetchPetsSpy.mockResolvedValueOnce(
+      makePage([
+        buildPet({ id: 1, name: "Thor", is_favorite: false }),
+        buildPet({ id: 2, name: "Misa", is_favorite: false }),
+      ]),
+    );
+
+    let rejectThor!: (reason?: unknown) => void;
+    let resolveMisa!: (value: { pet_id: number; is_favorite: boolean }) => void;
+    addFavoriteSpy
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectThor = reject;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveMisa = resolve;
+          }),
+      );
+
+    render(<AdoptionCatalog />);
+    await screen.findByRole("heading", { name: "Thor" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Thor en favoritos" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar a Misa en favoritos" }),
+    );
+
+    resolveMisa({ pet_id: 2, is_favorite: true });
+    rejectThor(
+      new ApiError(400, "Revisá los datos marcados.", {
+        pet: ["Esta mascota ya no está disponible para favoritos."],
+      }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Esta mascota ya no está disponible para favoritos.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Guardar a Thor en favoritos" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "Quitar a Misa de favoritos" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
 });
