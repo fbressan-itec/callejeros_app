@@ -49,3 +49,16 @@ def test_seed_fails_when_debug_is_false(settings, monkeypatch):
         call_command("seed")
 
     assert calls == []
+
+
+@pytest.mark.django_db
+def test_seed_runs_in_production_only_with_allow_production(settings, monkeypatch):
+    """La demo publicada (DJANGO_DEBUG=False) necesita los usuarios de prueba."""
+    settings.DEBUG = False
+    calls = []
+    fake_modules = [("users", SimpleNamespace(run=lambda: calls.append("users") or "4 usuarios"))]
+    monkeypatch.setattr(seed_command, "get_seed_modules", lambda: fake_modules)
+
+    call_command("seed", "--allow-production", stdout=StringIO())
+
+    assert calls == ["users"]
