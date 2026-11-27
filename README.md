@@ -711,7 +711,7 @@ Cada versión es un hito del tablero: al cerrarlo, `develop` pasa a `main` por P
 | Versión | Estado | Qué trae |
 | :--- | :--- | :--- |
 | **v0.1** | ✅ Publicada | Proyecto base (Django, Next, Docker y CI), base de datos (DB-01), usuarios, roles y autenticación con JWT, layout general (barra, menú, modo oscuro, footer y botón de alerta), login, registro con verificación por SMS (maquetada) y recuperar contraseña. Adelanto de v0.2: modelos de mascotas y su `seed`. |
-| v0.2 | 🚧 En curso | Adopción: mascotas, insignias, favoritos, solicitudes y panel de Staff. |
+| **v0.2** | ✅ Publicada | Adopción: inicio, catálogo con filtros y buscador, ficha con insignias calculadas, favoritos, publicar, editar y dar de baja mascotas con fotos, cuestionario de adopción y su respuesta, y panel de Staff (publicaciones en revisión, caso urgente y solicitudes). Adelantos: fotos reales en el `seed` (DB-02a), administración de usuarios y roles (BK-15) y back listo para producción con fotos en Cloudinary (CR-04a y CR-04b). |
 | v0.3 | Pendiente | Alertas, mapa, comentarios y notificaciones. |
 | v0.4 | Pendiente | Apadrinamiento, tienda, noticias, Mi Cuenta y panel de Admin. |
 | v1.0 | Pendiente | Cierre: README, Swagger, accesibilidad y deploy si hay tiempo. |
