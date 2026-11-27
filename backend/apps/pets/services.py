@@ -104,8 +104,11 @@ def _base_active_pets_queryset() -> QuerySet[Pet]:
 
 
 def get_catalog_pets_queryset(*, actor: Any = None) -> QuerySet[Pet]:
-    """Devuelve mascotas activas elegibles para catálogo público (`published` o `adopted`)."""
-    queryset = _base_active_pets_queryset().filter(status__in=PUBLIC_PET_STATUSES)
+    """Devuelve mascotas activas de usuarios activos para el catálogo (`published` o `adopted`)."""
+    queryset = _base_active_pets_queryset().filter(
+        status__in=PUBLIC_PET_STATUSES,
+        published_by__is_active=True,
+    )
     return _annotate_is_favorite(queryset, actor).order_by("-created_at", "-id")
 
 
@@ -137,6 +140,7 @@ def get_favorite_pets_queryset(*, actor: User) -> QuerySet[Pet]:
         _base_active_pets_queryset()
         .filter(
             status__in=PUBLIC_PET_STATUSES,
+            published_by__is_active=True,
             favorites__user=actor,
             favorites__is_active=True,
         )
@@ -152,7 +156,10 @@ def add_favorite(*, pet_id: int, actor: User) -> tuple[Favorite, bool]:
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
     pet = get_object_or_404(
-        Pet.objects.active().filter(status__in=PUBLIC_PET_STATUSES),
+        Pet.objects.active().filter(
+            status__in=PUBLIC_PET_STATUSES,
+            published_by__is_active=True,
+        ),
         pk=pet_id,
     )
     favorite, created = Favorite.objects.get_or_create(
@@ -599,7 +606,10 @@ def get_review_queue_queryset(*, actor: User) -> QuerySet[Pet]:
     if not pet_review_workflow.can_review(actor):
         raise PermissionDenied(FORBIDDEN_ERROR_MESSAGE)
 
-    queryset = _base_active_pets_queryset().filter(status=Pet.Status.IN_REVIEW)
+    queryset = _base_active_pets_queryset().filter(
+        status=Pet.Status.IN_REVIEW,
+        published_by__is_active=True,
+    )
     return _annotate_is_favorite(queryset, actor).order_by(
         "-is_urgent_requested", "created_at", "id"
     )
