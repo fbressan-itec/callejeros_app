@@ -12,6 +12,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from apps.users.admin import (
     RoleAdmin,
     UserAdmin,
+    UserAdminPasswordChangeForm,
     UserRoleLogAdmin,
     UserRoleLogInline,
     UserStatusLogAdmin,
@@ -375,3 +376,48 @@ def test_user_admin_changelist_search_filters_and_change_view_history_inlines() 
     assert "Desactivado" in detail_html
     assert "Acción de administrador" in detail_html
     assert "Staff Callejeros" in detail_html
+
+
+def test_user_admin_password_change_form_hides_usable_password_option() -> None:
+    client, _ = _logged_admin_client()
+    member = UserFactory(role__code=RoleCode.MEMBER, password="ClaveActiva99!")
+    password_url = reverse("admin:auth_user_password_change", args=[member.pk])
+
+    form = UserAdminPasswordChangeForm(member)
+    assert "usable_password" not in form.fields
+    assert form.fields["password1"].required is True
+    assert form.fields["password2"].required is True
+
+    get_resp = client.get(password_url)
+    assert get_resp.status_code == 200
+    assert "usable_password" not in get_resp.context["form"].fields
+    html = get_resp.content.decode()
+    assert 'name="usable_password"' not in html
+    assert "id_usable_password" not in html
+
+    # Intentar enviar `usable_password=false` por POST no desactiva la contraseña.
+    post_resp = client.post(password_url, {"usable_password": "false"})
+    assert post_resp.status_code == 200
+    member.refresh_from_db()
+    assert member.has_usable_password() is True
+    assert member.check_password("ClaveActiva99!") is True
+
+
+def test_user_admin_save_model_catches_service_validation_error_with_message() -> None:
+    admin_user = UserFactory(role__code=RoleCode.ADMIN)
+    request = _build_admin_request(admin_user)
+    user_admin = UserAdmin(User, AdminSite())
+
+    # Simula un intento que saltea `clean()` (ej. condición de carrera con otro Admin).
+    admin_user.role = Role.objects.get(code=RoleCode.STAFF)
+    admin_user.is_active = False
+    user_admin.save_model(request, admin_user, form=None, change=True)
+
+    admin_user.refresh_from_db()
+    assert admin_user.role.code == RoleCode.ADMIN
+    assert admin_user.is_active is True
+
+    stored = list(messages.get_messages(request))
+    error_messages = [m.message for m in stored if m.level == messages.ERROR]
+    assert CANNOT_DEMOTE_SELF_ERROR in error_messages
+    assert CANNOT_DEACTIVATE_SELF_ERROR in error_messages

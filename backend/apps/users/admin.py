@@ -22,14 +22,12 @@ from apps.users.models import (
     UserStatusLog,
 )
 from apps.users.services import (
-    CANNOT_DEACTIVATE_SELF_ERROR,
-    CANNOT_DEMOTE_SELF_ERROR,
     DUPLICATE_EMAIL_ERROR,
-    LAST_ADMIN_DEACTIVATE_ERROR,
-    LAST_ADMIN_ROLE_ERROR,
     change_user_role,
     deactivate_user,
     reactivate_user,
+    validate_deactivation_allowed,
+    validate_role_change_allowed,
     validate_user_password,
 )
 
@@ -178,33 +176,38 @@ class UserAdminChangeForm(forms.ModelForm):
         new_role: Role | None = cleaned_data.get("role")
         new_is_active: bool | None = cleaned_data.get("is_active")
 
-        other_active_admins = (
-            User.objects.filter(is_active=True, role__code=RoleCode.ADMIN)
-            .exclude(pk=original.pk)
-            .exists()
-        )
-
-        if (
-            new_role is not None
-            and original.role.code == RoleCode.ADMIN
-            and new_role.code != RoleCode.ADMIN
-        ):
-            if self.request_user is not None and self.request_user.pk == original.pk:
-                self.add_error("role", CANNOT_DEMOTE_SELF_ERROR)
-            elif original.is_active and not other_active_admins:
-                self.add_error("role", LAST_ADMIN_ROLE_ERROR)
+        if new_role is not None and new_role.code != original.role.code:
+            try:
+                validate_role_change_allowed(
+                    target_user=original,
+                    new_role_code=new_role.code,
+                    actor=self.request_user,
+                )
+            except DRFValidationError as exc:
+                self.add_error("role", _extract_error_message(exc))
 
         if new_is_active is False and original.is_active:
-            if self.request_user is not None and self.request_user.pk == original.pk:
-                self.add_error("is_active", CANNOT_DEACTIVATE_SELF_ERROR)
-            elif original.role.code == RoleCode.ADMIN and not other_active_admins:
-                self.add_error("is_active", LAST_ADMIN_DEACTIVATE_ERROR)
+            try:
+                validate_deactivation_allowed(
+                    target_user=original,
+                    actor=self.request_user,
+                )
+            except DRFValidationError as exc:
+                self.add_error("is_active", _extract_error_message(exc))
 
         return cleaned_data
 
 
 class UserAdminPasswordChangeForm(AdminPasswordChangeForm):
     """Formulario estándar de cambio de contraseña con las mismas reglas que el registro."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Desde Django 5.1, `AdminPasswordChangeForm` ofrece desactivar la contraseña; se quita
+        # para no permitir bloquear cuentas fuera de `deactivate_user` (sin log ni blacklist).
+        self.fields.pop("usable_password", None)
+        self.fields["password1"].required = True
+        self.fields["password2"].required = True
 
     def clean_password2(self) -> str:
         password1 = self.cleaned_data.get("password1")
@@ -358,17 +361,31 @@ class UserAdmin(NoDeleteAdminMixin, BaseUserAdmin):
         super().save_model(request, obj, form, change)
 
         if target_role_code != original.role.code:
-            change_user_role(
-                target_user=obj,
-                new_role_code=target_role_code,
-                actor=request.user,
-            )
+            try:
+                change_user_role(
+                    target_user=obj,
+                    new_role_code=target_role_code,
+                    actor=request.user,
+                )
+            except DRFValidationError as exc:
+                self.message_user(
+                    request,
+                    _extract_error_message(exc),
+                    level=messages.ERROR,
+                )
 
         if target_is_active != original.is_active:
-            if target_is_active:
-                reactivate_user(target_user=obj, actor=request.user)
-            else:
-                deactivate_user(target_user=obj, actor=request.user)
+            try:
+                if target_is_active:
+                    reactivate_user(target_user=obj, actor=request.user)
+                else:
+                    deactivate_user(target_user=obj, actor=request.user)
+            except DRFValidationError as exc:
+                self.message_user(
+                    request,
+                    _extract_error_message(exc),
+                    level=messages.ERROR,
+                )
 
         obj.refresh_from_db()
 

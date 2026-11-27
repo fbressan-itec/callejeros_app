@@ -170,14 +170,54 @@ def _clean_admin_note(note: str) -> str:
     return cleaned
 
 
-def _has_other_active_admin(excluded_user_id: int) -> bool:
+def _has_other_active_admin(excluded_user_id: int, *, lock: bool = False) -> bool:
     """Indica si existe al menos otro usuario activo con rol `admin` además del excluido."""
+    queryset = User.objects.all()
+    if lock:
+        queryset = queryset.select_for_update()
     return (
-        User.objects.select_for_update()
-        .filter(is_active=True, role__code=RoleCode.ADMIN)
+        queryset.filter(is_active=True, role__code=RoleCode.ADMIN)
         .exclude(pk=excluded_user_id)
         .exists()
     )
+
+
+def validate_role_change_allowed(
+    *,
+    target_user: User,
+    new_role_code: str,
+    actor: Any,
+    lock: bool = False,
+) -> None:
+    """Valida las protecciones de cambio de rol (reutilizada por el servicio y el admin)."""
+    if target_user.role.code != RoleCode.ADMIN or new_role_code == RoleCode.ADMIN:
+        return
+    if actor is not None and actor.pk == target_user.pk:
+        raise ValidationError({"role": [CANNOT_DEMOTE_SELF_ERROR]})
+    if target_user.is_active and not _has_other_active_admin(target_user.pk, lock=lock):
+        raise ValidationError({"role": [LAST_ADMIN_ROLE_ERROR]})
+
+
+def validate_deactivation_allowed(
+    *,
+    target_user: User,
+    actor: Any,
+    reason: str = UserStatusLog.Reason.ADMIN_ACTION,
+    lock: bool = False,
+) -> None:
+    """Valida las protecciones de desactivación (reutilizada por el servicio y el admin)."""
+    if (
+        reason == UserStatusLog.Reason.ADMIN_ACTION
+        and actor is not None
+        and actor.pk == target_user.pk
+    ):
+        raise ValidationError({"is_active": [CANNOT_DEACTIVATE_SELF_ERROR]})
+    if (
+        target_user.is_active
+        and target_user.role.code == RoleCode.ADMIN
+        and not _has_other_active_admin(target_user.pk, lock=lock)
+    ):
+        raise ValidationError({"is_active": [LAST_ADMIN_DEACTIVATE_ERROR]})
 
 
 def blacklist_user_refresh_tokens(user: User) -> int:
@@ -219,11 +259,12 @@ def change_user_role(
     if locked.role_id == new_role.id:
         return locked
 
-    if locked.role.code == RoleCode.ADMIN and new_role.code != RoleCode.ADMIN:
-        if actor.pk == locked.pk:
-            raise ValidationError({"role": [CANNOT_DEMOTE_SELF_ERROR]})
-        if locked.is_active and not _has_other_active_admin(locked.pk):
-            raise ValidationError({"role": [LAST_ADMIN_ROLE_ERROR]})
+    validate_role_change_allowed(
+        target_user=locked,
+        new_role_code=new_role.code,
+        actor=actor,
+        lock=True,
+    )
 
     previous_role = locked.role
     locked.role = new_role
@@ -266,15 +307,12 @@ def deactivate_user(
 
     locked = User.objects.select_for_update().select_related("role").get(pk=target_user.pk)
 
-    if reason == UserStatusLog.Reason.ADMIN_ACTION and actor.pk == locked.pk:
-        raise ValidationError({"is_active": [CANNOT_DEACTIVATE_SELF_ERROR]})
-
     if not locked.is_active:
+        validate_deactivation_allowed(target_user=locked, actor=actor, reason=reason, lock=True)
         blacklist_user_refresh_tokens(locked)
         return locked
 
-    if locked.role.code == RoleCode.ADMIN and not _has_other_active_admin(locked.pk):
-        raise ValidationError({"is_active": [LAST_ADMIN_DEACTIVATE_ERROR]})
+    validate_deactivation_allowed(target_user=locked, actor=actor, reason=reason, lock=True)
 
     locked.is_active = False
     locked.save(update_fields=["is_active", "updated_at"])
