@@ -591,3 +591,24 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** actualizar y reordenar la Wiki (enlazar `docs/`, versión v0.2 y publicación). Ajustar las reglas 8 y 17 en el `AGENTS.md` de Ulises y Leandro (el archivo no está en el repo).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para analizar el README y la Wiki, proponer la estructura, mover el contenido, verificar los enlaces y armar la vista previa.
+
+## 2026-11-27 — Wiki actualizada a la v0.2 y cuentas de la demo
+
+- **Tarjeta:** #67 (GE-01)
+- **Rama:** feature/ge01-67-cuentas-demo (la Wiki se sube directo, sin PR)
+- **Área:** docs
+- **Qué hice:**
+  - Actualicé la Wiki a la v0.2. Menú en dos bloques: "El proyecto" (Versiones, Cómo trabajamos, Bitácora de progreso, Tecnologías y Cierre) y "Documentación técnica".
+  - Siete páginas cortas de documentación técnica (Arquitectura, Desarrollo local, API, Swagger, Base de datos, Deploy y Cómo contribuir), cada una con una explicación breve y el enlace al documento de `docs/` del repo.
+  - Inicio con los enlaces a la app publicada y el estado de cada módulo; Versiones con la v0.2; la vieja "Arquitectura" pasó a "Tecnologías", sumando Render, Vercel, Cloudinary y PostgreSQL; Cierre y pie de página al día.
+  - "Cómo trabajamos" y "Bitácora de progreso" de la v0.2: tarjeta por tarjeta, con las decisiones y los problemas de cada épica, a partir de las bitácoras de los tres.
+  - Una captura por tarjeta: sumé las de FR-06, FR-08, FR-10, BK-15 y la app publicada (sacadas de `develop` en local, con los datos de prueba), el tablero Kanban y el diagrama general para DB-01. Las copié también a `docs/capturas/` con su descripción en el LEEME.
+  - Cuentas de la demo (los 4 roles y su contraseña) en el README, en `docs/deploy.md` y en la página Deploy de la Wiki.
+- **Decisiones tomadas:**
+  - El detalle técnico sigue en `docs/` y la Wiki lo enlaza con páginas cortas, para no duplicarlo.
+  - Las capturas de la base las saco yo desde VS Code o DBeaver: DB-02a queda sin foto hasta entonces.
+  - Publicar la contraseña de la demo: son datos de prueba, todo es baja lógica y el `seed` restaura las cuentas en cada arranque del back.
+- **Problemas y cómo los resolví:** los enlaces de la Wiki a `docs/` apuntan a `develop`, porque `docs/` todavía no está en `main`; se pueden pasar a `main` con la v0.3.
+- **Pendiente:** captura de la base para DB-02a; mandar el correo al profesor con los enlaces.
+- **PR:** #185
+- **IA usada:** Claude Code — para revisar la Wiki, sacar las capturas, verificar los enlaces y redactar el borrador del correo.
