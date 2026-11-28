@@ -79,3 +79,19 @@ export function parseApiError(status: number, body: unknown): ApiError {
     fieldErrors,
   );
 }
+
+/**
+ * Mensaje para mostrar cuando falla una acción: el primero que explica el back por campo
+ * (por ejemplo, "Esta mascota ya no está disponible para adopción.") o el general.
+ * `inlineFields` son los campos cuyo error ya se muestra junto al campo del formulario.
+ */
+export function getActionErrorMessage(
+  error: unknown,
+  inlineFields: readonly string[] = [],
+): string {
+  if (!(error instanceof ApiError)) return ERROR_MESSAGES.unknown;
+  const [first] = Object.entries(error.fieldErrors)
+    .filter(([field]) => !inlineFields.includes(field))
+    .flatMap(([, messages]) => messages);
+  return first ?? error.message;
+}

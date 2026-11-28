@@ -168,4 +168,78 @@ describe("MobileMenu y AppHeader", () => {
     expect(onLogout).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("muestra el enlace al panel de Staff solo a Staff y Admin, y lo resalta en el panel", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <MobileMenu
+        isOpen={true}
+        onClose={onClose}
+        user={{ name: "Sofía", role: "member" }}
+      />,
+    );
+    const panelLink = () =>
+      screen.queryByRole("link", { name: "🛡️ Panel de Staff" });
+
+    expect(panelLink()).not.toBeInTheDocument();
+
+    rerender(
+      <MobileMenu
+        isOpen={true}
+        onClose={onClose}
+        user={{ name: "Patitas Sur", role: "verified_shelter" }}
+      />,
+    );
+    expect(panelLink()).not.toBeInTheDocument();
+
+    rerender(
+      <MobileMenu
+        isOpen={true}
+        onClose={onClose}
+        user={{ name: "Laura", role: "staff" }}
+      />,
+    );
+    expect(panelLink()).toHaveAttribute("href", "/panel-staff");
+    expect(panelLink()).not.toHaveAttribute("aria-current");
+
+    currentPathname = "/panel-staff";
+    rerender(
+      <MobileMenu
+        isOpen={true}
+        onClose={onClose}
+        user={{ name: "Admin", role: "admin" }}
+      />,
+    );
+    expect(panelLink()).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(panelLink() as HTMLElement);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("muestra el enlace a Mis publicaciones solo con sesión y lo resalta al estar activo", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<MobileMenu isOpen={true} onClose={onClose} />);
+
+    expect(
+      screen.queryByRole("link", { name: "🐾 Mis publicaciones" }),
+    ).not.toBeInTheDocument();
+
+    currentPathname = "/mis-publicaciones";
+    rerender(
+      <MobileMenu
+        isOpen={true}
+        onClose={onClose}
+        user={{ name: "Sofía", role: "member" }}
+      />,
+    );
+
+    const myPostsLink = screen.getByRole("link", {
+      name: "🐾 Mis publicaciones",
+    });
+    expect(myPostsLink).toHaveAttribute("href", "/mis-publicaciones");
+    expect(myPostsLink).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(myPostsLink);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

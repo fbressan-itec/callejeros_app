@@ -211,3 +211,338 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR `develop` → `main`, etiqueta `v0.1`, Release, cerrar el hito y armar la Wiki.
 - **PR:** este
 - **IA usada:** Claude Code — para revisar el hito, redactar el README y sacar las capturas.
+
+## 2026-11-22 — Revisión de publicaciones por Staff: aprobar y rechazar (BK-06a)
+
+- **Tarjeta:** #103 (BK-06a, sub-tarjeta de la épica #9, BK-06)
+- **Rama:** feature/bk06-103-aprobar-rechazar-publicaciones
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Dividí la épica BK-06 (#9) en tres sub-tarjetas: aprobar y rechazar (#103), validar el caso urgente (#104) y la cola de revisión del panel (#105). Me asigné la épica y la #103 y las pasé a "En curso".
+  - Armé el **flujo de revisión reutilizable** (`ReviewWorkflow` en `apps/core/review.py`): controla el rol, el estado, el motivo y el historial en un solo lugar. Las mascotas lo usan con `PetReviewWorkflow`; los productos (BK-12, #15) lo van a usar con una clase hija de pocas líneas, que dejé de ejemplo en el código.
+  - Agregué los endpoints `POST /api/pets/{id}/approve/` y `POST /api/pets/{id}/reject/`, solo para Staff y Admin.
+  - El Admin publica mascotas sin revisión y, si marca "urgente", queda validado.
+  - Una mascota rechazada ya no se puede editar ni cambiar sus fotos (sí darla de baja).
+  - Tests de servicios y de endpoints: permisos por rol, cambios de estado válidos e inválidos, historial, catálogo y Swagger. Actualicé Swagger y el README.
+- **Decisiones tomadas:**
+  - Una clase base con clases hijas para el flujo, en lugar de funciones sueltas o una tabla de historial genérica: no toca la base, deja configurado cada caso en un lugar y tiene ganchos (`on_approved`, `on_rejected`) para enchufar las notificaciones de BK-08 (#11).
+  - Endpoints separados `/approve/` y `/reject/`, igual que `/adopt/`. Si la mascota no está en revisión, devuelve `400`.
+  - El motivo es opcional; si Staff rechaza sin escribir nada, se guarda uno genérico ("Tu publicación no fue aprobada porque no cumple con las pautas de Callejeros Río Cuarto."), para no darle explicaciones a los trolls.
+  - Siguen revisándose **todas** las publicaciones (no solo las urgentes): protege al catálogo de estafas y de venta de animales.
+  - **Solo el Admin publica sin revisión** (Staff, Refugio verificado y Miembro pasan por revisión). Staff puede aprobar su propia publicación; queda en el historial y anotado en el código.
+  - Una rechazada es final: para volver a intentar se carga de nuevo. El autor va a recibir el motivo por notificación (BK-08).
+  - Las decisiones nuevas quedaron en el contexto de las IAs (`decisiones.md` y `03-reglas-de-negocio.md`) y en los criterios de la #103.
+- **Problemas y cómo los resolví:** si dos personas de Staff revisan la misma mascota a la vez, la segunda podía pisar a la primera; el flujo bloquea la fila mientras revisa (`select_for_update`) y la segunda recibe el error.
+- **Corrección de una entrada anterior:** en la entrada del 2026-11-20 (cierre de la v0.1) escribí "42 tarjetas cerradas", pero eran **27 tarjetas**; las otras 15 eran PR.
+- **Pendiente:** abrir el PR de la #103 y dejar los avisos en la #15 (productos) y la #11 (notificaciones). Después, BK-06b (#104) y BK-06c (#105).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer la división y las opciones de diseño, escribir el código y los tests, y redactar la documentación.
+
+## 2026-11-22 — Revisión de publicaciones por Staff: validar el caso urgente (BK-06b)
+
+- **Tarjeta:** #104 (BK-06b, sub-tarjeta de la épica #9, BK-06)
+- **Rama:** feature/bk06-104-validar-caso-urgente
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Mergeé el PR #106 (BK-06a) y arranqué la segunda sub-tarjeta de BK-06.
+  - Agregué el servicio `set_pet_urgency` y el endpoint `POST /api/pets/{id}/urgency/` (solo Staff y Admin) para validar o quitar la validación del "caso urgente" que pide quien publica.
+  - Tests del endpoint y del servicio: permisos por rol, casos válidos e inválidos, historial, efecto en la insignia y en el filtro `urgent` del catálogo, y Swagger. Actualicé Swagger y el README.
+- **Decisiones tomadas:**
+  - Un solo endpoint que recibe `validated` (`true` o `false`), en lugar de dos rutas: es un sí/no y permite también quitar la validación cuando el animal deja de estar en riesgo.
+  - Se puede usar en mascotas `in_review` (al revisar) o `published` (si la situación cambia después). No en adoptadas ni rechazadas, ni si quien publicó no pidió urgencia.
+  - Cada cambio queda en `PetStatusLog` con el mismo estado antes y después y una nota, sin tocar la base, para tener todo el historial de la revisión en un solo lugar.
+  - Pedir el valor que ya tiene responde `200` sin cambios ni registro, para que un doble clic no duplique el historial.
+  - El servicio reusa `can_review` del flujo de revisión, así "quién revisa" se define en un solo lugar.
+- **Problemas y cómo los resolví:** ninguno.
+- **Pendiente:** PR de la #104; después, BK-06c (#105), la cola de revisión del panel.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer las opciones de diseño, escribir el código y los tests, y redactar la documentación.
+
+## 2026-11-22 — Revisión de publicaciones por Staff: cola de revisión del panel (BK-06c)
+
+- **Tarjeta:** #105 (BK-06c, sub-tarjeta de la épica #9, BK-06)
+- **Rama:** feature/bk06-105-cola-revision-panel
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Mergeé el PR #107 (BK-06b) y arranqué la última sub-tarjeta de BK-06.
+  - Agregué el servicio `get_review_queue_queryset` y el endpoint `GET /api/pets/review-queue/` (solo Staff y Admin): la lista paginada de las mascotas que esperan revisión, que va a usar la pantalla del panel de Staff (FR-10, #28).
+  - Tests del endpoint y del servicio: contenido, orden, datos de la ficha de gestión, paginación, cola vacía, que una aprobada sale de la cola, permisos por rol y Swagger. Actualicé Swagger y el README.
+- **Decisiones tomadas:**
+  - Ruta `/api/pets/review-queue/`, junto a los demás endpoints de mascotas (como `/mine/`), en lugar de una sección `/api/staff/` aparte o de reusar el catálogo público (que podría exponer `contact_phone`).
+  - Orden: primero las que pidieron caso urgente y, dentro de cada grupo, la más vieja primero, como una fila de atención.
+  - Sin filtros por ahora (con pocas pendientes por día alcanza con el orden); quedó comentado en el código cómo sumarlos si FR-10 los necesita.
+  - Cada mascota se devuelve con `PetManageSerializer`, la misma ficha de gestión que devuelven `/approve/`, `/reject/` y `/urgency/`, para no repetir código y que el front reciba siempre la misma forma.
+- **Problemas y cómo los resolví:** para probar el orden por antigüedad, `created_at` se completa solo al crear (`auto_now_add`); en los tests lo ajusté después de crear cada mascota.
+- **Pendiente:** PR de la #105 y, al mergearlo, cerrar la épica BK-06 (#9).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer las opciones de diseño, escribir el código y los tests, y redactar la documentación.
+
+## 2026-11-23 — Fotos de las mascotas visibles en desarrollo (BF-01)
+
+- **Tarjeta:** #77 (BF-01, bugfix y correcciones chicas)
+- **Rama:** bugfix/bf01-77-servir-media-en-desarrollo
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Revisé los PR #113 y #114 (BK-07b y su corrección), #117 y #120 (BK-05a y BK-05b) y #121 (FR-07a).
+  - Al revisar el #121 apareció que, levantando el proyecto, ninguna foto se veía: `/media/...` respondía 404 porque `config/urls.py` no tenía la ruta para servir las fotos subidas.
+  - Agregué esa ruta en `backend/config/urls.py`, activa solo con `DEBUG`, y dos tests: en desarrollo la foto responde 200 y, con `DEBUG` apagado, Django no la sirve.
+  - Probé con el back levantado: las fotos de Loki y las del catálogo responden 200 y se ven en el navegador.
+- **Decisiones tomadas:**
+  - Servir las fotos desde Django solo en desarrollo, como recomienda Django: en producción las tiene que servir el servidor web.
+  - Mantener las reglas de BK-07: se pueden aprobar varias solicitudes para la misma mascota (aprobar habilita a conocerla, no la entrega) y Staff puede aprobar su propia solicitud (queda registrado quién la aprobó).
+- **Problemas y cómo los resolví:** `config/urls.py` lee `DEBUG` una sola vez, al importarse; en los tests recargo el módulo después de cambiar `DEBUG`.
+- **Pendiente:** PR de este arreglo con `Refs #77`; aprobar el #120 cuando Ulises suba la corrección del filtro `?favorites=false`.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para revisar y probar los PR de Ulises y Leandro, y escribir el arreglo, sus tests y esta entrada.
+
+## 2026-11-23 — Inicio: portada con carrusel institucional y secciones fijas (FR-05a)
+
+- **Tarjeta:** #123 (FR-05a, sub-tarjeta de la épica #23, FR-05)
+- **Rama:** feature/fr05-123-portada-inicio
+- **Área:** front, test
+- **Qué hice:**
+  - Tomé la épica FR-05 (Inicio), revisé el maquetado, lo que ya había en develop y el endpoint `GET /api/pets/`, y la dividí en dos sub-tarjetas: FR-05a (#123, portada fija) y FR-05b (#124, mascotas y contador desde la API).
+  - Reemplacé el inicio provisorio por la portada de `index.html`: carrusel institucional de 3 slides (se desliza con el dedo, puntitos de 44px, flechas desde tablet, autoavance cada 6 s que se pausa con el mouse o el foco y no corre con movimiento reducido), "Sobre Nosotros" y "¿Cómo podés colaborar hoy?".
+  - Bajé las 4 fotos de Unsplash del maquetado a `frontend/public/images/inicio/`, con un comentario en el código que dice que son de prueba y qué muestra cada una.
+  - Tests con Vitest del carrusel (flechas, puntitos, deslizar, autoavance, pausa y movimiento reducido) y de la portada (textos y enlaces).
+  - Comparé con el maquetado en 375px y escritorio, claro y oscuro, midiendo altos y colores en las dos páginas.
+- **Decisiones tomadas:**
+  - El "carrusel de mascotas" de la tarjeta era un error: el carrusel del inicio es el institucional del maquetado, y las mascotas van en "Adoptá un Callejero" (FR-05b). Se corrige en #23 y en `contexto-ia/` en FR-05b.
+  - "+150 Mascotas adoptadas" queda como dato institucional fijo, a modo de publicidad; en FR-05b se suma un recuadro "Mascotas en adopción" con el número real.
+  - En escritorio, FR-05b va a mostrar 3 mascotas más la tarjeta "Explorar Catálogo" (4 columnas); en el celular y en tablet, 2.
+  - Botones naranjas y verdes un tono más oscuros que el maquetado (`orange-700`, `emerald-700`) por contraste, como pide `02-diseno.md`.
+- **Problemas y cómo los resolví:** Tailwind 4 aplica `leading-relaxed` / `leading-tight` aunque haya `sm:text-*` después (en Tailwind 3 ganaba el tamaño del breakpoint): el título del carrusel quedaba 24px más alto en escritorio. Lo igualé con clases de alto de línea explícitas por breakpoint.
+- **Pendiente:** FR-05b (#124): mascotas desde la API, contador, estados de carga, error y vacío, funciones reutilizables y corrección del criterio en #23 y `contexto-ia/`.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para revisar el maquetado y el back, proponer la división, escribir el código y los tests, y comparar con el maquetado en el navegador.
+
+## 2026-11-23 — Inicio: últimas mascotas y contador desde la API (FR-05b)
+
+- **Tarjeta:** #124 (FR-05b, sub-tarjeta de la épica #23, FR-05)
+- **Rama:** feature/fr05-124-mascotas-inicio
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Mergeé el PR #125 (FR-05a) y arranqué la segunda sub-tarjeta.
+  - Sección "Adoptá un Callejero" con las 3 mascotas publicadas más nuevas de `GET /api/pets/`: 2 en el celular y en tablet, 3 más "Explorar Catálogo" en escritorio. Con `LoadingScreen` mientras carga, el mensaje del cliente de la API si falla y "Todavía no hay mascotas publicadas. ¡Volvé pronto!" si no hay.
+  - Recuadro "Mascotas en adopción" en "Sobre Nosotros" con el total real de publicadas, tomado del mismo pedido (`count`); muestra una raya mientras carga o si falla.
+  - Piezas reutilizables para el catálogo (FR-06): `fetchPets`, `PaginatedResponse`, las funciones de `lib/pets/format.ts`, `PetSociabilityTag` y `buildPet` para tests. Quedaron anotadas en la tarjeta #24 y en `contexto-ia/producto/02-diseno.md`.
+  - Corregí el criterio "carrusel de mascotas" en #23 y en `05-pantallas-y-recorridos.md`: el carrusel del inicio es el institucional.
+  - Tests con Vitest del pedido, las funciones de formato, la tarjeta, la sección y la página (carga, contenido, error, vacío y contador). Comparé con el maquetado en 375px y escritorio, con datos reales del `seed` y con el back apagado.
+- **Decisiones tomadas:**
+  - Un solo pedido para las mascotas y el contador (sin cambios en el back): la API devuelve 12 y el inicio muestra las 3 primeras.
+  - Tarjeta propia del inicio (`PetPreviewCard`), distinta de la del catálogo, pero con las funciones y la etiqueta compartidas.
+  - Etiqueta "Salvaje" en ámbar con texto oscuro y "Sociable" en `emerald-700`, por contraste (el maquetado usaba rojo y `emerald-600`).
+  - "Sin castrar" cuando no está castrada, igual que la insignia del servidor.
+- **Problemas y cómo los resolví:** para ver el error en el navegador apagué el back un momento; para el vacío y la carga alcanzó con los tests.
+- **Pendiente:** PR de la #124 y, al mergearlo, cerrar la épica #23.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para escribir el código y los tests, comparar con el maquetado y actualizar las tarjetas y la documentación.
+
+## 2026-11-23 — Test frágil del título de la ficha (BF-01)
+
+- **Tarjeta:** #77 (BF-01, bugfix y correcciones chicas)
+- **Rama:** bugfix/bf01-77-test-titulo-ficha
+- **Área:** test
+- **Qué hice:**
+  - En el CI del PR #126 (FR-05b) falló un test de la ficha de mascota (`PetDetailView.test.tsx`, de FR-07a) que no tenía relación con el cambio: esperaba el título de la pestaña "Loki — Adoptá un Callejero — Callejeros Río Cuarto" y encontraba todavía "Ficha de Mascota — Callejeros Río Cuarto".
+  - Volví a correr el control (salió en verde) y corregí el test: ahora también espera con `waitFor` a que cambie el título.
+- **Decisiones tomadas:** arreglarlo en BF-01 y no en el PR del inicio, porque es de otra tarjeta y de otro integrante. Solo cambia el test, no el componente.
+- **Problemas y cómo los resolví:** el título lo cambia un efecto que corre después de dibujar el nombre; en una máquina lenta, el test lo revisaba antes. En local no fallaba nunca.
+- **Pendiente:** que Leandro actualice develop para tener el test corregido.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para encontrar la causa del fallo en el CI, corregir el test y escribir esta entrada.
+
+## 2026-11-24 — Cuestionario de adopción ampliado en el back (FR-09a)
+
+- **Tarjeta:** #141 (FR-09a, sub-tarjeta de la épica #27, FR-09)
+- **Rama:** feature/fr09-141-cuestionario-ampliado-back
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Definí el cuestionario de adopción con la IA. Primero lo comparé con el maquetado y con lo que ya hacía el back (BK-07). Después investigamos formularios de refugios y protectoras y guías de ASPCA y Best Friends, y armamos uno más completo.
+  - Dividí la épica #27 en tres sub-tarjetas: back (#141), página de respuesta (#142) y cuestionario en la ficha (#143). Cambié el criterio de #27 y dejé comentarios en #29, #11 y #26 sobre las notificaciones y el teléfono al publicar.
+  - Actualicé en local `contexto-ia/` (01, 03, 04, 05, 05b, 06 y `decisiones.md`) y anoté dos ideas en la ToDo List: "Obtener cuenta refugio" y punto de encuentro fijado por quien publica.
+  - Cuestionario de 4 bloques en `AdoptionRequest`, con migración nueva, reglas en la base, validaciones en el servicio (alquiler, castración según la mascota y casillas de compromiso), serializer, Swagger, seed y tests.
+  - Saqué el punto de encuentro: aprobar ya no pide datos (migración que borra `meeting_point`).
+  - Campo `shelter_public_address` en `User` (migración nueva). El adoptante aprobado lo ve solo si quien publicó es Refugio verificado y lo cargó.
+  - README: endpoints de adopción y diagrama entidad-relación.
+- **Decisiones tomadas:**
+  - El cuestionario del maquetado era una muestra: el nuevo pregunta por la vivienda (propia o alquilada), las protecciones, quiénes viven, la experiencia, las horas solo, dónde vive, quién lo cuida en viajes y qué haría si no puede seguir, más compromisos de castración, seguimiento, avisar antes de darlo y veracidad. Se dejaron afuera las preguntas invasivas (ingresos, estado civil, DNI y similares).
+  - Sin punto de encuentro: los voluntarios no tienen tiempo de organizarlo. El adoptante recibe el teléfono de la publicación y coordinan entre ellos, con un aviso de encontrarse en un lugar público.
+  - La dirección del refugio es un campo aparte y no la de la cuenta, porque muchos refugios funcionan en una casa particular.
+  - Las solicitudes viejas (solo datos de prueba) quedan con textos vacíos y casillas en verdadero al migrar.
+- **Problemas y cómo los resolví:**
+  - `makemigrations` pedía valores por defecto para los campos nuevos, así que escribí la migración del cuestionario a mano y comprobé con `makemigrations --check` que coincide con el modelo.
+  - No hay admin de Django para usuarios: por ahora la dirección del refugio se carga desde el seed.
+  - La suite del back tarda unos 12 minutos: la corrí en segundo plano.
+- **Pendiente:** PR de la #141; después, FR-09b (#142) y FR-09c (#143).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para comparar el maquetado con el back, investigar cuestionarios de adopción, proponer las decisiones y la división, escribir el código, las migraciones y los tests, y actualizar la documentación.
+
+## 2026-11-24 — Página de respuesta a la solicitud de adopción (FR-09b)
+
+- **Tarjeta:** #142 (FR-09b, sub-tarjeta de la épica #27, FR-09)
+- **Rama:** feature/fr09-142-respuesta-solicitud
+- **Área:** front, test
+- **Qué hice:**
+  - Publiqué en Discussions (categoría "Decisiones/Cambios", #146) el cuestionario nuevo y lo que cambia al aprobar, y lo enlacé desde el PR #144.
+  - Ruta `/solicitudes/[id]` con sesión obligatoria (`RequireAuth`), `LoadingScreen` mientras carga y el mensaje de `errors.ts` con "Intentar de nuevo" si falla.
+  - Tres estados, iguales al maquetado: en revisión; aprobada (contacto de quien publicó con su insignia, "📞 Llamar para coordinar", la dirección pública si es un refugio verificado con "🗺️ Ver en el mapa", aviso de seguridad y próximos pasos) y desaprobada (motivo del moderador y enlaces). Página de "No encontramos esa solicitud".
+  - Hook `usePollWhileVisible`: en revisión vuelve a consultar cada 60 s solo con la pestaña visible y al volver a ella, y corta cuando llega la respuesta.
+  - Saqué la validación de IDs de ruta a `lib/api/ids.ts` para usarla en la ficha y en la solicitud.
+  - Tests en Vitest de la página, del hook y de las funciones de la API.
+- **Decisiones tomadas:**
+  - Si una consulta en segundo plano falla, la página se queda con lo último que mostró y vuelve a probar en la próxima, sin mostrar un error.
+  - El botón verde de llamar usa `emerald-700` (el maquetado usa `emerald-600`) para que el texto blanco tenga el contraste de WCAG AA, como ya pasa con el naranja.
+  - El botón Volver va al inicio si no hay página anterior: la de notificaciones llega con FR-11.
+- **Problemas y cómo los resolví:** para probar la página con la cuenta del seed abrí una sesión de prueba local en el navegador, sin escribir la contraseña. En una corrida de toda la suite de Vitest falló un test una vez y no se repitió en tres corridas más.
+- **Pendiente:** FR-09c (#143), el cuestionario en la ficha.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para publicar la discusión, escribir la página, el hook y los tests, y comparar la pantalla con el maquetado en el navegador.
+
+## 2026-11-24 — Cuestionario de adopción en la ficha (FR-09c)
+
+- **Tarjeta:** #143 (FR-09c, sub-tarjeta de la épica #27, FR-09)
+- **Rama:** feature/fr09-143-cuestionario-ficha
+- **Área:** front, test
+- **Qué hice:**
+  - "¡Adoptame!" abre el cuestionario de 4 pasos ("Paso X de 4", Anterior / Siguiente), con zod y react-hook-form. Cada paso se valida antes de avanzar y, si algo falla, el foco va al primer campo con error.
+  - Nombre y correo vienen de la cuenta y se pueden editar. La pregunta del alquiler aparece solo si la vivienda es alquilada, y la casilla de castración, solo si la mascota no está castrada.
+  - Si la mascota es propia, se avisa sin abrir el cuestionario.
+  - Al enviar, el botón se deshabilita con "Enviando solicitud…". Los errores del back (solicitud duplicada, mascota no disponible o propia) se muestran arriba del formulario. Si el back marca un campo, el modal vuelve a ese paso. Lo cargado no se pierde.
+  - Modal "¡Datos enviados correctamente!" igual al maquetado, con "🔔 Ver mis notificaciones" sin destino hasta FR-11.
+  - Tests en Vitest del esquema y del recorrido completo.
+- **Decisiones tomadas:**
+  - Los mensajes de error del front son los mismos que los del back, para que la persona lea lo mismo en las dos capas.
+  - Las preguntas de opción (vivienda, acuerdo, horas solo, alquiler) son botones de opción de 44px, porque el maquetado no las tenía.
+  - "🔔 Ver mis notificaciones" es un botón marcado como deshabilitado (`aria-disabled`) hasta que exista la página de notificaciones.
+- **Problemas y cómo los resolví:** la regla del alquiler depende de otro campo y zod no la revisaba si había otros errores en el paso. Usé la opción `when` de zod para que el aviso salga junto con los demás.
+- **Pendiente:** cerrar la épica #27 cuando se mergee este PR.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para escribir el esquema, el modal y los tests, y probar el recorrido completo en el navegador contra el back local.
+
+## 2026-11-24 — Panel de Staff: solicitudes de adopción (FR-10a)
+
+- **Tarjeta:** #149 (FR-10a, sub-tarjeta de la épica #28, FR-10)
+- **Rama:** feature/fr10-149-panel-staff-solicitudes
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #28 en FR-10a (#149, solicitudes de adopción) y FR-10b (#150, publicaciones en revisión). Alertas, comentarios y productos de Refugio quedan para cuando existan BK-09, BK-10 y BK-12.
+  - Página `/panel-staff`, solo para Staff y Admin (`RequireAuth` con `allowedRoles`; el back también lo controla), y botón "🛡️ Panel de Staff" en el menú hamburguesa, debajo de la insignia de rol.
+  - Pestañas accesibles con teclado. Por ahora, "📋 Solicitudes de adopción" con la cola de pendientes (de la más vieja a la más nueva, de a 12), `LoadingScreen`, error con "Reintentar" y estado vacío.
+  - Tarjeta por solicitud (mascota, solicitante y fecha) con el desplegable "Ver cuestionario", que muestra las respuestas en los 4 bloques con las mismas preguntas que ve el solicitante.
+  - "Aprobar" abre una confirmación ("Va a recibir el teléfono de contacto de la publicación") y "Desaprobar" abre un modal con el motivo obligatorio (zod + react-hook-form, hasta 400 caracteres, mismos mensajes que el back). Después de responder, un aviso confirma la acción y la cola se vuelve a cargar.
+  - Tests en Vitest de la API, de la lógica de revisión, del menú, del panel y de los modales.
+- **Decisiones tomadas:**
+  - **Panel único para Staff y Admin** (reemplaza la de paneles separados del 16/11): un solo botón y una sola página, con pestañas según el rol; el Admin suma las suyas en FR-18. Lo publiqué en Discussions (#151), actualicé la tarjeta FR-18 (#36) y `contexto-ia/`.
+  - El foco del modal de aprobar arranca en "Cancelar", para que confirmar sea una decisión explícita; al cerrar, vuelve al botón que lo abrió.
+  - Si aprobar o desaprobar falla (por ejemplo, otra persona ya la respondió o la mascota ya no está disponible), el modal muestra el motivo del back y la cola se vuelve a pedir al cerrarlo.
+- **Problemas y cómo los resolví:** el foco inicial del campo del motivo no funcionaba con `setFocus` de react-hook-form en los tests; lo resolví enfocando el campo por su id al abrir el modal.
+- **Pendiente:** FR-10b (#150), publicaciones en revisión.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para proponer la división, escribir el panel, los modales y los tests, probar aprobar y desaprobar en el navegador contra el back local con la cuenta de Staff del seed, y redactar la Discussion.
+
+## 2026-11-24 — Panel de Staff: publicaciones en revisión (FR-10b)
+
+- **Tarjeta:** #150 (FR-10b, sub-tarjeta de la épica #28, FR-10)
+- **Rama:** feature/fr10-150-panel-staff-publicaciones
+- **Área:** front, test
+- **Qué hice:**
+  - Pestaña "🐾 Publicaciones en revisión" en el panel, con la cola de `GET /api/pets/review-queue/` (primero las urgentes, de a 12), `LoadingScreen`, error con "Reintentar" y estado vacío.
+  - Ficha de gestión por mascota: portada, especie, sexo, edad y castración; quién la publicó con su insignia de rol; teléfono de contacto (se puede tocar para llamar) y fecha. "Ver ficha completa" muestra todas las fotos, la descripción, la convivencia, la salud y las notas.
+  - Si quien publicó pidió "caso urgente", un recuadro permite validarlo o quitarle la validación (`POST /api/pets/{id}/urgency/`); el cambio se ve en la tarjeta sin volver a cargar la cola.
+  - Un solo modal para aprobar o rechazar, con nota opcional (zod + react-hook-form, hasta 255 caracteres). Al rechazar avisa que es final y qué motivo se guarda si no se escribe ninguno.
+  - Insignia de rol reutilizable (`RoleBadge`), igual a las de `mi-cuenta.html`.
+  - Tests en Vitest de la API, de la insignia y de la pestaña completa (urgencia, aprobar, rechazar, errores y teclado).
+- **Decisiones tomadas:**
+  - Saqué la cola de FR-10a a piezas compartidas (`useReviewQueue` y `ReviewQueueView`) para no repetirla en cada pestaña; las que faltan (alertas, comentarios, productos y las del Admin) las reusan.
+  - Las filas de salud pasaron a `getPetHealthRows` y las usan la ficha pública y la de gestión.
+  - El Admin no tiene insignia en el maquetado: usa la violeta de Staff con el texto "🛡️ Admin" (se puede revisar en FR-18).
+- **Problemas y cómo los resolví:** en los tests, una misma respuesta simulada de `fetch` se reutilizaba y fallaba la segunda lectura del cuerpo; ahora cada llamada recibe una respuesta nueva.
+- **Pendiente:** cerrar la épica #28 cuando existan las pestañas de alertas, comentarios y productos (BK-09, BK-10 y BK-12). Probar la tarjeta en 375px y el rechazo en el navegador con otra mascota en revisión (en el seed había solo una).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para escribir la pestaña, las piezas compartidas y los tests, y probar validar urgente y aprobar en el navegador contra el back local.
+
+## 2026-11-26 — Edición sin cambios ya no vuelve a revisión (BF-01)
+
+- **Tarjeta:** #77 (BF-01)
+- **Rama:** bugfix/bf01-77-edicion-sin-cambios
+- **Área:** back, test, docs
+- **Qué hice:**
+  - `update_pet` ahora cuenta como cambio solo los campos cuyo valor es distinto del guardado. Un pedido con los mismos datos no guarda nada, no toca `updated_at` y no manda la mascota a revisión.
+  - Pasé el guardado de la salud a `_update_pet_health`, que guarda solo los datos que cambiaron y no crea un registro de salud vacío.
+  - La validación de "urgente" se borra solo cuando se desmarca de verdad.
+  - 4 tests nuevos: pedido con todos los campos iguales, texto igual con espacios, cambio solo en la salud (sí vuelve a revisión) y salud vacía.
+  - Aclaré la regla en Swagger y en el README.
+- **Decisiones tomadas:** arreglarlo en el back y no solo en el front, porque la regla "un pedido sin cambios no la manda a revisión" (03) tiene que cumplirse aunque alguien llame directo a la API.
+- **Problemas y cómo los resolví:** salió al revisar el PR #159 (FR-08c): guardar el formulario de edición sin tocar nada mandaba una mascota publicada a revisión, porque el back tomaba como cambio cualquier campo que llegaba y el formulario los manda todos. Comprobé que 3 de los 4 tests nuevos fallaban sin el arreglo.
+- **Pendiente:** que Leandro, en el PR #159, mande solo los campos que cambiaron y avise "No hiciste cambios".
+- **PR:** pendiente
+- **IA usada:** Claude Code — para encontrar la causa al revisar el PR #159, escribir el arreglo y los tests, y actualizar Swagger y el README.
+
+## 2026-11-26 — Fotos reales en el seed de mascotas (DB-02a)
+
+- **Tarjeta:** #162 (DB-02a, sub-tarjeta de la épica #37, DB-02)
+- **Rama:** feature/db02-162-fotos-seed-mascotas
+- **Área:** db, back, test, docs
+- **Qué hice:**
+  - Reemplacé los rectángulos de un color del seed por 10 fotos reales de Unsplash (las 7 del maquetado y 3 nuevas para Pancho, Nala y Toby), más 3 de reserva para pruebas, en `backend/apps/pets/seed_images/` (800×600, unos 1,1 MB en total).
+  - Función compartida `load_seed_image()` en `apps/core/seed_images.py` para que alertas (BK-09) y noticias (BK-13) carguen sus fotos igual.
+  - El seed de mascotas reconoce sus fotos por el nombre del archivo: crea las que faltan y, en una base ya cargada, cambia el archivo de las fotos de color en la misma fila (sin borrar ni crear filas).
+  - Arreglé el seed de adopciones: fallaba si desde la app el mismo usuario se había vuelto a postular a una mascota del seed.
+  - Tests nuevos del seed (fotos reales, reemplazo de las de color, fotos agregadas o quitadas desde la app, solicitudes creadas desde la app) y README.
+- **Decisiones tomadas:**
+  - Fotos en el repo y no bajadas al correr el seed, para que ande sin internet (Discussion #136, decisión del grupo).
+  - Reemplazar el archivo en la misma `PetPhoto` (opción A): no rompe la baja lógica y es lo más simple.
+  - El seed sigue restaurando los datos de demo (textos, estados, favoritos), pero no revive fotos quitadas desde la app.
+  - Los créditos a los autores van a la Wiki al final (ToDo List), no en un archivo del repo.
+- **Problemas y cómo los resolví:**
+  - El seed viejo fallaba (`IntegrityError`) si se quitaba la foto principal desde la app y después se corría de nuevo, porque reactivaba la foto quitada en la misma posición que la nueva portada. Ahora busca las fotos por nombre y respeta las quitadas.
+  - En mi base local el seed fallaba entero por una segunda solicitud de Tomás para Bora creada desde la app (`MultipleObjectsReturned`). Ahora toma como del seed la solicitud más vieja.
+  - Comprobé que los dos tests nuevos fallaban con el código viejo y probé en el navegador, con mi base, quitar la portada, subir una foto y editar una mascota del seed, y después correr el seed de nuevo.
+- **Pendiente:** el resto de DB-02 sigue desde DB-02b (ejemplos del maquetado, alertas, noticias, demo completa). Al final, borrar a mano los archivos viejos de color de `media/` y dar crédito a los autores de las fotos en la Wiki.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para buscar y bajar las fotos, escribir la función, el seed y los tests, y probar el CRUD en el navegador contra el back local.
+
+## 2026-11-27 — Prueba de punta a punta y back listo para producción (CR-04a)
+
+- **Tarjeta:** #176 (CR-04a, sub-tarjeta de la épica #42, CR-04)
+- **Rama:** feature/cr04-176-back-produccion
+- **Área:** devops, back, test, docs
+- **Qué hice:**
+  - Prueba de punta a punta de `develop` como usuario (sin sesión, miembro, refugio, staff y admin) en 375px: todo anduvo. Los únicos errores de consola son 404 de páginas del menú que todavía no existen.
+  - Dividí la épica CR-04 (#42) en tres sub-tarjetas: back listo para producción (#176), fotos en Cloudinary (#177) y publicación en Render y Vercel (#178).
+  - Back listo para Render: `gunicorn`, `whitenoise` para los estilos del admin y de Swagger, PostgreSQL por `DATABASE_URL`, protecciones de HTTPS con `DJANGO_SECURE_HTTPS` y la dirección de Render sumada sola a los hosts permitidos.
+  - Imagen de producción `backend/Dockerfile.prod` y `backend/start.sh` (migraciones, seed opcional y gunicorn).
+  - Opción `--allow-production` en el seed para cargar los usuarios de prueba en la demo publicada.
+  - Tests de la configuración y del seed, `.env.example` y README (sección "Deploy del back (Render)").
+- **Decisiones tomadas:**
+  - Front en Vercel, back en Render (con Docker) y base PostgreSQL de Render: alcanza para que el profesor lo controle, aunque la base gratis vence a los 30 días.
+  - HTTPS con una variable propia y no con `DJANGO_DEBUG`, porque el CI corre con `DEBUG=False` y por http.
+  - Migraciones y seed en el arranque, porque el plan gratis de Render no tiene consola ni paso previo al deploy.
+  - Fotos en Cloudinary (#177), porque Render borra los archivos del servidor en cada reinicio.
+- **Problemas y cómo los resolví:**
+  - El seed se negaba a correr con `DEBUG=False`: agregué `--allow-production`, que solo usa `start.sh`; sin la opción sigue protegido.
+  - WhiteNoise avisaba en los tests que no existe `staticfiles/`: filtré ese aviso en pytest.
+  - No pude armar la imagen de Docker porque Docker Desktop estaba cerrado; probé con `runserver` y `DEBUG=False` que el admin, Swagger y la API responden y los estilos salen comprimidos. `check --deploy` solo deja dos avisos de HSTS que no aplican a `onrender.com`.
+- **Pendiente:** PR de #176; crear la cuenta de Cloudinary y hacer #177; publicar y probar en línea (#178).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para la prueba de punta a punta en el navegador, proponer la división de la épica, escribir la configuración de producción, los tests y la documentación.
+
+## 2026-11-27 — Fotos en Cloudinary (CR-04b)
+
+- **Tarjeta:** #177 (CR-04b, sub-tarjeta de la épica #42, CR-04)
+- **Rama:** feature/cr04-177-fotos-cloudinary
+- **Área:** devops, back, test, docs
+- **Qué hice:**
+  - Con `CLOUDINARY_URL`, las fotos subidas y las del seed se guardan en Cloudinary con `django-cloudinary-storage`; sin la variable siguen en `backend/media/`. La API devuelve la dirección de Cloudinary y el front no necesitó cambios (ya muestra fotos de cualquier dirección).
+  - Los tests nunca suben a Cloudinary, aunque el `.env` tenga la variable.
+  - Tests: la configuración elige Cloudinary solo con la variable, y el seed no vuelve a subir fotos al correr de nuevo (Cloudinary las guarda sin extensión y con un sufijo al azar).
+  - Probé la imagen de producción de CR-04a con Docker y PostgreSQL: migraciones, seed, gunicorn, admin con estilos, login y redirección a https. Después, con mi cuenta de Cloudinary: el seed subió las 10 fotos, al reiniciar no las volvió a subir, las direcciones abren y una foto subida desde la API también fue a Cloudinary.
+  - `.env.example` y README al día.
+- **Decisiones tomadas:**
+  - `django-cloudinary-storage` en lugar de un almacenamiento propio: es el paquete de uso común y alcanzó sin cambios.
+  - La clave de Cloudinary nunca pasa por el chat: la cargué en el `.env` con un comando que la pide en la terminal.
+- **Problemas y cómo los resolví:** la primera vez la línea de `CLOUDINARY_URL` quedó con un espacio antes del nombre de la nube; lo saqué y la conexión respondió bien.
+- **Pendiente:** PR de #177; publicar en Render y Vercel y probar en línea (#178).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para elegir el paquete, escribir la configuración y los tests, y probar la imagen de producción con PostgreSQL y Cloudinary.

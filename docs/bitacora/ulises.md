@@ -163,3 +163,153 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise los ajustes del PR #88 para continuar con #86 (BK-03b: publicar, editar, adoptar y dar de baja mascotas con validación de fotos).
 - **PR:** #88
 - **IA usada:** Antigravity — para dividir la épica, implementar los modelos según DB-01, migración, admin, seed y tests con `pytest`.
+
+## 2026-11-20 — Publicar, editar, adoptar, dar de baja mascotas y validación de fotos (BK-03b)
+
+- **Tarjeta:** #86 (BK-03b, sub-tarjeta de #6 BK-03)
+- **Rama:** feature/bk03-86-crud-mascotas-fotos
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Actualicé la rama `feature/bk03-86-crud-mascotas-fotos` con los últimos cambios de `develop` antes de empezar.
+  - Creé el validador reutilizable `validate_image_file` en `apps/core/validators.py` (verifica tamaño ≤ 5 MB y formato real `JPEG`, `PNG` o `WEBP` con Pillow) y lo asocié a `PetPhoto.image` con la migración nueva `apps/pets/migrations/0002_alter_petphoto_image.py`, aplicando la sugerencia de Franco del PR #88.
+  - Implementé `apps/pets/permissions.py` (`can_manage_pet` e `IsPetOwnerOrStaffOrAdmin`) y la capa de servicios en `apps/pets/services.py` (`create_pet`, `update_pet`, `deactivate_pet`, `adopt_pet`, `add_pet_photo` y `remove_pet_photo`) con todas las reglas de negocio en transacciones atómicas.
+  - Implementé serializers, vistas y rutas bajo `/api/pets/`: `POST /api/pets/` (nace siempre en `in_review` y `is_urgent_validated=False`, exige ≥ 1 foto válida, valida largos de texto y fecha de nacimiento, crea `PetHealth`, `PetPhoto` y `PetStatusLog` inicial, y no expone `contact_phone`), `PATCH /api/pets/{id}/`, `DELETE /api/pets/{id}/` (baja lógica), `POST /api/pets/{id}/adopt/` (solo desde `published`, con registro en `PetStatusLog`), `POST /api/pets/{id}/photos/` y `DELETE /api/pets/{id}/photos/{photo_id}/` (baja lógica impidiendo dejar la mascota sin fotos activas).
+  - Escribí 36 tests nuevos con `pytest` en `apps/core/tests/test_validators.py` y `apps/pets/tests/test_api.py` cubriendo validaciones de fotos y textos, flujo completo, protección de campos sensibles, historial `PetStatusLog`, vuelta a revisión y matriz de permisos; verifiqué `ruff format --check .`, `ruff check .`, `spectacular --validate --fail-on-warn` y la suite completa de 111 tests en verde.
+  - Apliqué los ajustes de la revisión del PR #98: formateé con `ruff format`, validé explícitamente que `is_sociable` e `is_neutered` vengan informados en `multipart/form-data`, agregué `@extend_schema` a las 5 vistas de `apps/pets/views.py` (con `ENUM_NAME_OVERRIDES` para `PetCompatibilityEnum` en `settings.py` y cero warnings en Swagger), e implementé la regla de que cuando el autor (no Staff/Admin) edita datos o fotos de una mascota `published`, esta vuelve automáticamente a `in_review` dejando registro en `PetStatusLog`.
+- **Decisiones tomadas:**
+  - Al dar de baja lógica una foto del carrusel (`remove_pet_photo`), compacté las posiciones de las fotos activas restantes (`0..n`) para asegurar que siempre exista una foto principal en `position=0` sin chocar con la restricción de unicidad activa.
+  - En `validate_image_file` validé los bytes reales en memoria con `BytesIO` (después de chequear el límite de 5 MB) y restauré el puntero del archivo con `seek(0)` para que Pillow no cierre el archivo subido antes de que Django lo guarde.
+- **Problemas y cómo los resolví:**
+  - En `POST /api/pets/` con `multipart/form-data`, DRF ignoraba el campo anidado `health` cuando se enviaba como string JSON porque `html.parse_html_dict` espera claves planas; lo resolví sobrescribiendo `get_value` en `PetHealthInputSerializer` para aceptar tanto JSON string en multipart como objetos JSON estándar.
+  - En `multipart/form-data`, DRF interpretaba `is_sociable` e `is_neutered` ausentes como `False` (checkbox sin tildar); lo resolví validando explícitamente su presencia en `self.initial_data` dentro de `PetCreateSerializer.validate()`.
+- **Pendiente:** que Franco revise y apruebe los ajustes del PR #98 para continuar con #87 (`BK-03c`: catálogo público, filtros, ficha pública y Swagger del catálogo).
+- **PR:** #98
+- **IA usada:** Antigravity — para implementar el validador de imágenes, servicios, permisos, serializers, vistas y batería de tests siguiendo las reglas del proyecto.
+
+## 2026-11-20 — Catálogo público, filtros, búsqueda, ficha de mascota y Swagger (BK-03c)
+
+- **Tarjeta:** #87 (BK-03c, sub-tarjeta de #6 BK-03)
+- **Rama:** feature/bk03-87-catalogo-filtros-ficha
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Instalé `django-filter` con `uv` y lo registré en `THIRD_PARTY_APPS` de `config/settings.py`.
+  - Creé `apps/pets/filters.py` con `PetCatalogFilter` soportando `species`, `sex`, `age_group` (`cachorro`, `adulto`, `senior`), `is_sociable`, `good_with_children`, `good_with_animals`, `is_neutered`, `urgent` (solo urgentes validados y no adoptados), `adopted` (sin mezclar disponibles con adoptados) y `search` por nombre.
+  - Agregué en `apps/pets/permissions.py` y `apps/pets/services.py` las reglas de visibilidad de ficha (`can_view_pet`, `get_visible_pet_or_404`), los cortes exactos de edad compartidos (`calculate_age_group`, `subtract_years`) y las consultas optimizadas con `select_related` y `Prefetch` de fotos activas (`get_catalog_pets_queryset`, `get_my_pets_queryset`).
+  - Implementé `GET /api/pets/` (público), `GET /api/pets/{id}/` (público para `published` y `adopted`, restringido a autor/Staff/Admin para `in_review` y `rejected`, sin exponer `contact_phone`) y `GET /api/pets/mine/` (`IsAuthenticated`), todos documentados con `@extend_schema` en Swagger (`spectacular --validate --fail-on-warn` sin warnings).
+  - Escribí 17 tests en `apps/pets/tests/test_catalog_api.py` cubriendo catálogo, todos los filtros y bordes exactos de edad, paginación de a 12 combinada con filtros, privacidad de `contact_phone` e `is_urgent`, visibilidad de ficha, listado propio y esquema OpenAPI (128 tests en total en verde).
+  - Actualicé `README.md` con `django-filter` y la tabla completa de endpoints `/api/pets/` (incluyendo paginación `{ count, next, previous, results }`, `is_urgent` público y `contact_phone` solo para autor/Staff/Admin).
+  - Apliqué las 3 mejoras de la revisión del PR #99: creé `PetPublicSerializer` con `is_urgent` calculado (`is_pet_urgent`: solicitado, validado y no adoptada) sin exponer `is_urgent_requested`, `is_urgent_validated` ni `contact_phone` al público; expuse `contact_phone` en `PetManageSerializer` únicamente cuando consulta el autor, Staff o Admin (en la ficha y en `mine/`); y agregué `StandardPageNumberPagination` (`page_size = 12`) en `apps/core/pagination.py` aplicada a `GET /api/pets/` y `GET /api/pets/mine/` con su documentación en Swagger y README.
+- **Decisiones tomadas:**
+  - Usé un único helper `subtract_years` / `calculate_age_group` tanto en el filtro `age_group` como en el campo calculado `age_group` del serializer, garantizando cortes consistentes con el maquetado (`< 1 año` cachorro, `1..7` adulto, `> 7` senior) incluso en años bisiestos.
+  - En `GET /api/pets/{id}/`, devolví `404` (y no `403`) a terceros cuando una publicación está en `in_review` o `rejected` para no filtrar la existencia de mascotas aún no aprobadas.
+  - Separé `PetPublicSerializer` y `PetManageSerializer` (heredando del primero para mantener DRY) para garantizar que ni el catálogo ni la ficha pública expongan flags internos de urgencia ni el teléfono de contacto.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; `PetCatalogFilter.qs` aplica `status=published` por defecto cuando no se envía `adopted`, evitando que disponibles y adoptados se mezclen en el catálogo.
+- **Pendiente:** que Franco revise y apruebe los ajustes del PR #99 para cerrar la épica #6 (`[BK-03] Mascotas y fotos`).
+- **PR:** #99
+- **IA usada:** Antigravity — para instalar `django-filter`, implementar los filtros, endpoints de lectura, Swagger, actualización del README y tests con `pytest`.
+
+## 2026-11-23 — Modelo Favorite, migración, admin y datos semilla (BK-05a)
+
+- **Tarjeta:** #115 (BK-05a, sub-tarjeta de #8 BK-05)
+- **Rama:** feature/bk05-115-modelo-favoritos-seed
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Dividí la épica #8 (BK-05) en dos sub-tarjetas (#115 BK-05a y #116 BK-05b) y las cargué en el tablero colgadas de #8.
+  - Agregué el modelo `Favorite` en `apps/pets/models.py` heredando de `BaseModel` (`user`, `pet` con `on_delete=models.PROTECT`, `is_active`, `created_at`, `updated_at`) y la restricción `UniqueConstraint(fields=["user", "pet"], name="unique_user_pet_favorite")` según el diseño de DB-01 en el README.
+  - Generé la migración nueva `apps/pets/migrations/0003_favorite.py` y registré `FavoriteAdmin` en `apps/pets/admin.py` usando `SoftDeleteAdminMixin` para bloquear borrados físicos y habilitar acciones de baja lógica y reactivación.
+  - Sumé `SEED_FAVORITES` (5 favoritos de prueba para los usuarios semilla) en `apps/pets/seed.py` con `update_or_create` idempotente.
+  - Agregué `FavoriteFactory` en `apps/pets/tests/factories.py` y cubrí con `pytest` el modelo, la restricción única `(user, pet)` tanto activo como inactivo, la baja lógica y reactivación, el panel de admin y la idempotencia del `seed`.
+- **Decisiones tomadas:**
+  - Mantuve `UniqueConstraint(fields=["user", "pet"])` sin condición parcial (siguiendo exactamente DB-01) y `on_delete=models.PROTECT` (consistente con `AdoptionRequest`): al desmarcar se aplica baja lógica (`is_active=False`) y al volver a marcar se reactiva el mismo registro sin duplicar filas.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; la salida del resumen de `apps/pets/seed.py` conservó el prefijo de mascotas y sumó el conteo de favoritos manteniendo compatibilidad con las pruebas existentes.
+- **Pendiente:** abrir el PR hacia `develop` para que Franco revise la migración y el modelo, y continuar con #116 (`BK-05b`: endpoints de favoritos, filtro `?favorites=true`, campo `is_favorite`, Swagger y tests).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para dividir la épica en GitHub, implementar el modelo `Favorite`, la migración, el admin, los datos semilla y los tests con `pytest`.
+
+## 2026-11-23 — Endpoints de favoritos, filtro en catálogo, is_favorite y Swagger (BK-05b)
+
+- **Tarjeta:** #116 (BK-05b, sub-tarjeta de #8 BK-05)
+- **Rama:** feature/bk05-116-endpoints-favoritos-catalogo
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Actualicé `develop` tras el merge del PR #117 (`BK-05a`) y creé la rama `feature/bk05-116-endpoints-favoritos-catalogo`.
+  - Implementé los servicios de favoritos en `apps/pets/services.py` (`add_favorite`, `remove_favorite`, `get_favorite_pets_queryset`) y la anotación `_annotate_is_favorite` con `Exists(...)` para evitar consultas N+1 en catálogo, ficha y listado propio.
+  - Sumé el filtro `?favorites=true` / `false` en `PetCatalogFilter` (`apps/pets/filters.py`) y el campo calculado `is_favorite` en `PetPublicSerializer` (heredado por `PetManageSerializer`), junto con `FavoriteStatusSerializer`.
+  - Expuse los endpoints `GET /api/pets/favorites/`, `POST /api/pets/{id}/favorite/` y `DELETE /api/pets/{id}/favorite/` en `apps/pets/views.py` y `apps/pets/urls.py`, todos protegidos con `IsAuthenticated` y documentados con `@extend_schema` en Swagger (`spectacular --validate --fail-on-warn` sin warnings).
+  - Escribí 10 tests en `apps/pets/tests/test_favorites_api.py` cubriendo permisos, idempotencia, baja lógica y reactivación, rechazo de mascotas no visibles, paginación, filtro `?favorites=true`, campo `is_favorite` y esquema OpenAPI.
+  - Actualicé la tabla de endpoints `/api/pets/` en `README.md`.
+  - Apliqué los ajustes de la revisión del PR #120: simplifiqué `filter_favorites` en `apps/pets/filters.py` a `queryset.filter(is_favorite=value)` para evitar que `?favorites=false` oculte mascotas por favoritos activos de otros usuarios (sumando el test correspondiente), centralicé `is_authenticated_active_user` y reutilicé `PUBLIC_PET_STATUSES` desde `apps/pets/permissions.py`, anoté `is_favorite` en `get_review_queue_queryset` para evitar N+1 en la cola de Staff y agregué etiquetas e hito al PR #120.
+- **Decisiones tomadas:**
+  - Usé `POST /api/pets/{id}/favorite/` (idempotente: `201` al crear, `200` al reactivar o si ya estaba activo) y `DELETE /api/pets/{id}/favorite/` (baja lógica idempotente, `204`) en lugar de un toggle único para mantener semántica REST predecible ante reintentos o doble clic.
+  - Anoté `is_favorite` mediante `Exists(...)` en el queryset de lectura con fallback seguro en el serializer, garantizando cero consultas N+1 en el catálogo paginado y en la ficha.
+- **Problemas y cómo los resolví:**
+  - Sin inconvenientes; los tests de favoritos, el esquema OpenAPI y `ruff` pasaron en verde.
+- **Pendiente:** que Franco apruebe y mergee los ajustes del PR #120 para cerrar la épica #8 (`[BK-05] Favoritos`) y destrabar `FR-06` (#24 Catálogo).
+- **PR:** #120
+- **IA usada:** Antigravity — para implementar servicios, filtro de catálogo, endpoints, Swagger, documentación en README y tests en `pytest`.
+
+## 2026-11-23 — Página /adopciones, grilla de tarjetas, pestañas por especie y paginación (FR-06a)
+
+- **Tarjeta:** #129 (FR-06a, sub-tarjeta de #24 FR-06)
+- **Rama:** feature/fr06-129-catalogo-grilla-especies
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #24 (FR-06) en tres sub-tarjetas (#129 FR-06a, #130 FR-06b y #131 FR-06c) y las cargué en el tablero colgadas de #24.
+  - Extraje `getWithOptionalAuth<T>` en `frontend/src/lib/pets/api.ts` para que `fetchPets` (igual que `fetchPetById`) adjunte el token Bearer si hay sesión activa, renueve ante `401` y haga fallback anónimo, sumando los tests correspondientes en `api.test.ts`.
+  - Creé `PetCard` (`frontend/src/components/pets/PetCard.tsx`) reutilizando `PetSociabilityTag`, `formatPetSummaryLine`, `getPetCoverPhotoUrl` y `formatPetAge`, con insignias `🚨 Caso Urgente` y `¡Ya encontró hogar! 🧡`, botón de favorito 44×44px preparado para `FR-06c`, contraste WCAG AA (`bg-orange-700`/`hover:bg-orange-800`) y los 5 estados interactivos.
+  - Creé `AdoptionCatalog` (`frontend/src/components/pets/AdoptionCatalog.tsx`) y la ruta `/adopciones` (`frontend/src/app/adopciones/page.tsx`) con `BackButton`, pestañas rápidas (`Todos`, `🐶 Perros`, `🐱 Gatos`), botones `Filtros` y `+ Publicar`, grilla responsive de 1 a 4 columnas, paginación de a 12, `LoadingScreen`, estado de error con reintento y estado vacío.
+  - Escribí 8 tests en `PetCard.test.tsx` y `AdoptionCatalog.test.tsx` (110/110 tests en verde), validé `format`, `lint`, `typecheck` y `next build`, y comparé `/adopciones` contra `contexto-ia/maquetado/adopciones.html` en el navegador en 375px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #139: dejé el botón `+ Publicar` como `<button type="button">` sin destino hasta `FR-08` (evitando el 404 de `/adopciones/publicar`), agrupé `Filtros` + `+` en un bloque `shrink-0` para que bajen juntos a la segunda fila en 375px, actualicé desde `develop` (PR #128) y adapté `PetCard` a `pet.age_label` y `fetchPets` a `requestWithAuth(..., { allowPublicFallback: true })`.
+- **Decisiones tomadas:**
+  - Enlacé foto, título y botón `"Adoptar"` con `<Link>` semánticos hacia `/mascotas/[id]` (en lugar de un `onClick` sobre `<article>`) para garantizar navegación accesible con teclado sin anidar controles interactivos.
+  - Usé `flex-wrap` en la barra de pestañas y botones para que en 375px las 3 pestañas entren en una línea y `Filtros` + `+` bajen limpios a una segunda fila sin recortar el botón `+` contra el borde derecho como sucedía en el maquetado.
+- **Problemas y cómo los resolví:**
+  - `tsc --noEmit` no encontraba `react-hook-form` ni `@hookform/resolvers/zod` porque `frontend/node_modules` no estaba sincronizado con los últimos merges de `develop`; lo resolví con `npm ci` sin modificar `package-lock.json`.
+  - En `AdoptionCatalog.test.tsx`, `BackButton` requería `usePathname` además de `useRouter`; lo agregué al mock de `next/navigation`.
+- **Pendiente:** que Franco apruebe y mergee los ajustes del PR #139 para continuar con #130 (`FR-06b`: modal de filtros avanzados, buscador y filtro `Adoptados`).
+- **PR:** #139
+- **IA usada:** Antigravity — para dividir la épica, actualizar `fetchPets`, implementar `PetCard`, `AdoptionCatalog`, `/adopciones`, los tests en Vitest y la comparación visual en el navegador.
+
+## 2026-11-26 — Modal de filtros avanzados, buscador y filtro Adoptados (FR-06b)
+
+- **Tarjeta:** #130 (FR-06b, sub-tarjeta de #24 FR-06)
+- **Rama:** feature/fr06-130-modal-filtros-adoptados
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Actualicé `develop` (tras el merge del PR #139 y los avances de `FR-08`, `FR-09` y `FR-10`) y creé la rama `feature/fr06-130-modal-filtros-adoptados`.
+  - Creé `CatalogFiltersModal` (`frontend/src/components/pets/CatalogFiltersModal.tsx`) fiel a `#modal-filtros` de `contexto-ia/maquetado/adopciones.html` con buscador por nombre (`text-base` 16px), Edad (`Cachorro` / `Adulto` / `Senior` en 3 switches de selección única), Sociabilidad, Convivencia (niños y otros animales), Castración, `🚨 Solo Casos Urgentes`, Sexo, `Favoritos` y el switch `Adoptados` (`?adopted=true`), con botones fijos abajo (`VER RESULTADOS` y `Limpiar Filtros`), cierre por `Escape`/backdrop/`X`, bloqueo de scroll en `body`, controles ≥ 44px y contraste WCAG AA.
+  - Integré el modal en `AdoptionCatalog` (`frontend/src/components/pets/AdoptionCatalog.tsx`) con `buildCatalogQueryParams`, contador visual de filtros activos en el botón `Filtros`, restauración de foco al cerrar, reseteo de página a 1 al aplicar/limpiar y estados vacíos diferenciados (`"Todavía no tenés favoritos"` vs `"No encontramos animalitos con esos filtros."`).
+  - Escribí 6 tests nuevos en `CatalogFiltersModal.test.tsx` y `AdoptionCatalog.test.tsx`, validé `format`, `lint`, `typecheck`, `vitest` y `next build`, y comparé el modal en el navegador contra `adopciones.html` en 375×812 y 1280×800, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #161: cambié los encabezados de `Sociabilidad`, `Castración` y `Sexo` a `<legend className="sr-only">` + `<div>` visible (igual que `Edad`) para conservar el borde superior y las esquinas redondeadas `rounded-2xl`, y corregí el singular `(1 activo)` en el `aria-label` del botón `Filtros`.
+- **Decisiones tomadas:**
+  - Mantuve el aspecto visual de los 3 switches de Edad del maquetado con selección única (activar uno desmarca los otros) para coincidir 1:1 con el `ChoiceFilter` `?age_group=` del backend sin modificar la API.
+  - Usé un estado borrador (`draft`) dentro del modal para que los cambios solo disparen una consulta a `GET /api/pets/` al confirmar con `VER RESULTADOS` (igual que `adopciones.js`).
+- **Problemas y cómo los resolví:**
+  - En la primera comparación visual en el navegador detecté que usar `flex flex-col gap-5` directo en el `<form>` con `max-h-[90vh] overflow-y-auto` hacía que Flexbox comprimiera verticalmente las secciones (`Edad` y `Sexo`) impidiendo el scroll; lo resolví dejando `<form>` como contenedor de bloque con `overflow-y-auto` y envolviendo las secciones en un `<div className="flex flex-col gap-5">`, re-verificando luego el scroll y el footer `sticky` en los 4 escenarios.
+- **Pendiente:** que Franco apruebe y mergee los ajustes del PR #161 para continuar con #131 (`FR-06c`: favoritos interactivos desde la tarjeta y modal de sesión requerida).
+- **PR:** #161
+- **IA usada:** Antigravity — para implementar `CatalogFiltersModal`, integrarlo en `AdoptionCatalog`, escribir tests en Vitest y realizar la comparación visual en el navegador.
+
+
+## 2026-11-26 — Favoritos interactivos desde tarjeta y modal de sesión requerida (FR-06c)
+
+- **Tarjeta:** #131 (FR-06c, sub-tarjeta de #24 FR-06)
+- **Rama:** feature/fr06-131-favoritos-interactivos-modal-sesion
+- **Área:** front, test, adopcion, docs
+- **Qué hice:**
+  - Actualicé `develop` tras el merge del PR #161 (`FR-06b`) y creé la rama `feature/fr06-131-favoritos-interactivos-modal-sesion`.
+  - Agregué `addPetFavorite` (`POST /api/pets/{id}/favorite/`) y `removePetFavorite` (`DELETE /api/pets/{id}/favorite/`) en `frontend/src/lib/pets/api.ts` usando `requestWithAuth`, con sus tests unitarios en `frontend/src/lib/pets/api.test.ts`.
+  - Conecté el botón de favorito de `PetCard` en `AdoptionCatalog` (`frontend/src/components/pets/AdoptionCatalog.tsx`) con actualización optimista, bloqueo por tarjeta (`busyFavoriteIds`), rollback y aviso accesible (`role="alert"`) ante errores, remoción en vivo de la grilla cuando el filtro `Favoritos` está activo, y apertura de `AuthRequiredModal` (`redirectTo="/adopciones"`) si no hay sesión iniciada.
+  - Sumé 5 tests en `AdoptionCatalog.test.tsx` cubriendo modal sin sesión, alta y baja de favoritos, rollback con aviso descartable ante error de API, remoción en vivo en vista `Favoritos` y cierre automático del modal al iniciar sesión; validé `format`, `lint`, `typecheck`, los 253 tests en Vitest y `next build`.
+  - Comparé `/adopciones` en el navegador contra `contexto-ia/maquetado/adopciones.html` en 375×812 y 1280×800 (modo claro y oscuro), validando el flujo sin sesión y el flujo autenticado completo con el backend local (`POST` 201, persistencia al recargar, filtro `Favoritos` y `DELETE` 204).
+  - Apliqué los ajustes de la revisión del PR #167: unifiqué `AuthRequiredModal` con estado `authModalReason` (`"favorite" | "publish" | null`) para abrir el modal al tocar `+ Publicar` sin sesión con texto propio y `redirectTo="/adopciones/publicar"`, cambié el rollback de favoritos para revertir solo la mascota que falló (sin pisar cambios concurrentes de otras tarjetas), usé `getActionErrorMessage(error)` para priorizar mensajes puntuales del backend y sumé los tests correspondientes.
+- **Decisiones tomadas:**
+  - Reutilicé el componente existente `AuthRequiredModal` pasándole `redirectTo="/adopciones"` y una descripción específica para favoritos, manteniendo consistencia visual y de accesibilidad (`role="dialog"`, foco y cierre por `Escape`/backdrop) con el resto de la app.
+  - Incluí `isAuthenticated` en `requestKey` de `AdoptionCatalog` para que el catálogo se recargue automáticamente con los `is_favorite` reales del usuario cuando cambia el estado de sesión.
+- **Problemas y cómo los resolví:**
+  - En la primera verificación en el navegador detecté que al navegar desde `AuthRequiredModal` a `/login?redirect=%2Fadopciones` y volver por redirección, la caché del router de Next.js conservaba `isAuthModalOpen=true` mostrando el modal encima de la grilla ya autenticada; lo resolví sincronizando `isAuthModalOpen` a `false` cuando `isAuthenticated` pasa a `true` (patrón de estado derivado sin `useEffect`) más el guard `!isAuthenticated && isAuthModalOpen`, y lo re-verifiqué en el navegador y con test de regresión.
+- **Pendiente:** que Franco apruebe y mergee los ajustes del PR #167 para cerrar #131 y dar por completada toda la épica #24 (`[FR-06] Catálogo de adopción`).
+- **PR:** #167
+- **IA usada:** Antigravity — para implementar el cliente de favoritos, conectar la interacción y el modal de sesión en `AdoptionCatalog`, escribir tests en Vitest y verificar el flujo completo en el navegador.

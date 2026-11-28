@@ -93,6 +93,15 @@ class User(AbstractBaseUser, BaseModel):
     city = models.CharField("localidad", max_length=100, blank=True)
     neighborhood = models.CharField("barrio", max_length=100, blank=True)
     address = models.CharField("dirección", max_length=255, blank=True)
+    shelter_public_address = models.CharField(
+        "dirección pública del refugio",
+        max_length=255,
+        blank=True,
+        help_text=(
+            "Solo para Refugio verificado. Aparte de la dirección privada: la ve únicamente "
+            "el adoptante de una solicitud aprobada."
+        ),
+    )
     role = models.ForeignKey(
         Role,
         on_delete=models.PROTECT,

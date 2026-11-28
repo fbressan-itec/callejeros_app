@@ -18,7 +18,7 @@ Proyecto integrador de la **Práctica Profesionalizante II** — Tecnicatura Sup
 
 | Parte | Tecnologías |
 | :--- | :--- |
-| Backend | Python · Django · Django REST Framework · SimpleJWT · drf-spectacular (Swagger) · uv · pytest · ruff |
+| Backend | Python · Django · Django REST Framework · SimpleJWT · django-filter · drf-spectacular (Swagger) · uv · pytest · ruff |
 | Base de datos | ORM de Django · SQLite |
 | Frontend | Next.js · React · TypeScript · Tailwind CSS 4 · Vitest · ESLint · Prettier |
 | DevOps | Docker · GitHub Actions |
@@ -89,6 +89,10 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 
 **Datos de prueba (`seed`):** cada app guarda los suyos en su propio `seed.py` (por ejemplo, `apps/users/seed.py`), con una función `run()` que los crea o actualiza sin duplicar y devuelve un resumen. El comando `seed` encuentra el `seed.py` de cada app y los ejecuta en el orden de `INSTALLED_APPS`. Para sumar datos de una app nueva, creá su `seed.py`: no hace falta tocar el comando. Solo corre con `DJANGO_DEBUG=True`.
 
+**Fotos del `seed`:** son fotos reales libres de derechos (Unsplash) guardadas en el repo, en la carpeta `seed_images/` de cada app (hoy, `apps/pets/seed_images/`), así el `seed` anda sin internet. Al correrlo se copian a `backend/media/`. Para usarlas desde otra app (alertas, noticias), creá su carpeta `seed_images/` y cargalas con `load_seed_image()` de `apps/core/seed_images.py`. Las que empiezan con `extra-` son de reserva para pruebas.
+
+**Correr el `seed` de nuevo:** no duplica datos y vuelve a dejar los datos de prueba como estaban (textos, estados, favoritos). No falla ni pisa lo que se hizo desde la app con esos datos: respeta las fotos agregadas o quitadas y las solicitudes de adopción creadas desde la app. Si tu base tenía las fotos viejas de un solo color, el `seed` las cambia por las reales en la misma foto. Si le cambiaste el nombre a una mascota del `seed`, se vuelve a crear la original.
+
 #### Cuentas de prueba
 
 `python manage.py seed` carga un usuario por rol. Todos usan la contraseña de `SEED_USER_PASSWORD` de tu `.env` (en el `.env.example`, `cambiame-clave-seed-123`) y tienen el teléfono ya verificado.
@@ -103,6 +107,15 @@ uv run python manage.py runserver     # levanta el back en http://localhost:8000
 **Código de verificación:** la verificación por SMS del registro y el código para recuperar la contraseña todavía están maquetados (no se envía ningún SMS ni correo). El código es siempre el de `MOCK_VERIFICATION_CODE` en tu `.env`: por defecto, **`8596`**.
 
 > ⚠️ Son datos de prueba: el `seed` solo corre con `DJANGO_DEBUG=True` y nunca se usa en producción.
+
+#### Panel de administración de Django (`/admin/`)
+
+Solo acceden usuarios activos con rol **Admin** (`http://localhost:8000/admin/`). Para el módulo de cuentas (`apps.users`) permite:
+
+- **Usuarios (`User`):** listado con búsqueda por correo, nombre o apellido y filtros por rol, estado activo y verificación de teléfono. Sin borrado físico.
+- **Alta y contraseñas:** el alta de cuentas se hace solo desde aquí (con contraseña ingresada dos veces, validada con las mismas reglas que el registro y guardada con hash, creando además `UserPreferences`). El cambio de contraseña de otro usuario usa el formulario estándar de Django; nunca se muestra ni edita en texto plano.
+- **Edición, roles y baja lógica:** permite editar datos personales, teléfono y su verificación, correo y la `dirección pública del refugio` (fechas y último ingreso son solo lectura). Cambiar el rol y activar/desactivar (tanto desde la ficha como con las acciones masivas **"Desactivar usuarios seleccionados"** y **"Reactivar usuarios seleccionados"**) pasan por los servicios de `apps/users/services.py`: registran `UserRoleLog` y `UserStatusLog` (motivo `admin_action`), invalidan los tokens de refresco en `token_blacklist` al desactivar e impiden que un Admin se quite su propio rol, se desactive a sí mismo o deje el sistema sin ningún Admin activo.
+- **Roles e historiales (`Role`, `UserRoleLog`, `UserStatusLog`):** son estrictamente de solo lectura; el historial de roles y de estados de cada usuario también se ve en su ficha.
 
 #### Frontend
 
@@ -174,6 +187,53 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `POST /api/auth/logout/` | Público (`AllowAny`) | Invalida el token `refresh` agregándolo a la lista negra (`token_blacklist`). |
 | `GET /api/auth/me/` | Sesión activa (`IsAuthenticated`) | Devuelve los datos y el rol (`member`, `verified_shelter`, `staff`, `admin`) del usuario autenticado. |
 
+#### Endpoints de administración de usuarios (`/api/admin/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `GET /api/admin/roles/` | Solo Admin (`IsAdmin`) | Lista los 4 roles del catálogo (`member`, `verified_shelter`, `staff`, `admin`) con código y nombre de insignia. |
+| `GET /api/admin/users/` | Solo Admin (`IsAdmin`) | Listado paginado de a 12 (`{ count, next, previous, results }`, `?page=2`) de usuarios activos e inactivos, ordenados de más reciente a más antiguo. Soporta filtros (`?role=`, `?is_active=true\|false`) y búsqueda (`?search=` por correo, nombre o apellido). Nunca expone `address` ni `password`. |
+| `GET /api/admin/users/{id}/` | Solo Admin (`IsAdmin`) | Devuelve el detalle de gestión de un usuario (activo o inactivo), su rol y estado, sin exponer `address` ni `password`. |
+| `POST /api/admin/users/{id}/role/` | Solo Admin (`IsAdmin`) | Cambia el rol (`role_code` y `note` opcional ≤ 255) y registra el cambio en `UserRoleLog`. Impide auto-degradación y bajar al último Admin activo; pedir el mismo rol responde `200` sin duplicar historial. |
+| `POST /api/admin/users/{id}/deactivate/` | Solo Admin (`IsAdmin`) | Aplica baja lógica (`is_active=False`), registra `UserStatusLog` (`deactivated`, `admin_action`, `note` opcional ≤ 255) e invalida los tokens de refresco vigentes en `token_blacklist`. Impide auto-desactivación y desactivar al último Admin activo; idempotente si ya estaba inactivo. |
+| `POST /api/admin/users/{id}/reactivate/` | Solo Admin (`IsAdmin`) | Reactiva una cuenta desactivada (`is_active=True`) y registra `UserStatusLog` (`reactivated`, `admin_action`, `note` opcional ≤ 255); idempotente si ya estaba activa. |
+
+#### Endpoints de mascotas (`/api/pets/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `GET /api/pets/` | Público (`AllowAny`) | Catálogo paginado de a 12 (`{ count, next, previous, results }`, `?page=2`) de mascotas activas (`published` por defecto; con `?adopted=true` solo `adopted`). Soporta filtros (`species`, `sex`, `age_group`, `is_sociable`, `good_with_children`, `good_with_animals`, `is_neutered`, `urgent`, `adopted`, `favorites`) y búsqueda por nombre (`search`). Devuelve `age_label`, `is_urgent`, `is_favorite` y `badges` calculados en el servidor y nunca expone `contact_phone` ni flags internos. |
+| `POST /api/pets/` | Sesión activa (`IsAuthenticated`) | Publica una mascota con bloque de salud (`health`), al menos 1 foto válida (JPG/PNG/WEBP ≤ 5 MB) y log inicial en `PetStatusLog`. Nace en `in_review` con `is_urgent_validated=False`; si la carga un `admin`, nace en `published` y, si pidió urgente, con la urgencia validada. |
+| `GET /api/pets/mine/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las mascotas activas publicadas por el usuario autenticado en todos los estados (filtro opcional `?status=`), incluyendo `contact_phone` para edición. |
+| `GET /api/pets/favorites/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las mascotas activas y visibles (`published` o `adopted`) marcadas como favoritas por el usuario autenticado, ordenadas desde la más reciente. |
+| `GET /api/pets/review-queue/` | Staff o Admin (`IsStaffOrAdmin`) | Cola de revisión del panel de Staff: lista paginada de a 12 (`?page=2`) de las mascotas activas en `in_review`, con la ficha de gestión (autor con su rol, `contact_phone`, urgencia pedida y validada, fotos y salud). Primero las que pidieron caso urgente y, dentro de cada grupo, de la más vieja a la más nueva. |
+| `GET /api/pets/{id}/` | Público (`published`/`adopted`) · Autor o Staff/Admin en otros estados | Devuelve la ficha completa con `age_label`, `is_favorite` y `badges` calculados en el servidor (`{ key, tone, icon, text }`). Para el público expone solo `is_urgent` calculado (sin `contact_phone` ni flags internos); para autor, Staff o Admin incluye `contact_phone` y flags internos para edición/gestión. |
+| `POST /api/pets/{id}/favorite/` | Sesión activa (`IsAuthenticated`) | Marca una mascota activa y visible (`published` o `adopted`) como favorita o reactiva el registro si tenía baja lógica (idempotente: `201` al crear, `200` si ya existía). |
+| `DELETE /api/pets/{id}/favorite/` | Sesión activa (`IsAuthenticated`) | Desmarca una mascota de los favoritos del usuario aplicando baja lógica (`is_active=False`, idempotente, `204`). |
+| `PATCH /api/pets/{id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Edita campos permitidos y `health` sin modificar `status`, `is_urgent_validated` ni `published_by`. Si el autor edita una mascota `published`, vuelve a `in_review` y queda en `PetStatusLog`; un pedido con los mismos datos no cuenta como cambio y no la manda a revisión. Una mascota `rejected` no se edita (`400`). |
+| `DELETE /api/pets/{id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Da de baja lógica la mascota (`is_active=False`). |
+| `POST /api/pets/{id}/adopt/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Marca como `adopted` una mascota en estado `published` y registra la transición en `PetStatusLog`. |
+| `POST /api/pets/{id}/approve/` | Staff o Admin (`IsStaffOrAdmin`) | Aprueba una mascota en `in_review`: pasa a `published` (aparece en el catálogo) y registra quién y el motivo (`note`, opcional) en `PetStatusLog`. Si no está en `in_review`, devuelve `400`. |
+| `POST /api/pets/{id}/reject/` | Staff o Admin (`IsStaffOrAdmin`) | Rechaza una mascota en `in_review`: pasa a `rejected` y registra quién y el motivo en `PetStatusLog` (si `note` llega vacío, guarda un motivo genérico). Una rechazada es final: no se edita ni se cambian sus fotos. |
+| `POST /api/pets/{id}/urgency/` | Staff o Admin (`IsStaffOrAdmin`) | Con `{"validated": true}` valida el "caso urgente" que pidió quien publicó; con `false` le quita la validación (la insignia y el filtro `urgent` muestran solo urgencias validadas y no adoptadas). Solo en mascotas `in_review` o `published`; validar una urgencia no pedida devuelve `400`. Cada cambio queda en `PetStatusLog`; pedir el valor que ya tiene responde `200` sin cambios. |
+| `POST /api/pets/{id}/photos/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Sube una nueva foto validada al carrusel (si el autor edita una `published`, vuelve a `in_review`; en una `rejected` devuelve `400`). |
+| `DELETE /api/pets/{id}/photos/{photo_id}/` | Autor, Staff o Admin (`IsPetOwnerOrStaffOrAdmin`) | Da de baja lógica una foto impidiendo dejar a la mascota sin fotos activas y compacta posiciones desde `0` (en una `rejected` devuelve `400`). |
+
+**Insignias calculadas (BK-04):** todas las respuestas de mascotas incluyen el campo de solo lectura `badges` (lista ordenada de `{ key, tone, icon, text }`), calculado en `backend/apps/pets/badges.py` a partir de los datos reales de la mascota; nunca se eligen ni se aceptan desde el cliente.
+
+**Flujo de revisión reutilizable (BK-06):** aprobar y rechazar está escrito una sola vez en `backend/apps/core/review.py` (`ReviewWorkflow`): controla el rol de quien revisa, que la publicación esté activa y en `in_review`, el motivo (hasta 255 caracteres) y el registro en el historial, todo en una transacción. Cada app solo lo configura: las mascotas usan `PetReviewWorkflow` (historial en `PetStatusLog`; solo el Admin publica sin revisión) y los productos de la tienda (BK-12) van a usar `ProductReviewWorkflow` con `ProductStatusLog`.
+
+#### Endpoints de solicitudes de adopción (`/api/adoption-requests/`)
+
+| Método y ruta | Permiso | Qué hace |
+| :--- | :--- | :--- |
+| `POST /api/adoption-requests/` | Sesión activa (`IsAuthenticated`) | Envía el cuestionario de adopción de 4 bloques para una mascota activa y `published` que no haya publicado el mismo usuario: datos personales (edad ≥ 18); hogar y entorno (`housing_type` en texto libre, `home_ownership` y `rental_allows_pets`, obligatorio solo si la vivienda es `rented`); experiencia y rutina (`adoption_reason` opcional), y compromiso (`accepts_commitment`, `accepts_follow_up`, `accepts_return_notice` y `declares_truthful` en `true`, y `accepts_neutering` en `true` solo si la mascota no está castrada). Guarda los datos declarados por el solicitante y nace en `pending`, impidiendo duplicar una solicitud `pending` para la misma mascota. |
+| `GET /api/adoption-requests/mine/` | Sesión activa (`IsAuthenticated`) | Lista paginada de a 12 (`{ count, next, previous, results }`, `?page=2`) de las solicitudes activas enviadas por el usuario autenticado, ordenadas de la más reciente a la más antigua (filtro opcional `?status=pending\|approved\|rejected`). |
+| `GET /api/adoption-requests/review-queue/` | Staff o Admin (`IsStaffOrAdmin`) | Cola de revisión del panel de Staff: lista paginada de a 12 (`?page=2`) de las solicitudes activas en estado `pending`, ordenadas de la más vieja a la más nueva (`created_at` ascendente). |
+| `GET /api/adoption-requests/{id}/` | Solicitante, Staff o Admin (`404` para terceros) | Devuelve el detalle y la respuesta de la solicitud (responde `404` a terceros autenticados para no revelar su existencia). Cuando está `approved`, incluye `foster_contact` (nombre, rol, `contact_phone` de la publicación y `shelter_public_address` si quien publicó es un refugio verificado que la cargó; si no, `null`) para que coordinen el encuentro entre ellos, sin exponer nunca la dirección de la cuenta. Cuando está `rejected`, incluye `rejection_reason` y oculta `foster_contact`. |
+| `POST /api/adoption-requests/{id}/approve/` | Staff o Admin (`IsStaffOrAdmin`) | Aprueba una solicitud en `pending` siempre que la mascota siga activa y `published`: no lleva cuerpo (no hay punto de encuentro que fije Staff), pasa a `approved`, registra `reviewed_by` y `reviewed_at` y devuelve la respuesta con `foster_contact` (sin la dirección de la cuenta). Si no está `pending` o la mascota ya no está disponible, devuelve `400`. |
+| `POST /api/adoption-requests/{id}/reject/` | Staff o Admin (`IsStaffOrAdmin`) | Desaprueba una solicitud en `pending` (permitido incluso si la mascota ya fue adoptada o dada de baja, para no dejar solicitudes colgadas): requiere `rejection_reason` (motivo para el solicitante, hasta 400 caracteres), pasa a `rejected`, registra `reviewed_by` y `reviewed_at` y mantiene `foster_contact` en `null`. Si no está `pending`, devuelve `400`. |
+
 #### Variables de entorno (`.env` / `.env.example`)
 
 | Variable | Ejemplo / por defecto | Para qué sirve |
@@ -182,12 +242,48 @@ Con el backend levantado (`http://localhost:8000`), la documentación interactiv
 | `DJANGO_DEBUG` | `True` | Activa el modo de desarrollo (y habilita el comando `python manage.py seed`). |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts autorizados para responder desde Django. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Orígenes que pueden consumir la API desde el navegador. |
+| `DJANGO_SECURE_HTTPS` | `False` | Solo en producción: `True` activa las protecciones de HTTPS (redirección, cookies seguras y HSTS). |
+| `CSRF_TRUSTED_ORIGINS` | *(vacía)* | Opcional: orígenes extra en los que confía el admin para sus formularios. |
+| `DJANGO_SEED_ON_START` | `False` | Solo en producción: `True` corre el `seed` cada vez que arranca el back publicado. |
+| `DATABASE_URL` | *(sin definir: SQLite)* | Base de datos. En producción, la dirección de PostgreSQL que da Render. |
+| `CLOUDINARY_URL` | *(vacía: fotos en `backend/media/`)* | Solo en producción: guarda las fotos subidas en [Cloudinary](https://cloudinary.com). Es la *API environment variable* de su panel (`cloudinary://...`). Los tests nunca suben fotos, aunque esté definida. |
+| `RENDER_EXTERNAL_HOSTNAME` | *(la define Render)* | Dirección del servicio en Render; se suma sola a `DJANGO_ALLOWED_HOSTS`. |
 | `SEED_USER_PASSWORD` | `cambiame-clave-seed-123` | Contraseña de los usuarios de prueba que carga `python manage.py seed` (mínimo 6 caracteres). |
 | `JWT_ACCESS_LIFETIME_MINUTES` | `60` | Duración en minutos del token de acceso (`access`). |
 | `JWT_REFRESH_LIFETIME_DAYS` | `1` | Duración en días del token de refresco sin `"Recordarme"`. |
 | `JWT_REMEMBER_ME_REFRESH_LIFETIME_DAYS` | `30` | Duración en días del token de refresco con `"Recordarme"`. |
 | `MOCK_VERIFICATION_CODE` | `8596` | Código único de 4 dígitos para la verificación de teléfono y el recupero de contraseña maquetados. |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | URL base de la API que consume el cliente del frontend. |
+
+### Deploy del back (Render)
+
+El back se publica en [Render](https://render.com) con la imagen de producción `backend/Dockerfile.prod`, distinta de la de desarrollo:
+
+- **gunicorn** en lugar de `runserver`, sin las herramientas de test.
+- **WhiteNoise** sirve los estilos del admin y de Swagger; `collectstatic` se corre al armar la imagen.
+- **`backend/start.sh`**, al arrancar, aplica las migraciones, corre el `seed` si `DJANGO_SEED_ON_START=True` (con `--allow-production`, para tener los usuarios de prueba en la demo) y levanta gunicorn en el puerto que indica Render (`$PORT`).
+- **PostgreSQL** de Render, por `DATABASE_URL`. En local sigue SQLite: si la variable no está, no cambia nada.
+- **Cloudinary** guarda las fotos subidas (y las del `seed`), por `CLOUDINARY_URL`, con `django-cloudinary-storage`. La API devuelve la dirección de Cloudinary de cada foto y el front la muestra sin cambios. El `seed` reconoce las fotos que ya subió: al arrancar de nuevo no las vuelve a subir. En local, sin la variable, siguen en `backend/media/`.
+
+Configuración del servicio en Render (*New → Web Service*, desde este repo):
+
+| Campo | Valor |
+| :--- | :--- |
+| Language | Docker |
+| Branch | `develop` |
+| Root Directory | `backend` |
+| Dockerfile Path | `./Dockerfile.prod` |
+
+Variables del servicio: `DJANGO_SECRET_KEY` (una nueva, larga y aleatoria), `DJANGO_DEBUG=False`, `DJANGO_SECURE_HTTPS=True`, `DATABASE_URL` (la *Internal Database URL* de la base de Render), `CORS_ALLOWED_ORIGINS` (la dirección del front en Vercel), `SEED_USER_PASSWORD`, `DJANGO_SEED_ON_START=True` y `CLOUDINARY_URL`. `DJANGO_ALLOWED_HOSTS` puede quedar vacía: Render agrega su dirección sola.
+
+> **Limitaciones del plan gratis:** el back se apaga tras 15 minutos sin uso y la primera visita después tarda alrededor de un minuto. Render borra los archivos del servidor en cada reinicio: por eso la base es PostgreSQL (aparte) y las fotos van a Cloudinary. La base gratis de Render vence a los 30 días.
+
+Para probar la imagen de producción en tu compu (desde `backend/`, con Docker Desktop abierto):
+
+```bash
+docker build -f Dockerfile.prod -t callejeros-back-prod .
+docker run --rm -p 8000:8000 --env-file ../.env -e DJANGO_DEBUG=False callejeros-back-prod
+```
 
 ## Base de datos
 
@@ -268,6 +364,7 @@ erDiagram
         string city
         string neighborhood
         string address "privado: nunca se expone"
+        string shelter_public_address "solo Refugio verificado: la ve el adoptante aprobado"
         int role_id FK
         bool is_active "estado actual"
         datetime created_at
@@ -412,11 +509,25 @@ erDiagram
         string address
         string city
         string housing_type "texto libre"
+        string home_ownership "owned|rented|other"
+        string rental_allows_pets "yes|no|unknown, solo si es rented"
+        string outdoor_space
+        string household_members
+        string household_agreement "yes|not_discussed"
         string other_pets
+        string previous_pets
+        string hours_alone "less_than_4|4_to_8|more_than_8"
+        string living_space
+        string vacation_care
+        string contingency_plan
+        string adoption_reason "opcional"
         bool accepts_commitment "obligatorio"
+        bool accepts_neutering "true o vacío: solo si la mascota no está castrada"
+        bool accepts_follow_up "obligatorio"
+        bool accepts_return_notice "obligatorio"
+        bool declares_truthful "obligatorio"
         string status "pending|approved|rejected"
         string rejection_reason
-        string meeting_point "lo completa Staff al aprobar"
         int reviewed_by_id FK
         datetime reviewed_at
         bool is_active
@@ -465,7 +576,7 @@ erDiagram
 | `PetPhoto` | Fotos del carrusel; la de `position` 0 es la principal. Al menos una por mascota. |
 | `PetStatusLog` | Historial de revisiones y cambios de estado: quién, cuándo y el motivo de un rechazo. |
 | `Favorite` | Tabla intermedia usuario ↔ mascota (muchos a muchos). Exige cuenta. |
-| `AdoptionRequest` | Solicitud de adopción con el cuestionario de 3 bloques y la respuesta de Staff. |
+| `AdoptionRequest` | Solicitud de adopción con el cuestionario de 4 bloques (datos personales, hogar y entorno, experiencia y rutina, y compromiso) y la respuesta de Staff. |
 | `Sponsorship` | Apadrinamiento registrado, sin cobro real. `pet_id` vacío = fondo general. |
 | `Product` | Producto de la tienda. Los de Refugio verificado arrancan en `in_review`; los de Staff y Admin, en `published`. |
 | `ProductStatusLog` | Historial de revisiones de productos. |
@@ -473,12 +584,12 @@ erDiagram
 **Reglas de adopción y colaborar:**
 - **No se guardan, se calculan:** las insignias de la mascota, su edad y grupo de edad (desde `estimated_birth_date`) y la cantidad de padrinos (desde `Sponsorship`).
 - **Caso urgente:** se muestra solo si `is_urgent_requested` e `is_urgent_validated` son verdaderos y la mascota no está adoptada.
-- **Solicitud aprobada:** el contacto del hogar de tránsito sale de quien publicó la mascota (nombre, insignia de rol y `contact_phone`); el punto de encuentro público lo escribe Staff en `meeting_point`. La dirección nunca se muestra.
+- **Solicitud aprobada:** el contacto sale de quien publicó la mascota (nombre, insignia de rol y `contact_phone`) y, si es Refugio verificado, se suma su `shelter_public_address`. No hay punto de encuentro: coordinan entre ellos. La dirección de la cuenta (`address`) nunca se muestra.
 - **La solicitud copia** nombre, email y teléfono del solicitante: guarda lo que declaró en ese momento, aunque después cambie sus datos.
 - **Restricciones en la base:**
   - `Favorite`: un solo favorito por usuario y mascota (`user_id` + `pet_id` únicos);
   - `PetPhoto`: posiciones únicas por mascota entre las fotos activas (dar de baja lógica una foto libera su posición);
-  - `AdoptionRequest`: `age` ≥ 18, `accepts_commitment` verdadero y una sola solicitud pendiente por persona y mascota;
+  - `AdoptionRequest`: `age` ≥ 18; `accepts_commitment`, `accepts_follow_up`, `accepts_return_notice` y `declares_truthful` verdaderos; `accepts_neutering` verdadero o vacío; `rental_allows_pets` completo solo si `home_ownership` es `rented`, y una sola solicitud pendiente por persona y mascota;
   - `Sponsorship`: `monthly_amount` ≥ 500.
 
 ### Comunidad: alertas, noticias, comentarios y notificaciones
@@ -600,7 +711,7 @@ Cada versión es un hito del tablero: al cerrarlo, `develop` pasa a `main` por P
 | Versión | Estado | Qué trae |
 | :--- | :--- | :--- |
 | **v0.1** | ✅ Publicada | Proyecto base (Django, Next, Docker y CI), base de datos (DB-01), usuarios, roles y autenticación con JWT, layout general (barra, menú, modo oscuro, footer y botón de alerta), login, registro con verificación por SMS (maquetada) y recuperar contraseña. Adelanto de v0.2: modelos de mascotas y su `seed`. |
-| v0.2 | 🚧 En curso | Adopción: mascotas, insignias, favoritos, solicitudes y panel de Staff. |
+| **v0.2** | ✅ Publicada | Adopción: inicio, catálogo con filtros y buscador, ficha con insignias calculadas, favoritos, publicar, editar y dar de baja mascotas con fotos, cuestionario de adopción y su respuesta, y panel de Staff (publicaciones en revisión, caso urgente y solicitudes). Adelantos: fotos reales en el `seed` (DB-02a), administración de usuarios y roles (BK-15) y back listo para producción con fotos en Cloudinary (CR-04a y CR-04b). |
 | v0.3 | Pendiente | Alertas, mapa, comentarios y notificaciones. |
 | v0.4 | Pendiente | Apadrinamiento, tienda, noticias, Mi Cuenta y panel de Admin. |
 | v1.0 | Pendiente | Cierre: README, Swagger, accesibilidad y deploy si hay tiempo. |
@@ -616,3 +727,8 @@ Cada versión es un hito del tablero: al cerrarlo, `develop` pasa a `main` por P
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/) (`feat(auth): agrega endpoint de login`). Se revisan automáticamente en cada PR, igual que el nombre de la rama.
 - **Pull Requests:** todo entra a `develop` por PR, con revisión de código y *merge commit* (cada commit queda visible en el historial). `main` y `develop` están protegidas: no se puede subir directo.
 - **Bitácora:** cada integrante registra su avance en [`docs/bitacora/`](docs/bitacora/LEEME.md).
+- **Discussions:** [preguntas frecuentes, ideas y anuncios del equipo](https://github.com/fbressan-itec/callejeros_app/discussions). Las guías para trabajar en el proyecto:
+  - [¿Cómo empiezo a trabajar en una tarjeta?](https://github.com/fbressan-itec/callejeros_app/discussions/132)
+  - [¿Cómo levanto el proyecto en mi compu?](https://github.com/fbressan-itec/callejeros_app/discussions/133)
+  - [¿Cómo se hacen los merge y qué hago si mi PR tiene conflictos?](https://github.com/fbressan-itec/callejeros_app/discussions/134)
+  - [¿Qué tengo en cuenta si mi tarjeta toca la base de datos?](https://github.com/fbressan-itec/callejeros_app/discussions/135)

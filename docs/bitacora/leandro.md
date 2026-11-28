@@ -70,3 +70,268 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** que Franco revise el ajuste del PR #95 y cierre la épica #21 (`[FR-03] Login, registro y recuperar contraseña`).
 - **PR:** #95
 - **IA usada:** Antigravity — para implementar la pantalla `/recuperar` en 3 pasos con validación `zod`, sus tests con Vitest y la comparación visual en el navegador.
+
+## 2026-11-20 — Servicio de cálculo de insignias, edad legible y tests unitarios (BK-04a)
+
+- **Tarjeta:** #100 (BK-04a, sub-tarjeta de #7 BK-04)
+- **Rama:** feature/bk04-100-servicio-insignias
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Dividí la épica #7 (BK-04) en dos sub-tarjetas (#100 BK-04a y #101 BK-04b), las colgué como sub-issues de #7 en el tablero y las asigné a mi usuario.
+  - Implementé `backend/apps/pets/badges.py` con los enums `AgeGroup`, `BadgeKey`, `BadgeTone`, `BadgeIcon`, el tipo `PetBadge`, el formateo de edad legible `format_pet_age` y el servicio `get_pet_badges`, respetando exactamente el orden, tonos y textos de `03-reglas-de-negocio.md` y `contexto-ia/maquetado/js/mascota.js`.
+  - Reexporté los símbolos de edad e insignias desde `backend/apps/pets/services.py` para centralizar la lógica de negocio sin duplicar código ni romper importaciones existentes de `filters.py`, `serializers.py` y `views.py`.
+  - Escribí 36 casos de prueba unitarios en `backend/apps/pets/tests/test_badges.py` cubriendo cada insignia, todas sus variantes, el orden exacto, la prioridad de `"¡Ya encontró hogar! 🧡"` sobre `"Caso urgente"`, el requerimiento de validación de urgencia, la concordancia de género en castración, los cuidados especiales y los bordes de edad (incluido el 29 de febrero).
+  - Apliqué los ajustes de la revisión del PR #102: pasé el corte de `senior` a 8 años cumplidos en `calculate_age_group` y en `PetCatalogFilter.filter_age_group` (con tests en `7 años y 364 días` → `adulto` y `8 años` → `senior`, 38 casos en `test_badges.py`), igualé las mayúsculas del texto de edad al maquetado (`"1 Año"`, `"2 Años"`, `"1 Mes"`, `"8 Meses"`, `"Menos de 1 Mes"`), quité los reexports de `services.py` para importar directo desde `apps.pets.badges`, corregí la dependencia de `#101` a `#100` y agregué etiquetas e hito (`v0.2`) al PR #102.
+- **Decisiones tomadas:**
+  - Separé la lógica de cálculo de insignias en `apps/pets/badges.py` y actualicé `filters.py`, `serializers.py` y `views.py` para importarla directo desde allí sin reexports intermedios en `services.py`, devolviendo cada insignia con la estructura `{key, tone, icon, text}` desacoplada del HTML/SVG del frontend.
+  - Unifiqué el corte de `senior` en 8 años cumplidos (`subtract_years(today, 8)`) entre `calculate_age_group`, `format_pet_age` y el filtro del catálogo para que una mascota de 7 años y algunos meses siga siendo `Adulto`.
+- **Problemas y cómo los resolví:**
+  - En la revisión del PR #102 Franco detectó que cortar `senior` por días al superar los 7 años exactos producía `"Senior (más de 7 años): 7 años"` para mascotas de 7 años y meses; lo resolví alineando el corte de `senior` a 8 años cumplidos en servicio y filtro, y cubriendo ambos bordes en los tests.
+- **Pendiente:** que Franco revise los ajustes del PR #102 para continuar con #101 (BK-04b: exposición de `badges` en la API, Swagger, README y tests de integración).
+- **PR:** #102
+- **IA usada:** Antigravity — para dividir la épica, implementar el servicio de cálculo de insignias y edad legible, y escribir los tests unitarios con `pytest`.
+
+## 2026-11-22 — Exposición de insignias calculadas en la API de mascotas, Swagger, README y tests de integración (BK-04b)
+
+- **Tarjeta:** #101 (BK-04b, sub-tarjeta de #7 BK-04)
+- **Rama:** feature/bk04-101-api-insignias
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Agregué `PetBadgeSerializer` (`key`, `tone`, `icon`, `text`, todos `read_only=True`) y el campo calculado `badges` en `PetPublicSerializer` (heredado por `PetManageSerializer`), anotado con `@extend_schema_field(PetBadgeSerializer(many=True))` para su tipado completo en Swagger.
+  - Actualicé las descripciones de `@extend_schema` en `backend/apps/pets/views.py` (`GET /api/pets/` y `GET /api/pets/{id}/`) y validé el esquema OpenAPI con `manage.py spectacular --validate --fail-on-warn`.
+  - Escribí 7 tests de integración en `backend/apps/pets/tests/test_badges_api.py` cubriendo `badges` en catálogo (disponibles, urgentes validados/no validados y `?adopted=true`), ficha, mis publicaciones, alta, edición, adopción, validación de urgencia por Staff, ignorado de `badges` enviados por el cliente y el esquema `/api/schema/`.
+  - Documenté el campo calculado `badges` en la sección de endpoints de mascotas de `README.md`.
+- **Decisiones tomadas:**
+  - Expuse `badges` en `PetPublicSerializer` para que todos los serializers de lectura de mascotas (`PetPublicSerializer` y `PetManageSerializer`) incluyan automáticamente las insignias calculadas sin duplicar código, mientras `PetCreateSerializer` y `PetUpdateSerializer` no declaran el campo para garantizar que nunca se elijan a mano desde el cliente.
+- **Problemas y cómo los resolví:**
+  - En el test del esquema OpenAPI `drf-spectacular` nombra el esquema de `PATCH` como `PatchedPetUpdate` (por `partial=True`) en lugar de `PetUpdate`; ajusté el nombre en la aserción del test y quedó en verde.
+- **Pendiente:** abrir el PR de #101 para revisión de Franco y cerrar la épica #7 (`[BK-04] Insignias calculadas`) una vez mergeado.
+- **PR:** #109
+- **IA usada:** Antigravity — para exponer `badges` en serializers y Swagger, escribir los tests de integración con `pytest` y actualizar `README.md`.
+
+## 2026-11-22 — Modelo de solicitudes de adopción, endpoints del solicitante, Swagger y datos semilla (BK-07a)
+
+- **Tarjeta:** #110 (BK-07a, sub-tarjeta de #10 BK-07)
+- **Rama:** feature/bk07-110-solicitudes-adopcion-solicitante
+- **Área:** back, db, test, docs
+- **Qué hice:**
+  - Dividí la épica #10 (BK-07) en dos sub-tarjetas por funcionalidad (#110 BK-07a y #111 BK-07b), las colgué como sub-issues de #10 en GitHub, me asigné la épica y sus sub-tarjetas, y moví #10 y #110 a "En curso" en el tablero.
+  - Creé la app `backend/apps/adoptions/` con el modelo `AdoptionRequest(BaseModel)` fiel al diseño de DB-01 en `README.md` (`CheckConstraint` de `age >= 18` y `accepts_commitment = True`, `UniqueConstraint` condicional de una sola solicitud `pending` activa por solicitante y mascota, índice compuesto `(status, created_at)`), su migración `0001_initial.py` y su registro en Django Admin con `SoftDeleteAdminMixin` (campos de revisión en solo lectura).
+  - Implementé los permisos (`IsApplicantOrStaffOrAdmin`), los servicios de negocio (`create_adoption_request`, `get_my_adoption_requests_queryset`, `get_active_adoption_request_or_404`), los serializers y los endpoints `POST /api/adoption-requests/`, `GET /api/adoption-requests/mine/` y `GET /api/adoption-requests/{request_id}/` con documentación `@extend_schema` validada sin warnings (`spectacular --validate --fail-on-warn`).
+  - Agregué `backend/apps/adoptions/seed.py` idempotente con 3 solicitudes de ejemplo (una en cada estado: `pending`, `approved` con `meeting_point` y `rejected` con `rejection_reason`), autodescubierto por `python manage.py seed`.
+  - Escribí 45 tests nuevos con `pytest` en `apps/adoptions/tests/` (`test_models.py`, `test_admin.py`, `test_services.py`, `test_api.py` y `test_seed.py`) y documenté los endpoints en `README.md`.
+  - Apliqué los ajustes de la revisión del PR #112: bloqueé en `create_adoption_request` que alguien se postule a una mascota que publicó él mismo (devolviendo error en `pet`), e igualé `GET /api/adoption-requests/{request_id}/` al criterio de las fichas de mascotas devolviendo `404` cuando un tercero autenticado consulta una solicitud ajena (mediante `get_visible_adoption_request_or_404`), sumando los tests correspondientes (48 tests en `apps/adoptions/tests/`).
+- **Decisiones tomadas:**
+  - Creé la app separada `apps.adoptions` (registrada en `LOCAL_APPS` después de `apps.pets`) para mantener el dominio de solicitudes desacoplado de `apps.pets` y aprovechar el autodescubrimiento de `seed.py` en orden de dependencias.
+  - Expuse `foster_contact` (nombre, rol y `contact_phone` de la publicación) únicamente cuando `status == "approved"`, ocultándolo (`null`) en `pending` y `rejected` y garantizando que nunca se incluya la dirección del hogar de tránsito.
+  - Sumé `PetStatusEnum` y `AdoptionRequestStatusEnum` en `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]` para evitar colisiones de nombres de enum `status` en OpenAPI.
+- **Problemas y cómo los resolví:**
+  - Al validar OpenAPI con `manage.py spectacular --validate --fail-on-warn`, `drf-spectacular` detectó una colisión entre los enums `status` de `Pet` y `AdoptionRequest`; la resolví registrando ambos en `ENUM_NAME_OVERRIDES` de `settings.py` y el esquema quedó con 0 warnings.
+- **Pendiente:** que Franco revise los ajustes del PR #112 para continuar con #111 (BK-07b: cola de revisión de Staff, aprobar y rechazar solicitudes).
+- **PR:** #112
+- **IA usada:** Antigravity — para dividir la épica, crear la app `adoptions`, implementar el modelo `AdoptionRequest`, los servicios, serializers, endpoints, Swagger, `seed.py`, los tests con `pytest` y actualizar `README.md`.
+
+## 2026-11-22 — Revisión de solicitudes de adopción en el panel de Staff (cola, aprobar y rechazar) (BK-07b)
+
+- **Tarjeta:** #111 (BK-07b, sub-tarjeta de #10 BK-07)
+- **Rama:** feature/bk07-111-revision-solicitudes-staff
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Eliminé `IsApplicantOrStaffOrAdmin` sin uso en `backend/apps/adoptions/permissions.py` según la observación de Franco al aprobar el PR #112.
+  - Implementé en `backend/apps/adoptions/services.py` la cola `get_adoption_review_queue_queryset` (solicitudes activas en `pending`, de más vieja a más nueva aprovechando el índice `(status, created_at)`) y el flujo `AdoptionRequestReviewWorkflow` (`approve_adoption_request` y `reject_adoption_request`) siguiendo las convenciones de `apps/core/review.py`: control de rol `Staff`/`Admin` en el servicio, transacción atómica con `select_for_update()`, validación de estado `pending` y vigencia, `meeting_point` obligatorio (≤ 255) al aprobar, `rejection_reason` obligatorio (≤ 400) al desaprobar, registro de `reviewed_by` y `reviewed_at`, y ganchos `on_approved` / `on_rejected` preparados para notificaciones en BK-08 (#11).
+  - Agregué `AdoptionRequestApproveSerializer` y `AdoptionRequestRejectSerializer` en `serializers.py` y los endpoints `GET /api/adoption-requests/review-queue/`, `POST /api/adoption-requests/{request_id}/approve/` y `POST /api/adoption-requests/{request_id}/reject/` (`IsAuthenticated`, `IsStaffOrAdmin`) con `@extend_schema` validado sin warnings (`spectacular --validate --fail-on-warn`).
+  - Escribí 22 tests nuevos en `apps/adoptions/tests/test_review_services.py` y `test_review_api.py` cubriendo permisos por rol, orden y paginación de la cola, validaciones, transiciones de estado, ganchos de notificación, privacidad del hogar de tránsito y esquema OpenAPI, y actualicé `README.md`.
+- **Decisiones tomadas:**
+  - Implementé `AdoptionRequestReviewWorkflow` con la misma estructura de `apps/core/review.py` (verificación de rol en servicio, `select_for_update()` y ganchos `on_approved`/`on_rejected`) en lugar de forzar `ReviewWorkflow` de publicaciones porque las solicitudes usan campos propios (`meeting_point`, `rejection_reason`, `reviewed_by`, `reviewed_at`) y estados `pending` → `approved` / `rejected` sin tabla `*StatusLog`.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; la suite completa del backend pasó en verde tras validar `ruff` y `drf-spectacular`.
+- **Pendiente:** abrir el PR de #111 para revisión de Franco y cerrar la épica #10 (`[BK-07] Solicitudes de adopción`) una vez mergeado.
+- **PR:** #113
+- **IA usada:** Antigravity — para limpiar `permissions.py`, implementar los servicios y endpoints de revisión de Staff, documentar Swagger y `README.md`, y escribir los tests con `pytest`.
+
+## 2026-11-23 — Validación de disponibilidad de la mascota al aprobar una solicitud de adopción (cierre BK-07)
+
+- **Tarjeta:** #10 (BK-07, ajuste pedido por Franco al aprobar el PR #113)
+- **Rama:** bugfix/bk07-10-validar-mascota-al-aprobar
+- **Área:** back, test, docs
+- **Qué hice:**
+  - En `AdoptionRequestReviewWorkflow` (`backend/apps/adoptions/services.py`), agregué dentro de la transacción atómica (`select_for_update().select_related("pet")`) la validación de que la mascota siga activa y en estado `published` al aprobar una solicitud (`ValidationError` en `pet` con `"Esta mascota ya no está disponible para adopción."`).
+  - Mantuve habilitado el rechazo (`reject`) incluso si la mascota ya fue adoptada o dada de baja para que las solicitudes pendientes no queden colgadas en la cola de Staff.
+  - Sumé tests en `test_review_services.py` y `test_review_api.py` cubriendo aprobar (`400`) y rechazar (`200`) sobre mascotas adoptadas, no publicadas o inactivas, y actualicé Swagger (`views.py`) y `README.md`.
+- **Decisiones tomadas:**
+  - Controlé la disponibilidad de la mascota con un flag `require_available_pet` dentro de `_apply_review` (`True` en `approve`, `False` en `reject`) sobre la fila bloqueada junto con `select_related("pet")`, evitando duplicar la transacción.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; todas las validaciones (`ruff`, `spectacular --validate --fail-on-warn` y `pytest`) pasaron en verde.
+- **Pendiente:** abrir el PR hacia `develop` con `Closes #10` para revisión de Franco y cerrar la épica `[BK-07] Solicitudes de adopción`.
+- **PR:** #114
+- **IA usada:** Antigravity — para agregar la validación de disponibilidad de la mascota al aprobar, los tests con `pytest` y actualizar Swagger, `README.md` y la bitácora.
+
+## 2026-11-23 — Ruta /mascotas/[id], barra superior, carrusel de fotos y estados de carga/error (FR-07a)
+
+- **Tarjeta:** #118 (FR-07a, sub-tarjeta de #25 FR-07)
+- **Rama:** feature/fr07-118-ruta-carrusel-ficha
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #25 (FR-07) en dos sub-tarjetas funcionales (#118 FR-07a y #119 FR-07b), las colgué como sub-issues de #25 en GitHub, me asigné #25, #118 y #119 y moví #25 y #118 a "En curso" en el tablero.
+  - Creé los tipos (`src/lib/pets/types.ts`) y el cliente de lectura (`src/lib/pets/api.ts`) consumiendo `GET /api/pets/{id}/` a través de `src/lib/api/client.ts`, con validación de ID (`parsePetId`), normalización de URLs de fotos (`resolvePetImageUrl`), edad legible alineada a `backend/apps/pets/badges.py` (`formatPetAge`) y manejo de sesión Bearer con renovación/fallback público ante `401`.
+  - Implementé la ruta dinámica `/mascotas/[id]` (`src/app/mascotas/[id]/page.tsx`) y `PetDetailView` con barra superior fija (`BackButton` en modo `iconOnly` hacia `/adopciones` + nombre truncado), título dinámico del documento, `LoadingScreen` mientras espera, vista `"No encontramos esta mascota"` en `404`/ID inválido y aviso de error con reintento usando `ApiError`.
+  - Envolví `AppHeader` y `AlertFab` en `<Suspense>` dentro de `src/app/layout.tsx` para cumplir con `cacheComponents: true` de Next 16 al incorporar la primera ruta dinámica del proyecto.
+  - Implementé `PetPhotoCarousel` fiel a `contexto-ia/maquetado/mascota.html` adaptado a Tailwind 4 (`scroll-snap`, `@utility no-scrollbar`, contador `1 / N`, flechas desde `sm:`, puntitos táctiles de 44×44 px, degradado inferior fijo `bg-linear-to-t` con `line-clamp-2` y botón `"Ver más"` solo cuando el texto se corta).
+  - Escribí 18 tests nuevos con Vitest y Testing Library (`api.test.ts`, `PetPhotoCarousel.test.tsx` y `PetDetailView.test.tsx`, 73 tests en total pasando) y realicé la comparación visual en navegador contra `mascota.html` en 375 px y 1280 px, modo claro y oscuro.
+- **Decisiones tomadas:**
+  - En `PetDetailView` derivé el estado de carga a partir de una clave `petId:reloadCount` para evitar `setState` sincrónico dentro de `useEffect` (regla `react-hooks/set-state-in-effect` de React 19).
+  - Usé `next/image` con `fill` y `unoptimized` en el carrusel para cumplir `@next/next/no-img-element` sin bloquear imágenes servidas desde `localhost:8000` o almacenamiento externo.
+  - Dejé sin renderizar el botón de favorito (`♡`) hasta que se integre `BK-05 (#8)`, evitando heredar `LocalStorage` del maquetado.
+- **Problemas y cómo los resolví:**
+  - Al correr `npm run build`, Next 16 (`cacheComponents: true`) rechazó `usePathname()` fuera de `<Suspense>` en `AppHeader` y `AlertFab` al prerenderizar la primera ruta dinámica; lo resolví envolviendo ambos en `<Suspense>` en `layout.tsx` según `use-pathname.md`.
+  - En la comparación visual en navegador la scrollbar horizontal del carrusel seguía visible porque `.no-scrollbar` estaba fuera de `@utility` en Tailwind 4; la pasé a `@utility no-scrollbar` en `globals.css` y verifiqué en el navegador que desapareció por completo.
+- **Pendiente:** abrir el PR de #118 hacia `develop` para revisión de Franco y continuar con #119 (FR-07b: insignias calculadas, padrinos, desplegables, acciones y estado adoptada).
+- **PR:** #121
+- **IA usada:** Antigravity — para dividir la épica, implementar el cliente de mascotas, la ruta `/mascotas/[id]`, el carrusel, los tests con Vitest y la comparación visual en navegador.
+
+## 2026-11-23 — Insignias calculadas, padrinos, desplegables de información, acciones y estado adoptada (FR-07b)
+
+- **Tarjeta:** #119 (FR-07b, sub-tarjeta de #25 FR-07)
+- **Rama:** feature/fr07-119-insignias-desplegables-acciones
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Apliqué las sugerencias de Franco del PR #121: extraje `requestWithAuth` en `src/lib/auth/session.ts` para centralizar el envío del token Bearer, la renovación ante `401` y el fallback público (reutilizado en `fetchCurrentUser` y `fetchPetById`), y eliminé `formatPetAge` de `src/lib/pets/api.ts` junto con sus tests para que la regla de edad viva únicamente en el backend.
+  - Implementé `PetBadges` (`src/components/pets/PetBadges.tsx`) fiel a `mascota.html` y `js/mascota.js`, renderizando las `badges` calculadas por el servidor (`BK-04`) con los SVG de línea 24×24, los tonos en modo claro/oscuro, botones circulares de 48 px y la leyenda accesible (`aria-live="polite"`) ante click, hover y foco con teclado.
+  - Implementé `PetInfoAccordions` (`src/components/pets/PetInfoAccordions.tsx`) con el bloque de padrinos y los 3 desplegables `<details>` cerrados por defecto (`Descripción`, `Estado de salud` y `Notas`), filas de convivencia (`✓ Sí`, `✗ No`, `? Sin evaluar`) y extracción de la edad desde la insignia `age` calculada por el servidor.
+  - Implementé `PetActions` (`src/components/pets/PetActions.tsx`) con banner `"¡Ya encontró hogar! 🧡"` (sin postulación) cuando `status === "adopted"`, botón `"¡Adoptame!"` con `AuthRequiredModal` sin sesión (`?redirect=/mascotas/[id]`) y gancho preparado para `FR-09`, enlace `"Donaciones y Apadrinamiento"` y `"📤 Compartir a <nombre>"` (Web Share API con fallback a WhatsApp).
+  - Integré todos los bloques en `PetDetailView` conectando `"Ver más"` del carrusel para abrir y scrollear a `Descripción`.
+  - Escribí tests nuevos con Vitest y Testing Library (`session.test.ts`, `PetBadges.test.tsx` y `PetDetailView.test.tsx`) y completé la comparación visual en navegador en 375 px y 1280 px, modo claro y oscuro, verificando también la carga HTTP 200 de las fotos semilla de Loki tras el PR #122, el caso urgente de Rocco (`/mascotas/3`) y el estado adoptado de Pancho (`/mascotas/7`).
+  - Apliqué los ajustes de la revisión del PR #128: resolví el merge con `develop` (conservando `fetchPets` de FR-05 y el `waitFor` del título en `PetDetailView.test.tsx`), expuse `age_label` calculado en `PetPublicSerializer` y `PetManageSerializer` (con Swagger, `README.md` y tests en `test_badges_api.py`), migré `PetInfoAccordions` y `formatPetSummaryLine` a `age_label` eliminando por completo `formatPetAge` del front, quité los textos de relleno `DEFAULT_HEALTH` y `DEFAULT_NOTES` para mostrar solo filas reales (o `"Sin información cargada. Consultá con el rescatista."`), corregí `"No castrada"` para hembras y sumé los tests correspondientes.
+- **Decisiones tomadas:**
+  - Centralicé la lógica de renovación de JWT en `requestWithAuth` en `session.ts` con `allowPublicFallback` para que tanto endpoints privados como públicos con vista enriquecida compartan un único flujo sin duplicar código.
+  - Expuse `age_label` desde el back usando `format_pet_age` ya existente en `apps/pets/badges.py` (sin tocar modelos ni migraciones) para que ni la ficha ni el inicio dupliquen reglas de edad ni parseen textos de insignias.
+  - Dejé el enlace `"Donaciones y Apadrinamiento"` apuntando a `/donaciones#apadrinar` (documentado en el PR #128) hasta que se implemente la pantalla `/apadrinar` en `FR-14`.
+- **Problemas y cómo los resolví:**
+  - En `PetDetailView.test.tsx`, la aserción de `document.title` corría un tick antes del efecto tras montar el árbol completo con los nuevos bloques; la moví dentro de `waitFor` y quedó estable y en verde.
+  - Al mergear `develop` (con FR-05), `formatPetSummaryLine` dependía de `formatPetAge`; al agregar `age_label` en el back y pasarlo a `format.ts` y `testing.ts`, quedó eliminada toda lógica de cálculo de edad del front manteniendo el inicio y la ficha en verde.
+- **Pendiente:** que Franco revise los ajustes del PR #128 y cierre la épica #25 (`[FR-07] Ficha de mascota`) una vez mergeado.
+- **PR:** #128
+- **IA usada:** Antigravity — para refactorizar `requestWithAuth`, implementar `PetBadges`, `PetInfoAccordions` y `PetActions`, escribir los tests con Vitest y realizar la comparación visual en navegador.
+
+## 2026-11-25 — Publicar mascota en adopción con validaciones, fotos y confirmación en revisión (FR-08a)
+
+- **Tarjeta:** #154 (FR-08a, sub-tarjeta de #26 FR-08)
+- **Rama:** feature/fr08-154-publicar-mascota
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Dividí la épica #26 (FR-08) en tres sub-tarjetas por funcionalidad (#154 FR-08a, #155 FR-08b y #156 FR-08c), las colgué como sub-issues de #26 en GitHub, me asigné la épica y las sub-tarjetas, y moví #26 y #154 a "En curso" en el tablero.
+  - Extendí `frontend/src/lib/api/client.ts` para soportar `FormData` (`multipart/form-data` sin fijar `Content-Type` manual) con su test en `client.test.ts`, y agregué `createPet` en `frontend/src/lib/pets/api.ts` reutilizando `requestWithAuth` sobre `POST /api/pets/` (con tests en `api.test.ts`).
+  - Creé `frontend/src/lib/pets/form.ts` con el esquema `zod` (`petFormSchema`), los valores iniciales (castración y sociabilidad sin opción marcada, convivencia en `"Sin evaluar"`), cálculo de `estimated_birth_date`, validación de imágenes (JPG/PNG/WEBP ≤ 5 MB) y armado de `FormData` (`buildCreatePetFormData`), cubierto con 11 tests unitarios en `form.test.ts`.
+  - Implementé el componente reutilizable `PetForm` (`src/components/pets/PetForm.tsx`), `PublishPetView` y la ruta protegida `/adopciones/publicar` (`RequireAuth` con `LoadingScreen`), fiel a `contexto-ia/maquetado/adopciones.html` adaptado a Tailwind 4, WCAG AA y modo claro/oscuro: sin vista previa de insignias, contadores en cuidados especiales (`0 / 150`) y descripción (`0 / 400`), carga de una o más fotos con vista previa y botón para quitar cada una, botón deshabilitado en gerundio (`"Publicando..."`), errores por campo del back y confirmación `"¡Publicación enviada!"` (o `"¡Publicación publicada!"` para Admin).
+  - Conecté el enlace `"Publicar"` en `MobileMenu.tsx` y el botón `+ Publicar` en `AdoptionCatalog.tsx` hacia `/adopciones/publicar`.
+  - Escribí 7 tests de integración en `PublishPetView.test.tsx` (35 archivos y 218 tests pasando, `lint`, `format:check`, `typecheck` y `build` en verde) y realicé la comparación visual en navegador contra `adopciones.html` en 375 px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #157: actualicé el texto de ayuda del teléfono en `PetForm.tsx` al texto exacto de `03-reglas-de-negocio.md` (con su aserción en `PublishPetView.test.tsx`), cambié el título de éxito para Admin a `"¡Mascota publicada!"` y documenté en la descripción del PR los botones de la pantalla de éxito.
+- **Decisiones tomadas:**
+  - Implementé la publicación en la ruta dedicada `/adopciones/publicar` en lugar de un modal dentro de `AdoptionCatalog.tsx` para evitar conflictos con `FR-06b/c` (en curso por Ulises) y dejar `PetForm` listo para reutilizar en edición (`FR-08c`).
+  - Prellenado automático del teléfono de contacto con el del perfil autenticado (`user.phone`) cuando existe, manteniendo el campo editable y obligatorio.
+- **Problemas y cómo los resolví:**
+  - En la comparación visual en navegador detecté dos detalles: (1) al desenfocar un radio sin marcar, `react-hook-form` entregaba `null` y `z.enum` mostraba un error técnico crudo; lo resolví usando `z.custom<TriBooleanOption>` en `form.ts`; (2) al enviar todo vacío, la foto obligatoria no mostraba su error hasta que el resto de los campos pasaban `zod`; lo resolví agregando `onInvalidSubmit` en `PetForm.tsx`. Ambos casos quedaron cubiertos con tests.
+- **Pendiente:** que Franco revise los ajustes del PR #157 para continuar con #155 (FR-08b: Mis publicaciones, marcar adoptada y dar de baja).
+- **PR:** #157
+- **IA usada:** Antigravity — para dividir la épica, extender el cliente API con `FormData`, implementar `PetForm` y `/adopciones/publicar` con validación `zod`, escribir los tests con Vitest y realizar la comparación visual en navegador.
+
+## 2026-11-25 — Mis publicaciones: listado propio, marcar adoptada y dar de baja (FR-08b)
+
+- **Tarjeta:** #155 (FR-08b, sub-tarjeta de #26 FR-08)
+- **Rama:** feature/fr08-155-mis-publicaciones
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Agregué `fetchMyPets` (`GET /api/pets/mine/` con filtro opcional por estado y paginación), `adoptPet` (`POST /api/pets/{id}/adopt/`) y `deactivatePet` (`DELETE /api/pets/{id}/`) en `frontend/src/lib/pets/api.ts` reutilizando `requestWithAuth`, con 3 tests unitarios en `api.test.ts`.
+  - Implementé `MyPetCard` (`src/components/pets/MyPetCard.tsx`) reutilizando `getPetCoverPhotoUrl`, `formatPetSummaryLine` (`age_label`) y `PetSociabilityTag`, con insignias por estado (`En revisión`, `Publicada`, `¡Ya encontró hogar! 🧡`, `Rechazada`), enlace `"Ver ficha"`, botón `"Marcar adoptada"` solo en `published`, `"Dar de baja"` y aviso de estado final con `"Cargar nueva"` en `rejected`.
+  - Implementé `MyPetActionModals` (`AdoptPetModal` con nota opcional ≤ 255 y `DeactivatePetModal`) con accesibilidad de diálogo (`role="dialog"`, `aria-modal`, cierre con `Escape`, foco inicial al abrir y retorno de foco al cerrar), botones deshabilitados en gerundio (`"Guardando..."` / `"Dando de baja..."`) y manejo de errores con `getActionErrorMessage`.
+  - Implementé `MyPetsView` y la ruta protegida `/mis-publicaciones` (`RequireAuth`, `LoadingScreen`, pestañas por estado, paginación de a 12, manejo de error con reintento y estado vacío con CTA a `/adopciones/publicar`), y sumé el enlace `"🐾 Mis publicaciones"` en `MobileMenu.tsx` visible solo con sesión.
+  - Escribí 6 tests en `MyPetsView.test.tsx` y 1 test nuevo en `MobileMenu.test.tsx` (36 archivos y 228 tests pasando, `format`, `lint`, `typecheck` y `build` en verde), y verifiqué la pantalla en navegador en 375 px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #158: moví `StaffDialog` al componente compartido `frontend/src/components/ui/ActionDialog.tsx` (`kickerTone` y `autoFocusClose`) reutilizado en `MyPetActionModals` y los 3 modales del panel de Staff, fijé el banner de feedback abajo en `MyPetsView.tsx` para que siempre se vea en 375 px, ajusté la concordancia de género según `pet.sex` y la frase neutra al dar de baja, y cambié `"pendiente de validación de Staff"` por `"pendiente de validación de un voluntario"` con sus tests.
+- **Decisiones tomadas:**
+  - Como "Mis publicaciones" no existe en el maquetado (`05-pantallas-y-recorridos.md`, "Pantallas que faltan"), la diseñé siguiendo el sistema de diseño de `02-diseno.md` y reutilizando las piezas compartidas (`PetSociabilityTag`, `formatPetSummaryLine`, `getPetCoverPhotoUrl`, `LoadingScreen`, `BackButton`, `RequireAuth`).
+  - Dejé el botón `"Editar"` para `FR-08c (#156)` para no introducir enlaces a una ruta aún inexistente en `develop`.
+- **Problemas y cómo los resolví:**
+  - En la verificación visual en navegador detecté que al abrir los modales el foco quedaba en el botón disparador; agregué `closeButtonRef.current?.focus()` al montar `ActionDialog` para que el foco entre al diálogo al abrirlo y vuelva al disparador al cerrarlo.
+- **Pendiente:** que Franco revise los ajustes del PR #158 para continuar con #156 (FR-08c: editar publicación y gestionar fotos del carrusel).
+- **PR:** #158
+- **IA usada:** Antigravity — para implementar los métodos de API, la pantalla `/mis-publicaciones` con filtros y modales de confirmación, los tests con Vitest y la verificación visual en navegador.
+
+## 2026-11-26 — Editar publicación y gestionar fotos del carrusel (FR-08c)
+
+- **Tarjeta:** #156 (FR-08c, sub-tarjeta de #26 FR-08)
+- **Rama:** feature/fr08-156-editar-mascota-fotos
+- **Área:** front, test, docs
+- **Qué hice:**
+  - Agregué `updatePet` (`PATCH /api/pets/{id}/`), `addPetPhoto` (`POST /api/pets/{id}/photos/` con `FormData`) y `deletePetPhoto` (`DELETE /api/pets/{id}/photos/{photo_id}/`) en `frontend/src/lib/pets/api.ts` reutilizando `requestWithAuth`, junto con 3 tests unitarios en `api.test.ts`.
+  - Agregué `estimateAgeFromBirthDate`, `petToFormValues` y `buildUpdatePetPayload` en `frontend/src/lib/pets/form.ts` (preservando `estimated_birth_date` si no cambió la edad para evitar mandar a revisión sin cambios reales), con 2 tests en `form.test.ts`.
+  - Implementé `PetPhotosManager` (`src/components/pets/PetPhotosManager.tsx`) para listar fotos ordenadas con etiqueta `"Portada"`, agregar nuevas (JPG/PNG/WEBP ≤ 5 MB) y dar de baja lógica impidiendo borrar la última foto activa.
+  - Implementé `EditPetView` (`src/components/pets/EditPetView.tsx`) y la ruta dinámica protegida `/mis-publicaciones/[id]/editar` (`Suspense` envolviendo `RequireAuth` para `cacheComponents: true` de Next 16), con `LoadingScreen`, manejo de `404`/error, bloqueo en publicaciones `rejected` con enlace a `/adopciones/publicar`, aviso ámbar al autor (no Staff/Admin) al editar una `published` de que volverá a `"En revisión"`, reutilización de `PetForm` y aviso fijo abajo de confirmación.
+  - Conecté el botón `"Editar"` en `MyPetCard.tsx` (visible solo en `in_review` y `published`).
+  - Escribí 5 tests en `EditPetView.test.tsx` y actualicé `MyPetsView.test.tsx` (37 archivos y 238 tests pasando, `format:check`, `lint`, `typecheck` y `build` en verde), y verifiqué la pantalla en navegador en 375 px y escritorio, modo claro y oscuro.
+  - Apliqué los ajustes de la revisión del PR #159: modifiqué `buildUpdatePetPayload` para enviar únicamente los campos modificados (si no hubo cambios, `EditPetView` evita llamar a `PATCH` y muestra `"No hiciste cambios."`), agregué confirmación con `ActionDialog` antes de eliminar una foto en `PetPhotosManager` (indicando si es la portada y si volverá a revisión), y en `EditPetView` oculté el formulario mostrando `"No encontramos esta publicación"` cuando un miembro intenta editar una mascota ajena (37 archivos y 240 tests pasando).
+- **Decisiones tomadas:**
+  - En `buildUpdatePetPayload`, preservé `initialPet.estimated_birth_date` cuando `ageValue` y `ageUnit` no se modificaron respecto de la precarga, para que un guardado sin cambios de edad no envíe una fecha distinta que dispare innecesariamente la vuelta a `in_review`.
+- **Problemas y cómo los resolví:**
+  - Al correr `npm run build` con `cacheComponents: true`, Next 16 señaló que `RequireAuth` usa `usePathname()` fuera de `<Suspense>` en la ruta dinámica `/mis-publicaciones/[id]/editar`; moví `<Suspense>` por fuera de `<RequireAuth>` en `page.tsx` y el build pasó limpio como `◐ Partial Prerender`.
+- **Pendiente:** que Franco revise los ajustes del PR #159 y cierre la épica #26 (`[FR-08] Publicar, editar y dar de baja mascota`) una vez mergeado.
+- **PR:** #159
+- **IA usada:** Antigravity — para implementar los endpoints y helpers de edición, `PetPhotosManager`, `EditPetView`, la ruta `/mis-publicaciones/[id]/editar`, los tests con Vitest y la verificación visual en navegador.
+
+## 2026-11-27 — Servicios de administración de usuarios y panel de Django Admin (BK-15a)
+
+- **Tarjeta:** #164 (BK-15a, sub-tarjeta de #18 BK-15)
+- **Rama:** feature/bk15-164-admin-usuarios-roles
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Completé la división de la épica #18 (`[BK-15] Administración de usuarios`) respetando `#164` (`BK-15a`) y creando las sub-tarjetas `#168` (`BK-15b`: API solo Admin de usuarios y roles) y `#169` (`BK-15c`: ocultar contenido de usuarios desactivados sin modificar datos), colgadas como sub-issues de `#18` en GitHub y ubicadas en el tablero.
+  - Implementé los servicios de negocio en `backend/apps/users/services.py` (`blacklist_user_refresh_tokens`, `change_user_role`, `deactivate_user` y `reactivate_user`) con control de rol `admin`, transacciones atómicas con `select_for_update()`, auditoría en `UserRoleLog` y `UserStatusLog` (`admin_action`), invalidación de refresh tokens en `token_blacklist` al desactivar y protecciones contra auto-degradación, auto-desactivación y contra bajar o desactivar al último Admin activo.
+  - Registré `User`, `Role`, `UserRoleLog` y `UserStatusLog` en `backend/apps/users/admin.py`: sin borrado físico (`NoDeleteAdminMixin`), búsqueda (`email`, `first_name`, `last_name`), filtros (`role`, `is_active`, `is_phone_verified`), acciones `"Desactivar usuarios seleccionados"` y `"Reactivar usuarios seleccionados"` delegando en los servicios, alta con contraseña doble validada con `validate_user_password` y guardada con hash (+ creación de `UserPreferences`), cambio de contraseña estándar de Django con hash, campos editables y solo lectura según `#164`, inlines de solo lectura para `UserRoleLog` y `UserStatusLog`, y `Role` / historiales estrictamente en solo lectura.
+  - Escribí 27 tests nuevos con `pytest` en `backend/apps/users/tests/test_admin_services.py` (18 casos) y `test_admin.py` (9 casos), dejando `ruff check`, `ruff format --check`, `spectacular --validate --fail-on-warn` y los 418 tests del backend en verde.
+  - Documenté qué permite el panel de administración de Django (`/admin/`) en `README.md`.
+  - Apliqué los ajustes de la revisión del PR #170: quité el campo `usable_password` de `UserAdminPasswordChangeForm` (Django 5.1+) y dejé `password1`/`password2` obligatorios para no permitir bloquear cuentas fuera de `deactivate_user`, extraje `validate_role_change_allowed` y `validate_deactivation_allowed` a `apps/users/services.py` para evitar duplicar reglas en `UserAdminChangeForm.clean()`, capturé `DRFValidationError` con `message_user` en `UserAdmin.save_model()` para evitar errores 500 ante concurrencia, y sumé los 2 tests correspondientes (420 tests pasando).
+- **Decisiones tomadas:**
+  - Centralicé las reglas de cambio de rol, baja lógica, reactivación, protecciones y blacklist en `apps/users/services.py` y delegué tanto las acciones masivas como el guardado de cambios de rol/estado de la ficha de `UserAdmin` en esos servicios, garantizando que `BK-15b` (`#168`) y `FR-18` reutilicen exactamente la misma lógica sin duplicarla.
+  - Agregué la validación de protecciones también en `UserAdminChangeForm.clean()` delegando en `validate_role_change_allowed` y `validate_deactivation_allowed` de `services.py` para que Django Admin muestre los mensajes de error directamente sobre los campos `role` e `is_active` sin duplicar lógica.
+- **Problemas y cómo los resolví:**
+  - En la revisión del PR #170 Franco detectó que Django 5.1+ agrega el campo `usable_password` en `AdminPasswordChangeForm`, permitiendo desactivar la autenticación por contraseña sin pasar por `deactivate_user`, sin `UserStatusLog` ni blacklist de tokens; lo resolví quitando el campo en `UserAdminPasswordChangeForm.__init__`, forzando `password1`/`password2` como obligatorios y cubriéndolo con tests.
+- **Pendiente:** que Franco revise los ajustes del PR #170 para continuar con `#168` (`BK-15b`: API solo Admin de usuarios y roles).
+- **PR:** #170
+- **IA usada:** Antigravity — para completar la división de la épica, implementar los servicios de administración y el panel de Django Admin, escribir los tests con `pytest` y actualizar `README.md`.
+
+## 2026-11-27 — API solo Admin de usuarios y roles con Swagger y tests (BK-15b)
+
+- **Tarjeta:** #168 (BK-15b, sub-tarjeta de #18 BK-15)
+- **Rama:** feature/bk15-168-api-admin-usuarios-roles
+- **Área:** back, test, docs
+- **Qué hice:**
+  - Agregué en `backend/apps/users/services.py` las consultas y filtros `get_admin_roles_queryset`, `get_admin_users_queryset` (filtros `role`, `is_active` y búsqueda por palabras en correo, nombre y apellido) y `get_admin_user_or_404` con control de rol `admin` en el servicio.
+  - Creé los serializers `AdminUserSerializer` (sin exponer `address` ni `password`), `PaginatedAdminUserSerializer`, `AdminRoleChangeSerializer` y `AdminUserStatusActionSerializer` en `backend/apps/users/serializers.py`.
+  - Implementé en `backend/apps/users/admin_views.py` y `backend/apps/users/admin_urls.py` (montados bajo `/api/admin/` en `backend/config/urls.py`) los 6 endpoints exclusivos para Admin (`IsAuthenticated`, `IsAdmin`) reutilizando los servicios de BK-15a: `GET /api/admin/roles/`, `GET /api/admin/users/` (paginado de a 12 con `StandardPageNumberPagination`), `GET /api/admin/users/{user_id}/`, `POST /api/admin/users/{user_id}/role/`, `POST /api/admin/users/{user_id}/deactivate/` y `POST /api/admin/users/{user_id}/reactivate/`, todos con `@extend_schema` validado con 0 warnings (`RoleCodeEnum` registrado en `SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"]`).
+  - Escribí 11 tests de integración en `backend/apps/users/tests/test_admin_api.py` cubriendo la matriz de permisos (`401`/`403`/`200`), paginación, filtros, búsqueda, privacidad (sin `address` ni `password`), auditoría, blacklist de refresh tokens, idempotencia, protecciones y esquema `/api/schema/` (431 tests pasando, `ruff` y `spectacular --validate --fail-on-warn` en verde).
+  - Documenté los 6 endpoints en `README.md`.
+- **Decisiones tomadas:**
+  - Separé las vistas y URLs administrativas en `admin_views.py` y `admin_urls.py` bajo `/api/admin/` para mantener `/api/auth/` enfocado en autenticación y evitar colisiones con `BK-14` (Mi Cuenta).
+  - Dividí el término de búsqueda `?search=` por palabras (`AND` entre palabras sobre correo, nombre y apellido) para que buscar nombre y apellido juntos (ej. `"Valentina López"`) encuentre coincidencias exactas en el panel de `FR-18`.
+- **Problemas y cómo los resolví:**
+  - Al validar OpenAPI con `spectacular --validate --fail-on-warn`, `drf-spectacular` advirtió colisión de nombre de enum (`CodeEnum`) entre `Role.code` y `AdminRoleChangeSerializer.role_code`; la resolví registrando `RoleCodeEnum` en `ENUM_NAME_OVERRIDES` de `settings.py` y el esquema quedó con 0 warnings.
+- **Pendiente:** abrir el PR hacia `develop` con `Closes #168` para revisión de Franco y continuar con `#169` (`BK-15c`: ocultar contenido de usuarios desactivados sin modificar datos).
+- **PR:** pendiente de apertura
+- **IA usada:** Antigravity — para implementar los servicios de consulta, serializers, vistas/rutas `/api/admin/`, Swagger, tests de integración con `pytest` y actualizar `README.md`.
+
+## 2026-11-27 — Ocultar contenido de usuarios desactivados sin modificar datos (BK-15c)
+
+- **Tarjeta:** #169 (BK-15c, sub-tarjeta de #18 BK-15)
+- **Rama:** feature/bk15-169-ocultar-contenido-desactivados
+- **Área:** back, test, docs
+- **Qué hice:**
+  - En `backend/apps/pets/permissions.py` y `backend/apps/pets/services.py`, filtré `published_by__is_active=True` en el catálogo (`GET /api/pets/`, incluyendo `?adopted=true`), favoritos (`GET /api/pets/favorites/` y `POST /api/pets/{id}/favorite/`), cola de revisión de Staff (`GET /api/pets/review-queue/`) y ficha pública (`can_view_pet` devuelve `404` para anónimos y usuarios comunes cuando el autor está inactivo, manteniendo acceso por ID para Staff/Admin), sin modificar ni dar de baja ninguna fila de `Pet` ni `Favorite`.
+  - En `backend/apps/adoptions/services.py`, filtré `applicant__is_active=True` y `pet__published_by__is_active=True` en `get_adoption_review_queue_queryset`, bloqueé postulaciones a mascotas de autores inactivos en `create_adoption_request`, y validé que tanto `pet.published_by.is_active` como `applicant.is_active` sigan activos al aprobar en `AdoptionRequestReviewWorkflow._apply_review` (manteniendo habilitado el rechazo).
+  - Escribí 5 tests integrales en `backend/apps/pets/tests/test_inactive_owner_visibility.py` y `backend/apps/adoptions/tests/test_inactive_users_visibility.py` cubriendo el ciclo completo (desactivar por `admin_action` o `self_deleted` → contenido oculto sin modificar filas en BD → reactivar → todo reaparece intacto), con `ruff`, `spectacular --validate --fail-on-warn` y los 436 tests de `pytest` en verde.
+  - Apliqué las sugerencias de la revisión del PR #172: centralicé el filtro `published_by__is_active=True` en `_active_owner_pets_queryset()` y `_public_pets_queryset()` en `backend/apps/pets/services.py` para evitar repetir la condición en cuatro consultas, y quité los backticks de `INVALID_IS_ACTIVE_FILTER_ERROR` en `backend/apps/users/services.py`.
+- **Decisiones tomadas:**
+  - En `can_view_pet`, oculté las mascotas de usuarios inactivos de la ficha pública y de otros miembros (`404`), pero dejé visible la consulta directa por ID para Staff/Admin por si necesitan auditar un caso puntual, mientras el catálogo, favoritos y colas de revisión las excluyen por completo.
+- **Problemas y cómo los resolví:**
+  - Sin bloqueos; todos los tests existentes y los 5 tests nuevos pasaron en verde sin afectar datos persistidos.
+- **Pendiente:** que Franco revise los ajustes del PR #172 para cerrar `#169` y la épica `#18` (`[BK-15] Administración de usuarios`).
+- **PR:** #172
+- **IA usada:** Antigravity — para implementar los filtros de visibilidad en `pets` y `adoptions`, escribir los tests con `pytest` y registrar la bitácora.

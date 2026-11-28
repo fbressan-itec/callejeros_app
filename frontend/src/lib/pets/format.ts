@@ -1,0 +1,83 @@
+/**
+ * Textos cortos de una mascota para las tarjetas de listado (inicio y catálogo).
+ * Reutilizables: el catálogo (FR-06, #24) usa las mismas funciones en su tarjeta.
+ */
+import { resolvePetImageUrl } from "@/lib/pets/api";
+import type { PetListItem } from "@/lib/pets/types";
+
+export type PetSociabilityTone = "sociable" | "wild";
+
+export interface PetSociabilityTag {
+  label: "Sociable" | "Salvaje";
+  tone: PetSociabilityTone;
+}
+
+/** Etiqueta de sociabilidad de la foto de la tarjeta ("Sociable" o "Salvaje", como el maquetado). */
+export function getPetSociabilityTag(
+  pet: Pick<PetListItem, "is_sociable">,
+): PetSociabilityTag {
+  return pet.is_sociable
+    ? { label: "Sociable", tone: "sociable" }
+    : { label: "Salvaje", tone: "wild" };
+}
+
+/** "Castrado", "Castrada" o "Sin castrar" (mismo criterio que la insignia del servidor). */
+export function formatPetNeutered(
+  pet: Pick<PetListItem, "is_neutered" | "sex">,
+): string {
+  if (!pet.is_neutered) return "Sin castrar";
+  return pet.sex === "female" ? "Castrada" : "Castrado";
+}
+
+/**
+ * Línea de resumen de la tarjeta: "2 Años • Castrado" usando `age_label` calculado por el back.
+ * Si `age_label` llega vacío, muestra solo la castración.
+ */
+export function formatPetSummaryLine(
+  pet: Pick<PetListItem, "age_label" | "is_neutered" | "sex">,
+): string {
+  const age = pet.age_label.trim();
+  const neutered = formatPetNeutered(pet);
+  return age ? `${age} • ${neutered}` : neutered;
+}
+
+/**
+ * URL de la foto de portada: la de menor `position` (la primera del carrusel de la ficha),
+ * ya resuelta contra el origen de la API. Devuelve `null` si no tiene fotos.
+ */
+export function getPetCoverPhotoUrl(
+  pet: Pick<PetListItem, "photos">,
+): string | null {
+  const [cover] = [...pet.photos].sort(
+    (a, b) => a.position - b.position || a.id - b.id,
+  );
+  if (!cover) return null;
+  return resolvePetImageUrl(cover.image) || null;
+}
+
+export interface PetHealthRow {
+  label: string;
+  value: string;
+}
+
+/**
+ * Filas de "Estado de salud" (incluye el cuidado especial), sin las vacías. Las usan la
+ * ficha pública y la ficha de gestión del panel de Staff.
+ */
+export function getPetHealthRows(
+  pet: Pick<PetListItem, "health" | "special_care">,
+): PetHealthRow[] {
+  return [
+    { label: "Estado clínico", value: pet.health?.general_status ?? "" },
+    { label: "Vacunas", value: pet.health?.vaccines ?? "" },
+    { label: "Parásitos", value: pet.health?.deworming ?? "" },
+    {
+      label: "Pulgas / garrapatas",
+      value: pet.health?.flea_tick_treatment ?? "",
+    },
+    { label: "Otros", value: pet.health?.other ?? "" },
+    { label: "Cuidado especial", value: pet.special_care ?? "" },
+  ]
+    .map((row) => ({ ...row, value: row.value.trim() }))
+    .filter((row) => row.value !== "");
+}

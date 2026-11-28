@@ -1,23 +1,75 @@
 """Datos de prueba de mascotas (los ejecuta automáticamente `python manage.py seed`)."""
 
 from datetime import timedelta
-from io import BytesIO
+from pathlib import Path, PurePosixPath
 
-from django.core.files.base import ContentFile
 from django.core.management.base import CommandError
+from django.db.models import Max
 from django.utils import timezone
-from PIL import Image
 
-from apps.pets.models import Pet, PetHealth, PetPhoto, PetStatusLog
+from apps.core.seed_images import load_seed_image
+from apps.pets.models import Favorite, Pet, PetHealth, PetPhoto, PetStatusLog
 from apps.users.models import User
 
+# Fotos reales libres de derechos (Unsplash) guardadas en el repo. Sobran algunas
+# (`extra-*`) para usar más adelante en pruebas.
+SEED_IMAGES_DIR = Path(__file__).resolve().parent / "seed_images"
 
-def _build_seed_image_bytes(color: tuple[int, int, int]) -> bytes:
-    """Genera un JPEG liviano en memoria para las fotos de prueba del seed."""
-    buffer = BytesIO()
-    image = Image.new("RGB", (600, 450), color=color)
-    image.save(buffer, format="JPEG", quality=80)
-    return buffer.getvalue()
+# Las fotos del seed se guardan en `media/` como `seed-<archivo>` (por ejemplo,
+# `seed-loki-1.jpg`). Hasta DB-02a eran rectángulos de un color llamados
+# `seed_loki_1.jpg`: si el seed encuentra una de esas, le cambia el archivo.
+SEED_PHOTO_PREFIX = "seed-"
+LEGACY_SEED_PHOTO_PREFIX = "seed_"
+
+
+def _stored_stem(image_name: str) -> str:
+    """Nombre del archivo guardado, sin carpeta ni extensión."""
+    return PurePosixPath(image_name).stem
+
+
+def _is_same_seed_file(image_name: str, stem: str) -> bool:
+    """Si el archivo guardado es `stem`, aunque Django le haya sumado un sufijo al repetirse."""
+    stored = _stored_stem(image_name)
+    return stored == stem or stored.startswith(f"{stem}_")
+
+
+def _sync_seed_photos(pet: Pet, filenames: list[str]) -> None:
+    """Crea las fotos de prueba que faltan y cambia por la foto real las que eran de color.
+
+    Las fotos del seed se reconocen por el nombre del archivo, no por la posición,
+    así se respeta lo que se haya hecho desde la app: una foto del seed que alguien
+    quitó queda quitada y las fotos que subieron los usuarios no se tocan.
+    """
+    pet_photos = list(PetPhoto.objects.filter(pet=pet).order_by("id"))
+
+    for position, filename in enumerate(filenames):
+        source_stem = Path(filename).stem
+        stem = f"{SEED_PHOTO_PREFIX}{source_stem}"
+        legacy_stem = f"{LEGACY_SEED_PHOTO_PREFIX}{source_stem.replace('-', '_')}"
+        stored_name = f"{stem}{Path(filename).suffix}"
+
+        current = next(
+            (photo for photo in pet_photos if _is_same_seed_file(photo.image.name, stem)),
+            None,
+        )
+        if current is not None:
+            continue
+
+        legacy = next(
+            (photo for photo in pet_photos if _is_same_seed_file(photo.image.name, legacy_stem)),
+            None,
+        )
+        image = load_seed_image(SEED_IMAGES_DIR / filename, name=stored_name)
+        if legacy is not None:
+            # Misma fila: solo cambia el archivo (no se borran ni se crean filas).
+            legacy.image.save(stored_name, image, save=False)
+            legacy.save(update_fields=["image", "updated_at"])
+            continue
+
+        if pet.photos.active().filter(position=position).exists():
+            max_position = pet.photos.active().aggregate(max_pos=Max("position"))["max_pos"]
+            position = max_position + 1
+        PetPhoto.objects.create(pet=pet, position=position, image=image, is_active=True)
 
 
 SEED_PETS = [
@@ -49,8 +101,8 @@ SEED_PETS = [
             "other": "Sin observaciones clínicas",
         },
         "photos": [
-            ("seed_loki_1.jpg", (234, 88, 12)),
-            ("seed_loki_2.jpg", (194, 65, 12)),
+            "loki-1.jpg",
+            "loki-2.jpg",
         ],
     },
     {
@@ -81,7 +133,7 @@ SEED_PETS = [
             "other": "Negativa a VIF y ViLEF",
         },
         "photos": [
-            ("seed_luna_1.jpg", (16, 185, 129)),
+            "luna-1.jpg",
         ],
     },
     {
@@ -115,7 +167,7 @@ SEED_PETS = [
             "other": "Dermatitis alérgica controlada",
         },
         "photos": [
-            ("seed_rocco_1.jpg", (225, 29, 72)),
+            "rocco-1.jpg",
         ],
     },
     {
@@ -148,7 +200,7 @@ SEED_PETS = [
             "other": "Turno de castración asignado para el próximo mes",
         },
         "photos": [
-            ("seed_misa_1.jpg", (59, 130, 246)),
+            "misa-1.jpg",
         ],
     },
     {
@@ -182,7 +234,7 @@ SEED_PETS = [
             "other": "Castración obligatoria a los 6 meses",
         },
         "photos": [
-            ("seed_bora_1.jpg", (245, 158, 11)),
+            "bora-1.jpg",
         ],
     },
     {
@@ -215,7 +267,7 @@ SEED_PETS = [
             "other": "Control dental anual realizado",
         },
         "photos": [
-            ("seed_thor_1.jpg", (100, 116, 139)),
+            "thor-1.jpg",
         ],
     },
     {
@@ -243,7 +295,7 @@ SEED_PETS = [
             "other": "",
         },
         "photos": [
-            ("seed_pancho_1.jpg", (16, 185, 129)),
+            "pancho-1.jpg",
         ],
     },
     {
@@ -273,7 +325,7 @@ SEED_PETS = [
             "other": "",
         },
         "photos": [
-            ("seed_nala_1.jpg", (139, 92, 246)),
+            "nala-1.jpg",
         ],
     },
     {
@@ -304,9 +356,17 @@ SEED_PETS = [
             "other": "",
         },
         "photos": [
-            ("seed_toby_1.jpg", (148, 163, 184)),
+            "toby-1.jpg",
         ],
     },
+]
+
+SEED_FAVORITES = [
+    ("miembro@callejeros.ar", "Loki"),
+    ("miembro@callejeros.ar", "Bora"),
+    ("miembro@callejeros.ar", "Pancho"),
+    ("refugio@callejeros.ar", "Luna"),
+    ("staff@callejeros.ar", "Rocco"),
 ]
 
 
@@ -354,19 +414,7 @@ def run() -> str:
             defaults=item["health"],
         )
 
-        for position, (filename, color) in enumerate(item["photos"]):
-            photo = PetPhoto.objects.filter(pet=pet, position=position).first()
-            if photo is None:
-                content = ContentFile(_build_seed_image_bytes(color), name=filename)
-                PetPhoto.objects.create(
-                    pet=pet,
-                    position=position,
-                    image=content,
-                    is_active=True,
-                )
-            elif not photo.is_active:
-                photo.is_active = True
-                photo.save(update_fields=["is_active", "updated_at"])
+        _sync_seed_photos(pet, item["photos"])
 
         if not pet.status_logs.exists():
             PetStatusLog.objects.create(
@@ -390,4 +438,26 @@ def run() -> str:
         else:
             updated_count += 1
 
-    return f"{created_count} mascotas creadas, {updated_count} actualizadas"
+    favorites_created = 0
+    favorites_updated = 0
+    pets_by_name = {
+        pet.name: pet for pet in Pet.objects.filter(name__in=[p["name"] for p in SEED_PETS])
+    }
+
+    for user_email, pet_name in SEED_FAVORITES:
+        user = User.objects.get(email=user_email)
+        pet = pets_by_name[pet_name]
+        _, fav_created = Favorite.objects.update_or_create(
+            user=user,
+            pet=pet,
+            defaults={"is_active": True},
+        )
+        if fav_created:
+            favorites_created += 1
+        else:
+            favorites_updated += 1
+
+    return (
+        f"{created_count} mascotas creadas, {updated_count} actualizadas; "
+        f"{favorites_created} favoritos creados, {favorites_updated} actualizados"
+    )

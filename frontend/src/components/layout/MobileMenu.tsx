@@ -6,6 +6,11 @@ import { type ReactNode, useEffect } from "react";
 
 export type UserRoleCode = "member" | "verified_shelter" | "staff" | "admin";
 
+/** Ruta del panel de Staff (solo Staff y Admin). */
+export const STAFF_PANEL_HREF = "/panel-staff";
+/** Ruta de las publicaciones propias del usuario autenticado. */
+export const MY_POSTS_HREF = "/mis-publicaciones";
+
 export interface MenuUser {
   name: string;
   email?: string;
@@ -49,7 +54,7 @@ const MENU_GROUPS: readonly MenuGroup[] = [
     ),
     links: [
       { href: "/adopciones", label: "Adoptar" },
-      { href: "/adopciones#publicar", label: "Publicar" },
+      { href: "/adopciones/publicar", label: "Publicar" },
       { href: "/alertas", label: "🚨 Alerta Callejero!", variant: "alert" },
     ],
   },
@@ -258,6 +263,40 @@ export function MobileMenu({
                     {userInitial}
                   </div>
                 </div>
+
+                {(user.role === "staff" || user.role === "admin") && (
+                  <Link
+                    href={STAFF_PANEL_HREF}
+                    onClick={onClose}
+                    aria-current={
+                      isLinkActive(STAFF_PANEL_HREF, pathname)
+                        ? "page"
+                        : undefined
+                    }
+                    className={`mt-3 flex min-h-[44px] w-full items-center justify-center rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 shadow-xs transition-all hover:bg-violet-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40 dark:focus-visible:ring-offset-slate-900 ${
+                      isLinkActive(STAFF_PANEL_HREF, pathname)
+                        ? "ring-2 ring-orange-500"
+                        : ""
+                    }`}
+                  >
+                    🛡️ Panel de Staff
+                  </Link>
+                )}
+
+                <Link
+                  href={MY_POSTS_HREF}
+                  onClick={onClose}
+                  aria-current={
+                    isLinkActive(MY_POSTS_HREF, pathname) ? "page" : undefined
+                  }
+                  className={`mt-3 flex min-h-[44px] w-full items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-bold text-orange-800 shadow-xs transition-all hover:bg-orange-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 active:scale-95 dark:border-orange-900/60 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-900/40 dark:focus-visible:ring-offset-slate-900 ${
+                    isLinkActive(MY_POSTS_HREF, pathname)
+                      ? "ring-2 ring-orange-500"
+                      : ""
+                  }`}
+                >
+                  🐾 Mis publicaciones
+                </Link>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Link

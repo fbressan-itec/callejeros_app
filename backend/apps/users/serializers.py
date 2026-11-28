@@ -1,8 +1,13 @@
-"""Serializers de autenticación y datos básicos de cuenta."""
+"""Serializers de autenticación, cuenta y administración de usuarios."""
 
 from rest_framework import serializers
 
-from apps.users.models import Role, User
+from apps.users.models import Role, RoleCode, User
+from apps.users.services import (
+    ADMIN_NOTE_TOO_LONG_ERROR,
+    INVALID_ROLE_ERROR,
+    MAX_ADMIN_NOTE_LENGTH,
+)
 
 
 class RoleSummarySerializer(serializers.ModelSerializer):
@@ -117,4 +122,70 @@ class LogoutSerializer(serializers.Serializer):
             "required": "El token de refresco es obligatorio.",
             "blank": "El token de refresco es obligatorio.",
         }
+    )
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Datos de gestión de un usuario en el panel de Admin (nunca expone `address`/`password`)."""
+
+    role = RoleSummarySerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "is_phone_verified",
+            "photo",
+            "city",
+            "neighborhood",
+            "shelter_public_address",
+            "role",
+            "is_active",
+            "last_login",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class PaginatedAdminUserSerializer(serializers.Serializer):
+    """Envoltorio paginado de a 12 usuarios para documentación OpenAPI."""
+
+    count = serializers.IntegerField(read_only=True)
+    next = serializers.URLField(read_only=True, allow_null=True)
+    previous = serializers.URLField(read_only=True, allow_null=True)
+    results = AdminUserSerializer(many=True, read_only=True)
+
+
+class AdminRoleChangeSerializer(serializers.Serializer):
+    """Entrada para cambiar el rol de un usuario desde el panel de Admin."""
+
+    role_code = serializers.ChoiceField(
+        choices=RoleCode.choices,
+        error_messages={
+            "required": "Elegí un rol válido.",
+            "invalid_choice": INVALID_ROLE_ERROR,
+        },
+    )
+    note = serializers.CharField(
+        max_length=MAX_ADMIN_NOTE_LENGTH,
+        required=False,
+        allow_blank=True,
+        default="",
+        error_messages={"max_length": ADMIN_NOTE_TOO_LONG_ERROR},
+    )
+
+
+class AdminUserStatusActionSerializer(serializers.Serializer):
+    """Entrada opcional con nota de auditoría al desactivar o reactivar una cuenta."""
+
+    note = serializers.CharField(
+        max_length=MAX_ADMIN_NOTE_LENGTH,
+        required=False,
+        allow_blank=True,
+        default="",
+        error_messages={"max_length": ADMIN_NOTE_TOO_LONG_ERROR},
     )

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.core.validators import validate_image_file
 
 
 class Pet(BaseModel):
@@ -128,7 +129,11 @@ class PetPhoto(BaseModel):
         related_name="photos",
         verbose_name="mascota",
     )
-    image = models.ImageField("imagen", upload_to="pets/photos/")
+    image = models.ImageField(
+        "imagen",
+        upload_to="pets/photos/",
+        validators=[validate_image_file],
+    )
     position = models.PositiveSmallIntegerField("posición", default=0)
 
     class Meta:
@@ -183,3 +188,38 @@ class PetStatusLog(models.Model):
     def __str__(self) -> str:
         prev = self.previous_status or "alta"
         return f"{self.pet.name}: {prev} -> {self.new_status}"
+
+
+class Favorite(BaseModel):
+    """Relación usuario ↔ mascota para los favoritos del catálogo (BK-05).
+
+    Restricción única por `(user, pet)`: al desmarcar se aplica baja lógica
+    (`is_active=False`) y al volver a marcar se reactiva el mismo registro.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="favorites",
+        verbose_name="usuario",
+    )
+    pet = models.ForeignKey(
+        Pet,
+        on_delete=models.PROTECT,
+        related_name="favorites",
+        verbose_name="mascota",
+    )
+
+    class Meta:
+        verbose_name = "favorito"
+        verbose_name_plural = "favoritos"
+        ordering = ["-updated_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "pet"],
+                name="unique_user_pet_favorite",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.email} ♥ {self.pet.name}"

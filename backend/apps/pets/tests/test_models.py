@@ -3,8 +3,9 @@
 import pytest
 from django.db import IntegrityError, transaction
 
-from apps.pets.models import Pet, PetPhoto
+from apps.pets.models import Favorite, Pet, PetPhoto
 from apps.pets.tests.factories import (
+    FavoriteFactory,
     PetFactory,
     PetHealthFactory,
     PetPhotoFactory,
@@ -100,3 +101,31 @@ def test_pet_status_log_tracks_transitions() -> None:
     assert str(initial_log) == "Rocco: alta -> in_review"
     assert str(approval_log) == "Rocco: in_review -> published"
     assert pet.status_logs.count() == 2
+
+
+def test_favorite_unique_constraint_soft_delete_and_reactivation() -> None:
+    user = UserFactory(email="fan@callejeros.ar")
+    pet = PetFactory(name="Loki", status=Pet.Status.PUBLISHED)
+
+    favorite = FavoriteFactory(user=user, pet=pet)
+    assert favorite.is_active is True
+    assert str(favorite) == "fan@callejeros.ar ♥ Loki"
+    assert list(Favorite.objects.active().filter(user=user)) == [favorite]
+
+    # No permite duplicar el par (user, pet) mientras está activo
+    with pytest.raises(IntegrityError), transaction.atomic():
+        FavoriteFactory(user=user, pet=pet)
+
+    # Baja lógica lo excluye de active(), pero mantiene la unicidad (user, pet)
+    favorite.deactivate()
+    assert favorite.is_active is False
+    assert list(Favorite.objects.active().filter(user=user)) == []
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        FavoriteFactory(user=user, pet=pet)
+
+    # Al volver a marcar, se reactiva el mismo registro sin duplicar
+    favorite.is_active = True
+    favorite.save(update_fields=["is_active", "updated_at"])
+    assert list(Favorite.objects.active().filter(user=user)) == [favorite]
+    assert Favorite.objects.filter(user=user, pet=pet).count() == 1
