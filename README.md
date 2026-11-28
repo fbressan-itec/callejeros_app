@@ -178,6 +178,17 @@ erDiagram
 | API y Swagger | <https://callejeros-api.onrender.com/api/docs/> | Render |
 | Admin de Django | <https://callejeros-api.onrender.com/admin/> | Render |
 
+**Cuentas de la demo** (todas con la contraseña `seed_password_test_123`):
+
+| Rol | Correo | Qué permite probar |
+| :--- | :--- | :--- |
+| Miembro | `miembro@callejeros.ar` | Favoritos, publicar mascotas y el cuestionario de adopción. |
+| Refugio verificado | `refugio@callejeros.ar` | Lo mismo que Miembro, con la insignia de refugio y su dirección pública. |
+| Staff | `staff@callejeros.ar` | El panel de Staff: revisar publicaciones y solicitudes. |
+| Admin | `admin@callejeros.ar` | Lo mismo que Staff, más el panel de Django. |
+
+> Son datos de prueba: cada vez que el back arranca, se restauran las cuentas y los datos de la demo.
+
 Se publica la rama `main`: cada versión nueva se despliega sola. Configuración paso a paso: [docs/deploy.md](docs/deploy.md).
 
 ## Documentación
