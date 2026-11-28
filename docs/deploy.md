@@ -12,7 +12,7 @@
 | Admin de Django | <https://callejeros-api.onrender.com/admin/> | Render |
 
 - **Se publica la rama `main`:** cada versión que entra a `main` (ver [Versiones](../README.md#versiones)) se publica sola en Render y en Vercel. Los PR hacia `develop` arman una vista previa del front en Vercel.
-- **Cuentas de prueba:** las mismas de las [cuentas de prueba](desarrollo.md#cuentas-de-prueba) (miembro@, refugio@, staff@ y admin@callejeros.ar). Su contraseña es la `SEED_USER_PASSWORD` cargada en Render, distinta de la de `.env.example`: se pasa en privado, no va en el repo.
+- **Cuentas de prueba:** las mismas de las [cuentas de prueba](desarrollo.md#cuentas-de-prueba) (miembro@, refugio@, staff@ y admin@callejeros.ar). En la demo publicada, su contraseña es `seed_password_test_123` (la `SEED_USER_PASSWORD` cargada en Render, distinta de la de `.env.example`). Son datos de prueba: el `seed` los restaura cada vez que el back arranca.
 - **Primera visita lenta:** el back gratis se apaga tras 15 minutos sin uso; la primera visita después tarda alrededor de un minuto en responder.
 
 ## Deploy del back (Render)
