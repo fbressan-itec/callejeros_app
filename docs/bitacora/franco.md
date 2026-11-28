@@ -569,3 +569,25 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** probar con sesión en línea (miembro, refugio, staff y admin), pasarle al profesor las direcciones y la contraseña de las cuentas de prueba, y cerrar la épica #42. La base gratis de Render vence a los 30 días.
 - **PR:** pendiente
 - **IA usada:** Claude Code — para sacar la versión, guiar la configuración de Render y Vercel paso a paso, verificar el back y el front publicados y actualizar el README.
+
+## 2026-11-27 — README como portada y documentación técnica en docs/
+
+- **Tarjeta:** #67 (GE-01)
+- **Rama:** feature/ge01-67-readme-profesional
+- **Área:** docs
+- **Qué hice:**
+  - Reorganicé el README como portada de un proyecto profesional: pasó de 772 a unas 220 líneas.
+  - Arriba: insignias de CI y versión, y los enlaces a la app publicada, Swagger, la Wiki, el maquetado y el tablero.
+  - Secciones: funcionalidades con su estado, tecnologías, arquitectura con diagrama, inicio rápido con Docker, tests, variables de entorno, tabla compacta de endpoints, vista general de la base, publicación, documentación, versiones, flujo de trabajo y equipo.
+  - Moví el detalle sin perder contenido a `docs/desarrollo.md`, `docs/api.md`, `docs/base-de-datos.md` y `docs/deploy.md`. Sumé `docs/arquitectura.md` (nuevo, a partir de la Wiki) y `CONTRIBUTING.md` con el flujo de trabajo.
+- **Decisiones tomadas:**
+  - El detalle técnico va en `docs/` del repo y no en la Wiki: cambia junto con el código, se revisa en el mismo PR y sigue a cada versión. La Wiki queda para lo narrativo y va a enlazar a `docs/`.
+  - Quedan a la vista en el README la vista general de la base, las variables de entorno y los endpoints.
+  - Sin licencia y sin mencionar `docs/bitacora/`, que no va a estar en el proyecto final.
+- **Problemas y cómo los resolví:**
+  - El inicio rápido viejo no corría `migrate` antes del `seed`; lo agregué.
+  - Revisé con un script que no haya enlaces internos rotos, y comparé la tabla de endpoints con las rutas del back.
+  - Vi el resultado renderizado como en GitHub, con los diagramas, antes de commitear.
+- **Pendiente:** actualizar y reordenar la Wiki (enlazar `docs/`, versión v0.2 y publicación). Ajustar las reglas 8 y 17 en el `AGENTS.md` de Ulises y Leandro (el archivo no está en el repo).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para analizar el README y la Wiki, proponer la estructura, mover el contenido, verificar los enlaces y armar la vista previa.
