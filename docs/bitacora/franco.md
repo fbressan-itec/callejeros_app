@@ -546,3 +546,69 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de #177; publicar en Render y Vercel y probar en línea (#178).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para elegir el paquete, escribir la configuración y los tests, y probar la imagen de producción con PostgreSQL y Cloudinary.
+
+## 2026-11-27 — Versión v0.2 y app publicada en Render y Vercel (CR-04c)
+
+- **Tarjeta:** #178 (CR-04c, sub-tarjeta de la épica #42, CR-04); versión v0.2 en #67 (GE-01)
+- **Rama:** feature/cr04-178-publicacion (y feature/ge01-67-version-v02 para el README de la versión)
+- **Área:** devops, docs
+- **Qué hice:**
+  - Saqué la versión **v0.2**: README (PR #181), PR `develop` → `main` (#182), etiqueta `v0.2`, Release "v0.2 — Adopción" y cierre del hito.
+  - Back en Render desde `main` (Docker con `Dockerfile.prod`, región Virginia, plan Free) con PostgreSQL de Render y fotos en Cloudinary: <https://callejeros-api.onrender.com>.
+  - Front en Vercel desde `main`, con `NEXT_PUBLIC_API_URL` y `MOCK_VERIFICATION_CODE`: <https://callejeros-app.vercel.app>. CORS del back limitado a esa dirección.
+  - Prueba en línea sin sesión en 375px: inicio, catálogo (pestañas, Adoptados, buscador, Limpiar Filtros), fotos desde Cloudinary, ficha, "Iniciá sesión para continuar" en favoritos y adoptar, y validaciones de registro y recupero. API, Swagger y admin responden; http redirige a https.
+  - README: direcciones publicadas, sección "Publicación en línea", deploy del front en Vercel y versión actual v0.2.
+- **Decisiones tomadas:**
+  - Render y Vercel publican `main`, que solo recibe versiones cerradas; por eso saqué la v0.2 antes de publicar.
+  - Las variables del front en Vercel son de tipo *Config*: `NEXT_PUBLIC_API_URL` se ve en el navegador y no es secreta.
+  - Las claves se cargaron en Render copiándolas al portapapeles con comandos, sin escribirlas en el chat ni en el código.
+- **Problemas y cómo los resolví:**
+  - Un primer servicio de Render había quedado en Oregon con datos incompletos; lo borré y lo creé en Virginia, la región de la base.
+  - El buscador de "Dockerfile Path" de Render no listaba `Dockerfile.prod` porque guardaba los archivos de antes del merge; se escribe a mano.
+  - En una captura se vieron claves de producción: cambiar `DJANGO_SECRET_KEY` y la clave de Cloudinary.
+- **Pendiente:** probar con sesión en línea (miembro, refugio, staff y admin), pasarle al profesor las direcciones y la contraseña de las cuentas de prueba, y cerrar la épica #42. La base gratis de Render vence a los 30 días.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para sacar la versión, guiar la configuración de Render y Vercel paso a paso, verificar el back y el front publicados y actualizar el README.
+
+## 2026-11-27 — README como portada y documentación técnica en docs/
+
+- **Tarjeta:** #67 (GE-01)
+- **Rama:** feature/ge01-67-readme-profesional
+- **Área:** docs
+- **Qué hice:**
+  - Reorganicé el README como portada de un proyecto profesional: pasó de 772 a unas 220 líneas.
+  - Arriba: insignias de CI y versión, y los enlaces a la app publicada, Swagger, la Wiki, el maquetado y el tablero.
+  - Secciones: funcionalidades con su estado, tecnologías, arquitectura con diagrama, inicio rápido con Docker, tests, variables de entorno, tabla compacta de endpoints, vista general de la base, publicación, documentación, versiones, flujo de trabajo y equipo.
+  - Moví el detalle sin perder contenido a `docs/desarrollo.md`, `docs/api.md`, `docs/base-de-datos.md` y `docs/deploy.md`. Sumé `docs/arquitectura.md` (nuevo, a partir de la Wiki) y `CONTRIBUTING.md` con el flujo de trabajo.
+- **Decisiones tomadas:**
+  - El detalle técnico va en `docs/` del repo y no en la Wiki: cambia junto con el código, se revisa en el mismo PR y sigue a cada versión. La Wiki queda para lo narrativo y va a enlazar a `docs/`.
+  - Quedan a la vista en el README la vista general de la base, las variables de entorno y los endpoints.
+  - Sin licencia y sin mencionar `docs/bitacora/`, que no va a estar en el proyecto final.
+- **Problemas y cómo los resolví:**
+  - El inicio rápido viejo no corría `migrate` antes del `seed`; lo agregué.
+  - Revisé con un script que no haya enlaces internos rotos, y comparé la tabla de endpoints con las rutas del back.
+  - Vi el resultado renderizado como en GitHub, con los diagramas, antes de commitear.
+- **Pendiente:** actualizar y reordenar la Wiki (enlazar `docs/`, versión v0.2 y publicación). Ajustar las reglas 8 y 17 en el `AGENTS.md` de Ulises y Leandro (el archivo no está en el repo).
+- **PR:** pendiente
+- **IA usada:** Claude Code — para analizar el README y la Wiki, proponer la estructura, mover el contenido, verificar los enlaces y armar la vista previa.
+
+## 2026-11-27 — Wiki actualizada a la v0.2 y cuentas de la demo
+
+- **Tarjeta:** #67 (GE-01)
+- **Rama:** feature/ge01-67-cuentas-demo (la Wiki se sube directo, sin PR)
+- **Área:** docs
+- **Qué hice:**
+  - Actualicé la Wiki a la v0.2. Menú en dos bloques: "El proyecto" (Versiones, Cómo trabajamos, Bitácora de progreso, Tecnologías y Cierre) y "Documentación técnica".
+  - Siete páginas cortas de documentación técnica (Arquitectura, Desarrollo local, API, Swagger, Base de datos, Deploy y Cómo contribuir), cada una con una explicación breve y el enlace al documento de `docs/` del repo.
+  - Inicio con los enlaces a la app publicada y el estado de cada módulo; Versiones con la v0.2; la vieja "Arquitectura" pasó a "Tecnologías", sumando Render, Vercel, Cloudinary y PostgreSQL; Cierre y pie de página al día.
+  - "Cómo trabajamos" y "Bitácora de progreso" de la v0.2: tarjeta por tarjeta, con las decisiones y los problemas de cada épica, a partir de las bitácoras de los tres.
+  - Una captura por tarjeta: sumé las de FR-06, FR-08, FR-10, BK-15 y la app publicada (sacadas de `develop` en local, con los datos de prueba), el tablero Kanban y el diagrama general para DB-01. Las copié también a `docs/capturas/` con su descripción en el LEEME.
+  - Cuentas de la demo (los 4 roles y su contraseña) en el README, en `docs/deploy.md` y en la página Deploy de la Wiki.
+- **Decisiones tomadas:**
+  - El detalle técnico sigue en `docs/` y la Wiki lo enlaza con páginas cortas, para no duplicarlo.
+  - Las capturas de la base las saco yo desde VS Code o DBeaver: DB-02a queda sin foto hasta entonces.
+  - Publicar la contraseña de la demo: son datos de prueba, todo es baja lógica y el `seed` restaura las cuentas en cada arranque del back.
+- **Problemas y cómo los resolví:** los enlaces de la Wiki a `docs/` apuntan a `develop`, porque `docs/` todavía no está en `main`; se pueden pasar a `main` con la v0.3.
+- **Pendiente:** captura de la base para DB-02a; mandar el correo al profesor con los enlaces.
+- **PR:** #185
+- **IA usada:** Claude Code — para revisar la Wiki, sacar las capturas, verificar los enlaces y redactar el borrador del correo.

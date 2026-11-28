@@ -1,0 +1,420 @@
+# Base de datos
+
+> Volver al [README](../README.md).
+
+Modelo de datos del proyecto (ORM de Django; SQLite en local y PostgreSQL en producción). Se completa por partes: cuentas, adopción y colaborar, comunidad. Cualquier cambio se hace con una **migración nueva** y se actualiza este documento (y la vista general del README) en el mismo PR.
+
+## Vista general
+
+Todas las tablas y cómo se relacionan. Los campos y el detalle de cada relación están en el diagrama de cada módulo, más abajo.
+
+```mermaid
+erDiagram
+    Role ||--o{ User : ""
+    User ||--|| UserPreferences : ""
+    User ||--o{ UserStatusLog : ""
+    User ||--o{ UserRoleLog : ""
+    Role ||--o{ UserRoleLog : ""
+    User ||--o{ Pet : ""
+    Pet ||--|| PetHealth : ""
+    Pet ||--o{ PetPhoto : ""
+    Pet ||--o{ PetStatusLog : ""
+    User ||--o{ Favorite : ""
+    Pet ||--o{ Favorite : ""
+    User ||--o{ AdoptionRequest : ""
+    Pet ||--o{ AdoptionRequest : ""
+    User ||--o{ Sponsorship : ""
+    Pet |o--o{ Sponsorship : ""
+    User ||--o{ Product : ""
+    Product ||--o{ ProductStatusLog : ""
+    User ||--o{ Alert : ""
+    User ||--o{ News : ""
+    User ||--o{ Comment : ""
+    Alert |o--o{ Comment : ""
+    News |o--o{ Comment : ""
+    User ||--o{ Notification : ""
+```
+
+## Convenciones
+
+- **Modelo base (`BaseModel`):** todas las tablas de negocio lo heredan y suman `created_at` (fecha de creación), `updated_at` (última modificación) e `is_active` (baja lógica).
+- **Baja lógica:** nunca se borran filas de negocio; se marca `is_active = False`. Las consultas normales traen solo los activos (`Model.objects.active()`).
+- **Tablas de historial** (`*Log`): registran quién hizo un cambio y cuándo. No se editan ni se dan de baja, por eso solo llevan `created_at`.
+- **Quién hizo algo** se guarda con una clave foránea al usuario (`performed_by_id`), nunca copiando su nombre.
+- **Valores fijos** (estados, acciones): `TextChoices` de Django; el valor guardado en inglés y el texto visible en español.
+- **Nombres** de tablas y campos en inglés, en `snake_case`.
+- **Imágenes:** el archivo va a `media/` (o al almacenamiento externo en deploy); la base guarda solo la ruta.
+- **Índices:** las claves primarias, las foráneas y los campos únicos ya tienen índice automático.
+
+## Cuentas y roles
+
+```mermaid
+erDiagram
+    Role ||--o{ User : "se asigna a"
+    User ||--|| UserPreferences : "tiene"
+    User ||--o{ UserStatusLog : "historial de"
+    User ||--o{ UserStatusLog : "realiza"
+    User ||--o{ UserRoleLog : "historial de"
+    User ||--o{ UserRoleLog : "realiza"
+    Role ||--o{ UserRoleLog : "rol anterior"
+    Role ||--o{ UserRoleLog : "rol nuevo"
+    Role {
+        int id PK
+        string code UK "member|verified_shelter|staff|admin"
+        string name "texto de la insignia"
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    User {
+        int id PK
+        string email UK "se usa para iniciar sesión"
+        string password "hash (nunca la contraseña real)"
+        string first_name
+        string last_name
+        string phone
+        bool is_phone_verified
+        string photo "ruta del archivo"
+        date birth_date
+        string city
+        string neighborhood
+        string address "privado: nunca se expone"
+        string shelter_public_address "solo Refugio verificado: la ve el adoptante aprobado"
+        int role_id FK
+        bool is_active "estado actual"
+        datetime created_at
+        datetime updated_at
+    }
+    UserPreferences {
+        int id PK
+        int user_id FK, UK
+        bool notify_requests_and_posts
+        bool notify_nearby_alerts
+        bool notify_sponsored_updates
+        bool notify_news_and_events
+        bool notify_extra_channel "maquetado"
+        bool show_phone_in_alerts
+        bool show_photo_in_comments
+        datetime created_at
+        datetime updated_at
+    }
+    UserStatusLog {
+        int id PK
+        int user_id FK
+        string action "deactivated|reactivated"
+        string reason "self_deleted|admin_action"
+        int performed_by_id FK
+        string note
+        datetime created_at
+    }
+    UserRoleLog {
+        int id PK
+        int user_id FK
+        int previous_role_id FK
+        int new_role_id FK
+        int performed_by_id FK
+        string note
+        datetime created_at
+    }
+```
+
+| Tabla | Para qué |
+| :--- | :--- |
+| `Role` | Catálogo de roles. `code` es el que usa el back para los permisos; `name` es el texto de la insignia. Un usuario tiene un solo rol; al registrarse, `member`. |
+| `User` | Usuario propio (reemplaza al de Django desde la primera migración). Inicia sesión con `email`; no tiene `username`. |
+| `UserPreferences` | Preferencias de notificación y de privacidad (uno a uno con `User`). Se crea al registrarse, todas en sí salvo `notify_extra_channel`. |
+| `UserStatusLog` | Historial de bajas y reactivaciones: si el usuario se dio de baja solo (A3) o lo hizo un Admin (A4), y quién. |
+| `UserRoleLog` | Historial de cambios de rol: rol anterior, rol nuevo y qué Admin lo cambió. |
+
+**Reglas de cuentas:**
+- **Contraseña:** mínimo **6 caracteres** (si no se cumple, el mensaje de error lo dice explícitamente: "La contraseña debe tener al menos 6 caracteres"); además, se rechazan las contraseñas muy comunes y las que son solo números. Se valida en el back y en el front.
+- `is_active` de `User` es el estado actual (Django no deja iniciar sesión a un usuario inactivo); la historia completa queda en `UserStatusLog`.
+- Solo el Admin cambia roles; cada cambio deja una fila en `UserRoleLog`.
+
+**Tablas de librerías:** `token_blacklist_outstandingtoken` (tokens de refresco emitidos) y `token_blacklist_blacklistedtoken` (tokens invalidados al cerrar sesión). Las crea `simplejwt`; no se modifican a mano. Los tokens vencidos quedan guardados: para borrarlos, corré de vez en cuando `uv run python manage.py flushexpiredtokens`.
+
+## Adopción y colaborar
+
+Las tablas de `User` se muestran solo con su relación; sus campos están en el diagrama de cuentas.
+
+```mermaid
+erDiagram
+    User ||--o{ Pet : "publica"
+    Pet ||--|| PetHealth : "tiene"
+    Pet ||--o{ PetPhoto : "tiene"
+    Pet ||--o{ PetStatusLog : "historial de"
+    User ||--o{ PetStatusLog : "revisa"
+    User ||--o{ Favorite : "marca"
+    Pet ||--o{ Favorite : "es favorita en"
+    Pet ||--o{ AdoptionRequest : "recibe"
+    User ||--o{ AdoptionRequest : "solicita"
+    User ||--o{ AdoptionRequest : "revisa"
+    User ||--o{ Sponsorship : "apadrina"
+    Pet |o--o{ Sponsorship : "recibe (vacío = fondo general)"
+    User ||--o{ Product : "publica"
+    Product ||--o{ ProductStatusLog : "historial de"
+    User ||--o{ ProductStatusLog : "revisa"
+    Pet {
+        int id PK
+        string name
+        string species "dog|cat"
+        string sex "male|female"
+        date estimated_birth_date
+        bool is_sociable
+        string good_with_children "yes|no|not_evaluated"
+        string good_with_animals "yes|no|not_evaluated"
+        bool is_neutered
+        bool is_urgent_requested
+        bool is_urgent_validated
+        string special_care "hasta 150, opcional"
+        string description "hasta 400"
+        string notes
+        string contact_phone "no se muestra en el catálogo"
+        string status "in_review|published|rejected|adopted"
+        int published_by_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    PetHealth {
+        int id PK
+        int pet_id FK, UK
+        string general_status
+        string vaccines
+        string deworming
+        string flea_tick_treatment
+        string other
+        datetime created_at
+        datetime updated_at
+    }
+    PetPhoto {
+        int id PK
+        int pet_id FK
+        string image "ruta del archivo"
+        int position "0 = principal"
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    PetStatusLog {
+        int id PK
+        int pet_id FK
+        string previous_status
+        string new_status
+        int performed_by_id FK
+        string note "motivo del rechazo"
+        datetime created_at
+    }
+    Favorite {
+        int id PK
+        int user_id FK
+        int pet_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    AdoptionRequest {
+        int id PK
+        int pet_id FK
+        int applicant_id FK
+        string full_name
+        int age "18 o más"
+        string phone
+        string email
+        string address
+        string city
+        string housing_type "texto libre"
+        string home_ownership "owned|rented|other"
+        string rental_allows_pets "yes|no|unknown, solo si es rented"
+        string outdoor_space
+        string household_members
+        string household_agreement "yes|not_discussed"
+        string other_pets
+        string previous_pets
+        string hours_alone "less_than_4|4_to_8|more_than_8"
+        string living_space
+        string vacation_care
+        string contingency_plan
+        string adoption_reason "opcional"
+        bool accepts_commitment "obligatorio"
+        bool accepts_neutering "true o vacío: solo si la mascota no está castrada"
+        bool accepts_follow_up "obligatorio"
+        bool accepts_return_notice "obligatorio"
+        bool declares_truthful "obligatorio"
+        string status "pending|approved|rejected"
+        string rejection_reason
+        int reviewed_by_id FK
+        datetime reviewed_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Sponsorship {
+        int id PK
+        int sponsor_id FK
+        int pet_id FK "vacío = fondo general"
+        decimal monthly_amount "500 o más"
+        string payment_method "mercado_pago|transfer|card"
+        string status "active|cancelled"
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Product {
+        int id PK
+        string name
+        string description
+        decimal price
+        string photo "ruta del archivo"
+        string whatsapp "maquetado"
+        string status "in_review|published|rejected"
+        int published_by_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    ProductStatusLog {
+        int id PK
+        int product_id FK
+        string previous_status
+        string new_status
+        int performed_by_id FK
+        string note
+        datetime created_at
+    }
+```
+
+| Tabla | Para qué |
+| :--- | :--- |
+| `Pet` | Publicación de adopción. Arranca en `in_review` y aparece en el catálogo recién cuando Staff la aprueba. |
+| `PetHealth` | Bloque "Estado de salud" de la ficha (uno a uno con `Pet`). |
+| `PetPhoto` | Fotos del carrusel; la de `position` 0 es la principal. Al menos una por mascota. |
+| `PetStatusLog` | Historial de revisiones y cambios de estado: quién, cuándo y el motivo de un rechazo. |
+| `Favorite` | Tabla intermedia usuario ↔ mascota (muchos a muchos). Exige cuenta. |
+| `AdoptionRequest` | Solicitud de adopción con el cuestionario de 4 bloques (datos personales, hogar y entorno, experiencia y rutina, y compromiso) y la respuesta de Staff. |
+| `Sponsorship` | Apadrinamiento registrado, sin cobro real. `pet_id` vacío = fondo general. |
+| `Product` | Producto de la tienda. Los de Refugio verificado arrancan en `in_review`; los de Staff y Admin, en `published`. |
+| `ProductStatusLog` | Historial de revisiones de productos. |
+
+**Reglas de adopción y colaborar:**
+- **No se guardan, se calculan:** las insignias de la mascota, su edad y grupo de edad (desde `estimated_birth_date`) y la cantidad de padrinos (desde `Sponsorship`).
+- **Caso urgente:** se muestra solo si `is_urgent_requested` e `is_urgent_validated` son verdaderos y la mascota no está adoptada.
+- **Solicitud aprobada:** el contacto sale de quien publicó la mascota (nombre, insignia de rol y `contact_phone`) y, si es Refugio verificado, se suma su `shelter_public_address`. No hay punto de encuentro: coordinan entre ellos. La dirección de la cuenta (`address`) nunca se muestra.
+- **La solicitud copia** nombre, email y teléfono del solicitante: guarda lo que declaró en ese momento, aunque después cambie sus datos.
+- **Restricciones en la base:**
+  - `Favorite`: un solo favorito por usuario y mascota (`user_id` + `pet_id` únicos);
+  - `PetPhoto`: posiciones únicas por mascota entre las fotos activas (dar de baja lógica una foto libera su posición);
+  - `AdoptionRequest`: `age` ≥ 18; `accepts_commitment`, `accepts_follow_up`, `accepts_return_notice` y `declares_truthful` verdaderos; `accepts_neutering` verdadero o vacío; `rental_allows_pets` completo solo si `home_ownership` es `rented`, y una sola solicitud pendiente por persona y mascota;
+  - `Sponsorship`: `monthly_amount` ≥ 500.
+
+## Comunidad: alertas, noticias, comentarios y notificaciones
+
+Las tablas de `User` se muestran solo con su relación; sus campos están en el diagrama de cuentas.
+
+```mermaid
+erDiagram
+    User ||--o{ Alert : "publica"
+    User ||--o{ Alert : "resuelve"
+    User ||--o{ Alert : "oculta"
+    User ||--o{ News : "escribe"
+    Alert |o--o{ Comment : "tiene"
+    News |o--o{ Comment : "tiene"
+    User ||--o{ Comment : "escribe"
+    User ||--o{ Comment : "oculta"
+    User ||--o{ Notification : "recibe"
+    Alert {
+        int id PK
+        string title
+        string situation "lost|sighted|emergency"
+        string species "dog|cat|other"
+        string location_text "ej. Plaza Roca"
+        decimal latitude "3 decimales: nivel cuadra"
+        decimal longitude "3 decimales: nivel cuadra"
+        string description
+        string contact_phone
+        string photo "obligatoria, hasta 5 MB"
+        string status "open|resolved"
+        int published_by_id FK
+        int resolved_by_id FK "autor o Staff"
+        datetime resolved_at
+        bool is_hidden
+        int hidden_by_id FK
+        string hidden_reason
+        datetime hidden_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    News {
+        int id PK
+        string title
+        string summary
+        string body
+        string tag_label "ej. Próximo Sábado • 16:00 hs"
+        string tag_color "emerald|blue|..."
+        string place
+        string photo "ruta del archivo"
+        int author_id FK
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Comment {
+        int id PK
+        int alert_id FK "uno de los dos"
+        int news_id FK "uno de los dos"
+        int author_id FK
+        string text
+        bool is_hidden
+        int hidden_by_id FK
+        string hidden_reason
+        datetime hidden_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Notification {
+        int id PK
+        int recipient_id FK
+        string title
+        string text
+        string tag "urgent|community|adoption|fundraising|post|sponsorship"
+        string link "opcional"
+        bool is_read
+        datetime read_at
+        bool is_active
+        datetime created_at
+        datetime updated_at
+    }
+```
+
+| Tabla | Para qué |
+| :--- | :--- |
+| `Alert` | Alerta Callejeros. Exige cuenta, se publica al instante y aparece en el mapa mientras está abierta. |
+| `News` | Noticias y eventos. Las cargan Staff y Refugio verificado. |
+| `Comment` | Comentarios de alertas **y** de noticias en una sola tabla. Exige cuenta y se publica al instante. |
+| `Notification` | Avisos de la campanita, generados por los eventos (publicación aprobada, solicitud respondida, etc.). |
+
+**Reglas de comunidad:**
+- **Revisión antes vs. moderación después:** `Pet` y `Product` pasan por revisión antes de publicarse (estados + historial `*StatusLog`). `Alert` y `Comment` se publican al instante y Staff los modera después con `is_hidden`, `hidden_by_id`, `hidden_reason` y `hidden_at`.
+- **Dos bajas lógicas distintas:** `is_active = False` → lo borró su autor; `is_hidden = True` → lo ocultó Staff, con motivo.
+- **Coordenadas:** el back redondea latitud y longitud a 3 decimales (unos 100 m, nivel cuadra) antes de guardarlas.
+- **Teléfono de la alerta:** se guarda siempre; la API no lo devuelve si el autor apagó `show_phone_in_alerts`.
+- **Alerta resuelta:** sale del mapa y del listado por defecto (hay un filtro para verla); sus comentarios quedan como historial.
+- **Restricción en la base:** en `Comment`, exactamente uno de `alert_id` o `news_id` tiene valor (`CHECK`).
+
+## Índices
+
+Las claves primarias, las foráneas y los campos únicos ya tienen índice automático. Además se agregan índices en los campos que se usan seguido para filtrar u ordenar:
+
+| Tabla | Índice | Lo usa |
+| :--- | :--- | :--- |
+| `Pet` | `status` + `species` + `sex` | Catálogo con filtros. |
+| `Pet` | `estimated_birth_date` | Filtro por edad (Cachorro, Adulto, Senior). |
+| `AdoptionRequest` | `status` + `created_at` | Panel de Staff: solicitudes pendientes, las más viejas primero. |
+| `Sponsorship` | `pet_id` + `status` | Contador de padrinos activos. |
+| `Product` | `status` | Tienda y panel de Staff. |
+| `Alert` | `status` + `situation` + `created_at` | Listado de alertas con filtros, las más recientes primero. |
+| `Comment` | `alert_id` + `created_at` · `news_id` + `created_at` | Comentarios de una alerta o noticia, en orden. |
+| `News` | `created_at` | Listado de noticias, las más recientes primero. |
+| `Notification` | `recipient_id` + `is_read` + `created_at` | Campanita: consulta cada 30–60 s las no leídas. |
