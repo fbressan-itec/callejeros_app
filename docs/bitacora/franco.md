@@ -546,3 +546,26 @@ Formato de cada entrada: ver [LEEME.md](LEEME.md). Las entradas nuevas van al fi
 - **Pendiente:** PR de #177; publicar en Render y Vercel y probar en línea (#178).
 - **PR:** pendiente
 - **IA usada:** Claude Code — para elegir el paquete, escribir la configuración y los tests, y probar la imagen de producción con PostgreSQL y Cloudinary.
+
+## 2026-11-27 — Versión v0.2 y app publicada en Render y Vercel (CR-04c)
+
+- **Tarjeta:** #178 (CR-04c, sub-tarjeta de la épica #42, CR-04); versión v0.2 en #67 (GE-01)
+- **Rama:** feature/cr04-178-publicacion (y feature/ge01-67-version-v02 para el README de la versión)
+- **Área:** devops, docs
+- **Qué hice:**
+  - Saqué la versión **v0.2**: README (PR #181), PR `develop` → `main` (#182), etiqueta `v0.2`, Release "v0.2 — Adopción" y cierre del hito.
+  - Back en Render desde `main` (Docker con `Dockerfile.prod`, región Virginia, plan Free) con PostgreSQL de Render y fotos en Cloudinary: <https://callejeros-api.onrender.com>.
+  - Front en Vercel desde `main`, con `NEXT_PUBLIC_API_URL` y `MOCK_VERIFICATION_CODE`: <https://callejeros-app.vercel.app>. CORS del back limitado a esa dirección.
+  - Prueba en línea sin sesión en 375px: inicio, catálogo (pestañas, Adoptados, buscador, Limpiar Filtros), fotos desde Cloudinary, ficha, "Iniciá sesión para continuar" en favoritos y adoptar, y validaciones de registro y recupero. API, Swagger y admin responden; http redirige a https.
+  - README: direcciones publicadas, sección "Publicación en línea", deploy del front en Vercel y versión actual v0.2.
+- **Decisiones tomadas:**
+  - Render y Vercel publican `main`, que solo recibe versiones cerradas; por eso saqué la v0.2 antes de publicar.
+  - Las variables del front en Vercel son de tipo *Config*: `NEXT_PUBLIC_API_URL` se ve en el navegador y no es secreta.
+  - Las claves se cargaron en Render copiándolas al portapapeles con comandos, sin escribirlas en el chat ni en el código.
+- **Problemas y cómo los resolví:**
+  - Un primer servicio de Render había quedado en Oregon con datos incompletos; lo borré y lo creé en Virginia, la región de la base.
+  - El buscador de "Dockerfile Path" de Render no listaba `Dockerfile.prod` porque guardaba los archivos de antes del merge; se escribe a mano.
+  - En una captura se vieron claves de producción: cambiar `DJANGO_SECRET_KEY` y la clave de Cloudinary.
+- **Pendiente:** probar con sesión en línea (miembro, refugio, staff y admin), pasarle al profesor las direcciones y la contraseña de las cuentas de prueba, y cerrar la épica #42. La base gratis de Render vence a los 30 días.
+- **PR:** pendiente
+- **IA usada:** Claude Code — para sacar la versión, guiar la configuración de Render y Vercel paso a paso, verificar el back y el front publicados y actualizar el README.
